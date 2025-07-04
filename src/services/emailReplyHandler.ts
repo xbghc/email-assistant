@@ -29,9 +29,12 @@ class EmailReplyHandler {
 
   async handleEmailReply(email: ParsedEmail): Promise<ProcessedReply> {
     try {
-      logger.info(`Processing ${email.replyType} reply from ${email.from}`);
+      logger.info(`Processing ${email.replyType} email from ${email.from}`);
+      logger.info(`Email subject: ${email.subject}`);
+      logger.info(`Email content preview: ${email.textContent.substring(0, 100)}...`);
 
       const cleanContent = this.cleanEmailContent(email.textContent);
+      logger.info(`Cleaned content preview: ${cleanContent.substring(0, 100)}...`);
       
       switch (email.replyType) {
         case 'work_report':
