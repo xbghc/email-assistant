@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { createConfigError } from '../utils/errors';
 
 dotenv.config();
 
@@ -181,7 +182,14 @@ export function validateConfig(): void {
   }
 
   if (errors.length > 0) {
-    throw new Error(`Configuration validation failed:\n${errors.map(e => `  - ${e}`).join('\n')}`);
+    throw createConfigError(
+      'Configuration validation failed',
+      { 
+        errors,
+        provider: config.ai.provider,
+        timestamp: new Date().toISOString()
+      }
+    );
   }
 }
 

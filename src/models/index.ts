@@ -33,6 +33,15 @@ export interface ContextEntry {
   metadata?: Record<string, any> | undefined;
 }
 
+// 原始上下文条目（从文件读取时的格式）
+export interface RawContextEntry {
+  id: string;
+  timestamp: string; // JSON中时间戳是字符串
+  type: 'schedule' | 'work_summary' | 'feedback' | 'conversation';
+  content: string;
+  metadata?: Record<string, any>;
+}
+
 export interface UserInteraction {
   prompt: string;
   response: string;

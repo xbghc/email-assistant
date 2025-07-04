@@ -279,8 +279,9 @@ Please provide a compressed summary that captures the essential information whil
       ],
       max_tokens: options.maxTokens,
       temperature: options.temperature,
-      tools: simpleFunctionTools,
-      tool_choice: 'auto',
+      // 暂时禁用Function Call直到修复422错误  
+      // tools: simpleFunctionTools,
+      // tool_choice: 'auto',
     });
 
     const message = response.choices[0]?.message;
@@ -357,8 +358,9 @@ Please provide a compressed summary that captures the essential information whil
         ],
         max_tokens: options.maxTokens,
         temperature: options.temperature,
-        tools: simpleDeepSeekTools,
-        tool_choice: 'auto',
+        // 暂时禁用Function Call直到修复422错误
+        // tools: simpleDeepSeekTools,
+        // tool_choice: 'auto',
       },
       {
         headers: {

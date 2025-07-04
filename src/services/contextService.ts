@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { ContextEntry } from '../models';
+import { ContextEntry, RawContextEntry } from '../models';
 import config from '../config';
 import logger from '../utils/logger';
 import AIService from './aiService';
@@ -84,7 +84,7 @@ class ContextService {
       this.context.clear();
       if (Array.isArray(parsed)) {
         // 兼容旧格式：直接是数组，转换为admin用户的上下文
-        const entries = parsed.map((entry: any) => ({
+        const entries = parsed.map((entry: RawContextEntry): ContextEntry => ({
           ...entry,
           timestamp: new Date(entry.timestamp),
         }));
@@ -92,11 +92,13 @@ class ContextService {
       } else {
         // 新格式：用户ID -> 上下文数组的映射
         for (const [userId, entries] of Object.entries(parsed)) {
-          const userEntries = (entries as any[]).map((entry: any) => ({
-            ...entry,
-            timestamp: new Date(entry.timestamp),
-          }));
-          this.context.set(userId, userEntries);
+          if (Array.isArray(entries)) {
+            const userEntries = entries.map((entry: RawContextEntry): ContextEntry => ({
+              ...entry,
+              timestamp: new Date(entry.timestamp),
+            }));
+            this.context.set(userId, userEntries);
+          }
         }
       }
     } catch (error) {
