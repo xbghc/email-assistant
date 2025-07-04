@@ -9,6 +9,9 @@ import { simpleFunctionTools, simpleDeepSeekTools } from '../utils/simpleFunctio
 import SimpleFunctionCallService, { SimpleFunctionResult } from './simpleFunctionCallService';
 import UserService from './userService';
 import EmailContentManager from './emailContentManager';
+// Commented out unused imports to fix linting
+// import { UserFunctionCallService, AdminFunctionCallService } from './userFunctionCallService';
+// import { createUserSpecificFunctionTools, createUserSpecificDeepSeekFunctionTools, createAdminFunctionTools } from '../utils/userFunctionFactory';
 
 class AIService {
   private openai?: OpenAI;
@@ -24,75 +27,29 @@ class AIService {
   }
 
   private initializeProviders(): void {
-    try {
-      switch (config.ai.provider) {
-        case 'openai':
-          if (config.ai.openai.apiKey) {
-            this.openai = new OpenAI({
-              apiKey: config.ai.openai.apiKey,
-              baseURL: config.ai.openai.baseURL,
-            });
-          }
-          break;
-        case 'google':
-          if (config.ai.google.apiKey) {
-            this.googleAI = new GoogleGenerativeAI(config.ai.google.apiKey);
-          }
-          break;
-        case 'anthropic':
-          if (config.ai.anthropic.apiKey) {
-            this.anthropic = new Anthropic({
-              apiKey: config.ai.anthropic.apiKey,
-            });
-          }
-          break;
-        case 'azure-openai':
-          if (config.ai.azureOpenai.apiKey) {
-            this.openai = new OpenAI({
-              apiKey: config.ai.azureOpenai.apiKey,
-              baseURL: `${config.ai.azureOpenai.endpoint}/openai/deployments/${config.ai.azureOpenai.deploymentName}`,
-              defaultQuery: { 'api-version': config.ai.azureOpenai.apiVersion },
-              defaultHeaders: {
-                'api-key': config.ai.azureOpenai.apiKey,
-              },
-            });
-          }
-          break;
-        case 'deepseek':
-          // DeepSeek 使用 axios 调用
-          break;
-        default:
-          logger.warn(`Unsupported AI provider: ${config.ai.provider}`);
-      }
-    } catch (error) {
-      logger.error('Failed to initialize AI providers:', error);
-    }
-  }
-
-  async generateResponse(
-    systemMessage: string,
-    userMessage: string,
-    options: { maxTokens: number; temperature: number }
-  ): Promise<string> {
     const provider = config.ai.provider;
-
-    try {
-      switch (provider) {
-        case 'openai':
-        case 'azure-openai':
-          return await this.generateOpenAIResponse(systemMessage, userMessage, options);
-        case 'deepseek':
-          return await this.generateDeepSeekResponse(systemMessage, userMessage, options);
-        case 'google':
-          return await this.generateGoogleResponse(systemMessage, userMessage, options);
-        case 'anthropic':
-          return await this.generateAnthropicResponse(systemMessage, userMessage, options);
-        default:
-          throw new Error(`Unsupported AI provider: ${provider}`);
-      }
-    } catch (error) {
-      logger.error(`AI response generation failed with ${provider}:`, error);
-      throw error;
+    
+    switch (provider) {
+      case 'openai':
+        if (config.ai.openai.apiKey) {
+          this.openai = new OpenAI({
+            apiKey: config.ai.openai.apiKey,
+            baseURL: config.ai.openai.baseURL,
+          });
+        }
+        break;
+      case 'google':
+        if (config.ai.google.apiKey) {
+          this.googleAI = new GoogleGenerativeAI(config.ai.google.apiKey);
+        }
+        break;
+      case 'anthropic':
+        if (config.ai.anthropic.apiKey) {
+          this.anthropic = new Anthropic({
+            apiKey: config.ai.anthropic.apiKey,
+          });
+        }
+        break;
     }
   }
 
@@ -105,22 +62,22 @@ class AIService {
       const contextText = this.formatContext(context);
       
       const prompt = `
-You are a personal productivity assistant. Based on the following information, provide 3-5 actionable suggestions for today.
+你是一个贴心的个人效率助手。请根据以下信息，为今天提供3-5个具体可行的建议。
 
-Today's Schedule:
+今日日程：
 ${todaySchedule}
 
-Yesterday's Performance:
+昨日表现：
 ${yesterdayPerformance}
 
-Historical Context:
+历史记录：
 ${contextText}
 
-Please provide specific, actionable suggestions that will help improve productivity and address any challenges from yesterday. Keep the tone encouraging and professional.
+请提供具体、可操作的建议，帮助提高效率并解决昨天遇到的任何挑战。保持鼓励和专业的语调。请用中文回复。
       `.trim();
 
       const response = await this.generateResponse(
-        'You are a helpful productivity assistant that provides actionable daily suggestions.',
+        '你是一个贴心的效率助手，为用户提供具体可行的日常建议。请始终用中文回复。',
         prompt,
         { maxTokens: 500, temperature: 0.7 }
       );
@@ -138,26 +95,26 @@ Please provide specific, actionable suggestions that will help improve productiv
       const contextText = this.formatContext(context);
       
       const prompt = `
-You are a professional work summary assistant. Based on the following work report, create a well-structured summary.
+你是一个专业的工作总结助手。请根据以下工作报告，创建一个结构清晰的总结。
 
-Work Report:
+工作报告：
 ${workReport}
 
-Historical Context:
+历史记录：
 ${contextText}
 
-Please create a summary that includes:
-1. Key accomplishments
-2. Challenges faced and how they were addressed
-3. Time management insights
-4. Progress towards goals
-5. Recommendations for tomorrow
+请创建一个包含以下内容的总结：
+1. 主要成就
+2. 遇到的挑战及解决方法
+3. 时间管理洞察
+4. 目标进展情况
+5. 明日建议
 
-Keep the summary professional, concise, and actionable.
+保持总结专业、简洁且具有可操作性。请用中文回复。
       `.trim();
 
       const response = await this.generateResponse(
-        'You are a professional work summary assistant that creates structured, insightful summaries.',
+        '你是一个专业的工作总结助手，创建结构化、有洞察力的总结。请始终用中文回复。',
         prompt,
         { maxTokens: 600, temperature: 0.5 }
       );
@@ -175,23 +132,23 @@ Keep the summary professional, concise, and actionable.
       const contextText = this.formatContext(context);
       
       const prompt = `
-You are a context compression assistant. Please compress the following historical context into a concise summary that preserves the most important information for future reference.
+你是一个上下文压缩助手。请将以下历史记录压缩成简洁的摘要，保留最重要的信息以供将来参考。
 
-Focus on:
-1. Key patterns in work habits
-2. Recurring challenges and solutions
-3. Important achievements and milestones
-4. Productivity insights
-5. Goal progress
+重点关注：
+1. 工作习惯的关键模式
+2. 反复出现的挑战和解决方案
+3. 重要成就和里程碑
+4. 效率洞察
+5. 目标进展
 
-Historical Context:
+历史记录：
 ${contextText}
 
-Please provide a compressed summary that captures the essential information while reducing the overall length by at least 50%.
+请提供一个压缩摘要，保留关键信息的同时将整体长度减少至少50%。请用中文回复。
       `.trim();
 
       const response = await this.generateResponse(
-        'You are a context compression specialist that preserves important information while reducing length.',
+        '你是一个上下文压缩专家，在保留重要信息的同时减少长度。请始终用中文回复。',
         prompt,
         { maxTokens: 800, temperature: 0.3 }
       );
@@ -204,11 +161,34 @@ Please provide a compressed summary that captures the essential information whil
     }
   }
 
+  private async generateResponse(
+    systemMessage: string,
+    userMessage: string,
+    options: { maxTokens: number; temperature: number }
+  ): Promise<string> {
+    const provider = config.ai.provider;
+
+    switch (provider) {
+      case 'openai':
+        return this.generateOpenAIResponse(systemMessage, userMessage, options);
+      case 'deepseek':
+        return this.generateDeepSeekResponse(systemMessage, userMessage, options);
+      case 'google':
+        return this.generateGoogleResponse(systemMessage, userMessage, options);
+      case 'anthropic':
+        return this.generateAnthropicResponse(systemMessage, userMessage, options);
+      case 'azure-openai':
+        return this.generateAzureOpenAIResponse(systemMessage, userMessage, options);
+      default:
+        throw new Error(`Unsupported AI provider: ${provider}`);
+    }
+  }
+
   async generateResponseWithFunctionCalls(
     systemMessage: string,
     userMessage: string,
     options: { maxTokens: number; temperature: number },
-    userId?: string
+    _userId?: string
   ): Promise<string> {
     const provider = config.ai.provider;
     const functionCallService = new SimpleFunctionCallService();
@@ -217,10 +197,9 @@ Please provide a compressed summary that captures the essential information whil
     try {
       switch (provider) {
         case 'openai':
-        case 'azure-openai':
-          return await this.generateOpenAIResponseWithFunctions(systemMessage, userMessage, options, functionCallService, userId);
+          return await this.generateOpenAIResponseWithFunctions(systemMessage, userMessage, options, functionCallService);
         case 'deepseek':
-          return await this.generateDeepSeekResponseWithFunctions(systemMessage, userMessage, options, functionCallService, userId);
+          return await this.generateDeepSeekResponseWithFunctions(systemMessage, userMessage, options, functionCallService);
         default:
           // 其他提供商暂不支持Function Call，回退到普通响应
           return await this.generateResponse(systemMessage, userMessage, options);
@@ -264,8 +243,7 @@ Please provide a compressed summary that captures the essential information whil
     systemMessage: string,
     userMessage: string,
     options: { maxTokens: number; temperature: number },
-    functionCallService: SimpleFunctionCallService,
-    userId?: string
+    functionCallService: FunctionCallService
   ): Promise<string> {
     if (!this.openai) {
       throw new Error('OpenAI client not initialized');
@@ -297,11 +275,20 @@ Please provide a compressed summary that captures the essential information whil
           const functionName = toolCall.function.name;
           const functionArgs = JSON.parse(toolCall.function.arguments);
           
-          const result: SimpleFunctionResult = await functionCallService.handleFunctionCall(
-            functionName,
-            functionArgs,
-            userId
-          );
+          let result: FunctionCallResult;
+          switch (functionName) {
+            case 'update_schedule_times':
+              result = await functionCallService.updateScheduleTimes(functionArgs);
+              break;
+            case 'mark_emails_as_read':
+              result = await functionCallService.markEmailsAsRead(functionArgs);
+              break;
+            case 'get_current_config':
+              result = await functionCallService.getCurrentConfig();
+              break;
+            default:
+              result = { success: false, message: `未知的函数：${functionName}` };
+          }
           
           functionResults.push(result.message);
         }
@@ -344,8 +331,7 @@ Please provide a compressed summary that captures the essential information whil
     systemMessage: string,
     userMessage: string,
     options: { maxTokens: number; temperature: number },
-    functionCallService: SimpleFunctionCallService,
-    userId?: string
+    functionCallService: FunctionCallService
   ): Promise<string> {
     const response = await axios.post(
       `${config.ai.deepseek.baseURL}/chat/completions`,
@@ -382,11 +368,20 @@ Please provide a compressed summary that captures the essential information whil
           const functionName = toolCall.function.name;
           const functionArgs = JSON.parse(toolCall.function.arguments);
           
-          const result: SimpleFunctionResult = await functionCallService.handleFunctionCall(
-            functionName,
-            functionArgs,
-            userId
-          );
+          let result: FunctionCallResult;
+          switch (functionName) {
+            case 'update_schedule_times':
+              result = await functionCallService.updateScheduleTimes(functionArgs);
+              break;
+            case 'mark_emails_as_read':
+              result = await functionCallService.markEmailsAsRead(functionArgs);
+              break;
+            case 'get_current_config':
+              result = await functionCallService.getCurrentConfig();
+              break;
+            default:
+              result = { success: false, message: `未知的函数：${functionName}` };
+          }
           
           functionResults.push(result.message);
         }
@@ -401,21 +396,15 @@ Please provide a compressed summary that captures the essential information whil
   private async generateGoogleResponse(
     systemMessage: string,
     userMessage: string,
-    options: { maxTokens: number; temperature: number }
+    _options: { maxTokens: number; temperature: number }
   ): Promise<string> {
     if (!this.googleAI) {
-      throw new Error('Google AI not initialized');
+      throw new Error('Google AI client not initialized');
     }
 
-    const model = this.googleAI.getGenerativeModel({ 
-      model: config.ai.google.model,
-      generationConfig: {
-        maxOutputTokens: options.maxTokens,
-        temperature: options.temperature,
-      },
-    });
-
-    const prompt = `${systemMessage}\n\nUser: ${userMessage}`;
+    const model = this.googleAI.getGenerativeModel({ model: config.ai.google.model });
+    const prompt = `${systemMessage}\n\n${userMessage}`;
+    
     const result = await model.generateContent(prompt);
     const response = await result.response;
     
@@ -437,15 +426,37 @@ Please provide a compressed summary that captures the essential information whil
       temperature: options.temperature,
       system: systemMessage,
       messages: [
-        { role: 'user', content: userMessage }
-      ]
+        { role: 'user', content: userMessage },
+      ],
     });
 
-    if (response.content[0] && response.content[0].type === 'text') {
-      return response.content[0].text;
-    }
-    
-    return '';
+    return response.content[0]?.type === 'text' ? response.content[0].text : '';
+  }
+
+  private async generateAzureOpenAIResponse(
+    systemMessage: string,
+    userMessage: string,
+    options: { maxTokens: number; temperature: number }
+  ): Promise<string> {
+    const response = await axios.post(
+      `${config.ai.azureOpenai.endpoint}/openai/deployments/${config.ai.azureOpenai.deploymentName}/chat/completions?api-version=${config.ai.azureOpenai.apiVersion}`,
+      {
+        messages: [
+          { role: 'system', content: systemMessage },
+          { role: 'user', content: userMessage },
+        ],
+        max_tokens: options.maxTokens,
+        temperature: options.temperature,
+      },
+      {
+        headers: {
+          'api-key': config.ai.azureOpenai.apiKey,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    return response.data.choices[0]?.message?.content || '';
   }
 
   private formatContext(context: ContextEntry[]): string {

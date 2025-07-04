@@ -46,6 +46,26 @@ class EmailService {
     }
   }
 
+  async sendEmailToUser(userEmail: string, subject: string, content: string, isHtml: boolean = false): Promise<void> {
+    try {
+      // 优化邮件内容长度
+      const optimizedContent = this.contentManager.optimizeEmailContent(content, 'notification');
+      
+      const mailOptions = {
+        from: config.email.smtp.user,
+        to: userEmail,
+        subject,
+        [isHtml ? 'html' : 'text']: optimizedContent,
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      logger.info(`Email sent successfully to user ${userEmail}: ${subject}`);
+    } catch (error) {
+      logger.error(`Failed to send email to user ${userEmail}:`, error);
+      throw error;
+    }
+  }
+
   async sendMorningReminder(scheduleContent: string, suggestions: string): Promise<void> {
     const subject = `📅 每日日程提醒 - ${new Date().toLocaleDateString()}`;
     const content = `

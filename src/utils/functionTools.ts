@@ -1,4 +1,5 @@
-// OpenAI Function Call工具定义
+// 已废弃 - 请使用 simpleFunctionTools.ts 中的简化版本
+// 保留此文件仅用于参考，建议在下次更新时删除
 export const functionTools = [
   {
     type: "function" as const,

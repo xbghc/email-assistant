@@ -38,7 +38,7 @@ class SchedulerService {
       this.setupEveningReminder();
       this.setupEmailReceiver();
       
-      console.log('📅 Scheduler configured for reminders');
+      logger.info('📅 Scheduler configured for reminders');
     } catch (error) {
       logger.error('Failed to initialize scheduler service:', error);
       throw error;

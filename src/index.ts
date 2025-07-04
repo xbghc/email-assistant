@@ -1,5 +1,6 @@
 import express from 'express';
 import logger from './utils/logger';
+import { validateConfig } from './config';
 import SchedulerService from './services/schedulerService';
 import SystemStartupService from './services/systemStartupService';
 import scheduleRoutes from './routes/schedule';
@@ -16,6 +17,10 @@ let startupService: SystemStartupService;
 async function startServer(): Promise<void> {
   try {
     // 初始化服务
+    // 验证配置
+    validateConfig();
+    logger.info('✅ Configuration validated successfully');
+
     schedulerService = new SchedulerService();
     startupService = new SystemStartupService();
     
@@ -71,8 +76,38 @@ async function startServer(): Promise<void> {
       }
     });
 
+    app.post('/test/user-notifications', async (req, res) => {
+      try {
+        await startupService.testUserNotifications();
+        res.json({ message: 'User notification test sent successfully' });
+      } catch (error) {
+        logger.error('Failed to test user notifications:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    });
+
+    app.post('/test/startup-notification', async (req, res) => {
+      try {
+        await startupService.sendStartupNotification();
+        res.json({ message: 'Startup notification test sent successfully' });
+      } catch (error) {
+        logger.error('Failed to test startup notification:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    });
+
+    app.post('/test/shutdown-notification', async (req, res) => {
+      try {
+        await startupService.sendShutdownNotification();
+        res.json({ message: 'Shutdown notification test sent successfully' });
+      } catch (error) {
+        logger.error('Failed to test shutdown notification:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    });
+
     app.listen(port, () => {
-      console.log(`✅ Email Assistant Server started on port ${port}`);
+      logger.info(`✅ Email Assistant Server started on port ${port}`);
     });
 
   } catch (error) {

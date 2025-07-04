@@ -138,11 +138,19 @@ class EmailReceiveService extends EventEmitter {
     const fetch = this.imap.fetch(uids, {
       bodies: '',
       struct: true,
-      markSeen: true
+      markSeen: false  // 先不标记，处理完成后再标记
     });
+
+    // 创建UID映射
+    const uidMap = new Map<number, number>();
+    let seqIndex = 0;
 
     fetch.on('message', (msg, seqno) => {
       let buffer = Buffer.alloc(0);
+      const currentUid = uids[seqIndex++];
+      if (currentUid !== undefined) {
+        uidMap.set(seqno, currentUid);
+      }
       
       msg.on('body', (stream) => {
         stream.on('data', (chunk) => {
@@ -150,7 +158,8 @@ class EmailReceiveService extends EventEmitter {
         });
         
         stream.once('end', () => {
-          this.parseEmail(buffer, seqno);
+          const uid = uidMap.get(seqno);
+          this.parseEmail(buffer, seqno, uid);  // 传递UID用于后续标记
         });
       });
 
@@ -168,15 +177,19 @@ class EmailReceiveService extends EventEmitter {
     });
   }
 
-  private async parseEmail(buffer: Buffer, seqno: number): Promise<void> {
+  private async parseEmail(buffer: Buffer, seqno: number, uid?: number): Promise<void> {
     try {
       const parsed = await simpleParser(buffer);
       
       if (!parsed.messageId || this.processedEmails.has(parsed.messageId)) {
+        logger.info(`Skipping duplicate email: ${parsed.messageId}`);
+        // 即使是重复邮件，也需要标记为已读
+        this.markEmailAsRead(uid);
         return;
       }
 
       this.processedEmails.add(parsed.messageId);
+      logger.info(`Processing new email: ${parsed.messageId}`);
 
       const fromText = Array.isArray(parsed.from) 
         ? parsed.from[0]?.text || '' 
@@ -205,10 +218,14 @@ class EmailReceiveService extends EventEmitter {
       if (email.from.includes(config.email.user.email)) {
         logger.info(`Processing email from user: ${email.subject} (isReply: ${email.isReply}, type: ${email.replyType})`);
         this.emit('emailReceived', email);
+        // 处理完成后标记邮件为已读
+        this.markEmailAsRead(uid);
       } else {
         // 处理来自其他人的邮件 - 转发给用户
         logger.info(`Forwarding email from: ${email.from}, subject: ${email.subject}`);
         this.emit('emailForward', email);
+        // 转发完成后标记邮件为已读
+        this.markEmailAsRead(uid);
       }
     } catch (error) {
       logger.error(`Failed to parse email ${seqno}:`, error);
@@ -273,6 +290,25 @@ class EmailReceiveService extends EventEmitter {
 
   isConnectedToImap(): boolean {
     return this.isConnected;
+  }
+
+  // 标记邮件为已读
+  private markEmailAsRead(uid?: number): void {
+    if (!uid || !this.isConnected) {
+      return;
+    }
+
+    try {
+      this.imap.addFlags(uid, ['\\Seen'], (err) => {
+        if (err) {
+          logger.error(`Failed to mark email ${uid} as read:`, err);
+        } else {
+          logger.info(`Email ${uid} marked as read successfully`);
+        }
+      });
+    } catch (error) {
+      logger.error(`Error marking email ${uid} as read:`, error);
+    }
   }
 
   // 获取发件人邮件地址

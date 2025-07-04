@@ -132,4 +132,57 @@ const config: Config = {
   logLevel: process.env.LOG_LEVEL || 'info',
 };
 
+// 配置验证函数
+export function validateConfig(): void {
+  const errors: string[] = [];
+
+  // 验证邮件配置
+  if (!config.email.smtp.user || !config.email.smtp.pass) {
+    errors.push('SMTP credentials (SMTP_USER, SMTP_PASS) are required');
+  }
+  
+  if (!config.email.user.email) {
+    errors.push('User email (USER_EMAIL) is required');
+  }
+
+  // 验证AI配置
+  const provider = config.ai.provider;
+  switch (provider) {
+    case 'openai':
+      if (!config.ai.openai.apiKey) {
+        errors.push('OpenAI API key (OPENAI_API_KEY) is required');
+      }
+      break;
+    case 'deepseek':
+      if (!config.ai.deepseek.apiKey) {
+        errors.push('DeepSeek API key (DEEPSEEK_API_KEY) is required');
+      }
+      break;
+    case 'google':
+      if (!config.ai.google.apiKey) {
+        errors.push('Google API key (GOOGLE_API_KEY) is required');
+      }
+      break;
+    case 'anthropic':
+      if (!config.ai.anthropic.apiKey) {
+        errors.push('Anthropic API key (ANTHROPIC_API_KEY) is required');
+      }
+      break;
+    case 'azure-openai':
+      if (!config.ai.azureOpenai.apiKey || !config.ai.azureOpenai.endpoint) {
+        errors.push('Azure OpenAI credentials (AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT) are required');
+      }
+      break;
+  }
+
+  // 安全检查
+  if (config.email.imap.rejectUnauthorized === false) {
+    console.warn('⚠️ IMAP SSL verification is disabled - security risk detected');
+  }
+
+  if (errors.length > 0) {
+    throw new Error(`Configuration validation failed:\n${errors.map(e => `  - ${e}`).join('\n')}`);
+  }
+}
+
 export default config;
