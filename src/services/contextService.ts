@@ -26,7 +26,7 @@ class ContextService {
     }
   }
 
-  async addEntry(type: ContextEntry['type'], content: string, metadata?: Record<string, any>): Promise<void> {
+  async addEntry(type: ContextEntry['type'], content: string, metadata?: Record<string, any>, userId = 'admin'): Promise<void> {
     const entry: ContextEntry = {
       id: this.generateId(),
       timestamp: new Date(),
@@ -35,6 +35,9 @@ class ContextService {
       metadata,
     };
 
+    if (!this.context.has(userId)) {
+      this.context.set(userId, []);
+    }
     this.context.get(userId)!.push(entry);
     await this.saveContext();
     
@@ -45,8 +48,9 @@ class ContextService {
     logger.info(`Context entry added: ${type}`);
   }
 
-  async getContext(limit?: number): Promise<ContextEntry[]> {
-    return limit ? this.context.slice(-limit) : this.context;
+  async getContext(limit?: number, userId = 'admin'): Promise<ContextEntry[]> {
+    const userContext = this.context.get(userId) || [];
+    return limit ? userContext.slice(-limit) : userContext;
   }
 
   async getContextByType(type: ContextEntry['type'], limit?: number, userId = 'admin'): Promise<ContextEntry[]> {

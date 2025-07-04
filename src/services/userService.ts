@@ -6,7 +6,7 @@ import logger from '../utils/logger';
 import config from '../config';
 
 class UserService implements UserStorage {
-  private users = new Map<string, User>();
+  public users = new Map<string, User>();
   private dataFile: string;
 
   constructor() {
@@ -17,7 +17,7 @@ class UserService implements UserStorage {
     try {
       await this.loadFromFile();
       logger.info(`Loaded ${this.users.size} users from storage`);
-    } catch (error) {
+    } catch {
       logger.info('No existing user data found, starting with empty user list');
     }
   }
@@ -49,6 +49,42 @@ class UserService implements UserStorage {
     }
   }
 
+  // 添加便捷方法
+  async addUserByInfo(username: string, email: string, name?: string): Promise<User> {
+    const user = this.createUser(email, name || username);
+    this.addUser(user);
+    return user;
+  }
+
+  async removeUser(identifier: string): Promise<boolean> {
+    const user = this.getUserById(identifier) || this.getUserByUsername(identifier);
+    if (user) {
+      this.deleteUser(user.id);
+      return true;
+    }
+    return false;
+  }
+
+  getUserByUsername(username: string): User | undefined {
+    for (const user of this.users.values()) {
+      if (user.name.toLowerCase() === username.toLowerCase()) {
+        return user;
+      }
+    }
+    return undefined;
+  }
+
+  async updateUserConfig(id: string, config: UserConfig): Promise<boolean> {
+    const user = this.users.get(id);
+    if (user) {
+      user.config = config;
+      user.updatedAt = new Date();
+      await this.saveToFile();
+      return true;
+    }
+    return false;
+  }
+
   deleteUser(id: string): void {
     this.users.delete(id);
     this.saveToFile().catch(err => logger.error('Failed to save users:', err));
@@ -64,8 +100,7 @@ class UserService implements UserStorage {
 
   async saveToFile(): Promise<void> {
     try {
-      const usersData = Array.from(this.users.entries()).map(([id, user]) => ({
-        id,
+      const usersData = Array.from(this.users.entries()).map(([, user]) => ({
         ...user,
         createdAt: user.createdAt.toISOString(),
         updatedAt: user.updatedAt.toISOString()

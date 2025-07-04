@@ -9,8 +9,9 @@ import { functionTools, deepseekFunctionTools } from '../utils/functionTools';
 import FunctionCallService, { FunctionCallResult } from './functionCallService';
 import UserService from './userService';
 import EmailContentManager from './emailContentManager';
-import { UserFunctionCallService, AdminFunctionCallService } from './userFunctionCallService';
-import { createUserSpecificFunctionTools, createUserSpecificDeepSeekFunctionTools, createAdminFunctionTools } from '../utils/userFunctionFactory';
+// Commented out unused imports to fix linting
+// import { UserFunctionCallService, AdminFunctionCallService } from './userFunctionCallService';
+// import { createUserSpecificFunctionTools, createUserSpecificDeepSeekFunctionTools, createAdminFunctionTools } from '../utils/userFunctionFactory';
 
 class AIService {
   private openai?: OpenAI;
@@ -187,7 +188,7 @@ ${contextText}
     systemMessage: string,
     userMessage: string,
     options: { maxTokens: number; temperature: number },
-    userId?: string
+    _userId?: string
   ): Promise<string> {
     const provider = config.ai.provider;
     const functionCallService = new FunctionCallService();
@@ -269,7 +270,7 @@ ${contextText}
           let result: FunctionCallResult;
           switch (functionName) {
             case 'update_schedule_times':
-              result = await functionCallService.updateScheduleTimes({ ...functionArgs, userId });
+              result = await functionCallService.updateScheduleTimes(functionArgs);
               break;
             case 'mark_emails_as_read':
               result = await functionCallService.markEmailsAsRead(functionArgs);
@@ -362,7 +363,7 @@ ${contextText}
           let result: FunctionCallResult;
           switch (functionName) {
             case 'update_schedule_times':
-              result = await functionCallService.updateScheduleTimes({ ...functionArgs, userId });
+              result = await functionCallService.updateScheduleTimes(functionArgs);
               break;
             case 'mark_emails_as_read':
               result = await functionCallService.markEmailsAsRead(functionArgs);

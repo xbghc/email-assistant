@@ -1,4 +1,4 @@
-import { AdminCommand } from '../models/User';
+import { AdminCommand, UserConfig } from '../models/User';
 import UserService from './userService';
 import EmailService from './emailService';
 import logger from '../utils/logger';
@@ -85,11 +85,15 @@ class AdminCommandService {
     return subject.startsWith('/') && subject.length > 1;
   }
 
-  async processCommand(subject: string, content: string): Promise<string> {
+  async processCommand(subject: string, _content: string): Promise<string> {
     try {
       const parts = subject.slice(1).split(' ');
-      const command = parts[0].toLowerCase();
+      const command = parts[0]?.toLowerCase();
       const args = parts.slice(1);
+
+      if (!command) {
+        return '命令不能为空。使用 /help 查看可用命令。';
+      }
 
       logger.info(`Processing admin command: ${command} with args: ${args.join(', ')}`);
 
@@ -111,6 +115,10 @@ class AdminCommandService {
     }
 
     const [email, name, morningTime, eveningTime] = args;
+
+    if (!email || !name) {
+      return '请提供邮箱和姓名';
+    }
 
     // 检查用户是否已存在
     if (this.userService.getUserByEmail(email)) {
@@ -174,7 +182,7 @@ class AdminCommandService {
 📬 欢迎邮件: 已发送`;
   }
 
-  private async handleListUsers(args: string[]): Promise<string> {
+  private async handleListUsers(_args: string[]): Promise<string> {
     const users = this.userService.getAllUsers();
     
     if (users.length === 0) {
@@ -198,8 +206,11 @@ class AdminCommandService {
     }
 
     const email = args[0];
-    const user = this.userService.getUserByEmail(email);
+    if (!email) {
+      return '请提供邮箱地址';
+    }
 
+    const user = this.userService.getUserByEmail(email);
     if (!user) {
       return `用户 ${email} 不存在`;
     }
@@ -214,8 +225,11 @@ class AdminCommandService {
     }
 
     const email = args[0];
+    if (!email) {
+      return '请提供邮箱地址';
+    }
+    
     const user = this.userService.getUserByEmail(email);
-
     if (!user) {
       return `用户 ${email} 不存在`;
     }
@@ -224,7 +238,7 @@ class AdminCommandService {
       return `用户 ${email} 已经是启用状态`;
     }
 
-    this.userService.updateUser(user.id, { isActive: true });
+    await this.userService.updateUser(user.id, { isActive: true });
     return `用户 ${email} (${user.name}) 已启用`;
   }
 
@@ -234,8 +248,11 @@ class AdminCommandService {
     }
 
     const email = args[0];
+    if (!email) {
+      return '请提供邮箱地址';
+    }
+    
     const user = this.userService.getUserByEmail(email);
-
     if (!user) {
       return `用户 ${email} 不存在`;
     }
@@ -244,7 +261,7 @@ class AdminCommandService {
       return `用户 ${email} 已经是禁用状态`;
     }
 
-    this.userService.updateUser(user.id, { isActive: false });
+    await this.userService.updateUser(user.id, { isActive: false });
     return `用户 ${email} (${user.name}) 已禁用`;
   }
 
@@ -254,56 +271,75 @@ class AdminCommandService {
     }
 
     const [email, field, value] = args;
+    if (!email) {
+      return '请提供邮箱地址';
+    }
+    
     const user = this.userService.getUserByEmail(email);
 
     if (!user) {
       return `用户 ${email} 不存在`;
     }
 
+    if (!field || !value) {
+      return '请提供完整的字段和值';
+    }
+
     const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
 
     switch (field.toLowerCase()) {
       case 'name':
-        this.userService.updateUser(user.id, { name: value });
+        await this.userService.updateUser(user.id, { name: value });
         return `用户 ${email} 的姓名已更新为: ${value}`;
 
       case 'morningtime':
         if (!timeRegex.test(value)) {
           return '时间格式无效，请使用 HH:MM 格式';
         }
-        const newMorningConfig = {
+        const newMorningConfig: UserConfig = {
           ...user.config,
           schedule: {
-            ...user.config.schedule,
-            morningReminderTime: value
-          }
+            ...user.config?.schedule,
+            morningReminderTime: value,
+            eveningReminderTime: user.config?.schedule?.eveningReminderTime || '20:00',
+            timezone: user.config?.schedule?.timezone || 'Asia/Shanghai'
+          },
+          language: user.config?.language || 'zh' as const
         };
-        this.userService.updateUser(user.id, { config: newMorningConfig });
+        await this.userService.updateUser(user.id, { config: newMorningConfig });
         return `用户 ${email} 的早晨提醒时间已更新为: ${value}`;
 
       case 'eveningtime':
         if (!timeRegex.test(value)) {
           return '时间格式无效，请使用 HH:MM 格式';
         }
-        const newEveningConfig = {
+        const newEveningConfig: UserConfig = {
           ...user.config,
           schedule: {
-            ...user.config.schedule,
-            eveningReminderTime: value
-          }
+            ...user.config?.schedule,
+            eveningReminderTime: value,
+            morningReminderTime: user.config?.schedule?.morningReminderTime || '08:00',
+            timezone: user.config?.schedule?.timezone || 'Asia/Shanghai'
+          },
+          language: user.config?.language || 'zh' as const
         };
-        this.userService.updateUser(user.id, { config: newEveningConfig });
+        await this.userService.updateUser(user.id, { config: newEveningConfig });
         return `用户 ${email} 的晚间提醒时间已更新为: ${value}`;
 
       case 'language':
         if (value !== 'zh' && value !== 'en') {
           return '语言必须是 zh 或 en';
         }
-        const newLangConfig = {
+        const newLangConfig: UserConfig = {
           ...user.config,
-          language: value as 'zh' | 'en'
+          language: value as 'zh' | 'en',
+          schedule: user.config?.schedule || {
+            morningReminderTime: '08:00',
+            eveningReminderTime: '20:00',
+            timezone: 'Asia/Shanghai'
+          }
         };
-        this.userService.updateUser(user.id, { config: newLangConfig });
+        await this.userService.updateUser(user.id, { config: newLangConfig });
         return `用户 ${email} 的语言已更新为: ${value}`;
 
       default:
@@ -311,7 +347,7 @@ class AdminCommandService {
     }
   }
 
-  private async handleStats(args: string[]): Promise<string> {
+  private async handleStats(_args: string[]): Promise<string> {
     const stats = this.userService.getStats();
     
     return `📊 用户统计信息:
@@ -322,7 +358,10 @@ class AdminCommandService {
 
   private async handleHelp(args: string[]): Promise<string> {
     if (args.length > 0) {
-      const command = args[0].toLowerCase();
+      const command = args[0]?.toLowerCase();
+      if (!command) {
+        return '命令不能为空';
+      }
       const commandHandler = this.commands.get(command);
       
       if (!commandHandler) {

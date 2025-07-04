@@ -13,12 +13,12 @@ import config from '../config';
 export class UserFunctionCallService {
   private userService: UserService;
   private emailService: EmailService;
-  private contextService?: ContextService;
+  private contextService: ContextService;
 
   constructor(userService: UserService, contextService?: ContextService) {
     this.userService = userService;
     this.emailService = new EmailService();
-    this.contextService = contextService;
+    this.contextService = contextService || new ContextService();
   }
 
   /**

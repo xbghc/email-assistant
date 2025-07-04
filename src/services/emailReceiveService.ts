@@ -16,7 +16,7 @@ export interface ParsedEmail {
   references?: string[] | undefined;
   isReply: boolean;
   replyType?: 'work_report' | 'schedule_response' | 'general' | 'admin_command' | undefined;
-  userId?: string; // 用户ID，用于多用户支持
+  userId?: string | undefined; // 用户ID，用于多用户支持
   isFromAdmin?: boolean; // 是否来自管理员
 }
 
@@ -198,7 +198,7 @@ class EmailReceiveService extends EventEmitter {
         isReply: this.isReplyEmail(parsed),
         replyType: this.determineReplyType(parsed),
         isFromAdmin: this.isFromAdmin(fromText),
-        userId: undefined, // 将在后续通过用户服务设置
+        userId: undefined as string | undefined, // 将在后续通过用户服务设置
       };
 
       // 处理来自用户的邮件（包括回复和直接发送的邮件）
@@ -268,7 +268,7 @@ class EmailReceiveService extends EventEmitter {
     const emailMatch = fromText.match(/<([^>]+)>/) || fromText.match(/([^\s<>]+@[^\s<>]+)/);
     const email = emailMatch ? emailMatch[1] : fromText;
     
-    return email.toLowerCase().trim() === config.email.user.email.toLowerCase();
+    return email?.toLowerCase().trim() === config.email.user.email.toLowerCase();
   }
 
   isConnectedToImap(): boolean {
@@ -277,8 +277,9 @@ class EmailReceiveService extends EventEmitter {
 
   // 获取发件人邮件地址
   extractEmailAddress(fromText: string): string {
+    if (!fromText) return '';
     const emailMatch = fromText.match(/<([^>]+)>/) || fromText.match(/([^\s<>]+@[^\s<>]+)/);
-    return emailMatch ? emailMatch[1] : fromText;
+    return emailMatch ? emailMatch[1] || '' : fromText;
   }
 }
 

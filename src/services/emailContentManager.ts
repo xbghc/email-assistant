@@ -61,7 +61,7 @@ class EmailContentManager {
     if (contextSummary.length > 500) {
       const count = recentContext.length;
       const latestEntry = recentContext[recentContext.length - 1];
-      const shortLatest = this.truncateText(latestEntry.content, 150);
+      const shortLatest = latestEntry ? this.truncateText(latestEntry.content, 150) : '无记录';
       
       return `📝 最近${count}条记录\n最新: ${shortLatest}\n\n💡 完整历史已保存，可随时查询`;
     }
@@ -199,7 +199,8 @@ class EmailContentManager {
     // 尝试在句号、感叹号或问号处截断
     const sentenceEnders = ['。', '!', '?', '！', '？'];
     for (let i = maxLength - 1; i > maxLength * 0.8; i--) {
-      if (sentenceEnders.includes(text[i])) {
+      const char = text[i];
+      if (char && sentenceEnders.includes(char)) {
         return text.substring(0, i + 1);
       }
     }
@@ -207,7 +208,8 @@ class EmailContentManager {
     // 尝试在逗号或分号处截断
     const clauseEnders = [',', '，', ';', '；'];
     for (let i = maxLength - 1; i > maxLength * 0.9; i--) {
-      if (clauseEnders.includes(text[i])) {
+      const char = text[i];
+      if (char && clauseEnders.includes(char)) {
         return text.substring(0, i + 1) + '...';
       }
     }

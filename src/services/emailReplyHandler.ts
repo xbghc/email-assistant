@@ -12,7 +12,7 @@ export interface ProcessedReply {
   originalContent: string;
   processedContent: string;
   response?: string;
-  userId?: string;
+  userId?: string | undefined;
 }
 
 class EmailReplyHandler {
@@ -47,7 +47,7 @@ class EmailReplyHandler {
       // 设置用户ID
       const fromEmail = this.extractEmailAddress(email.from);
       const user = this.userService.getUserByEmail(fromEmail);
-      email.userId = user?.id;
+      email.userId = user?.id || undefined;
 
       const cleanContent = this.cleanEmailContent(email.textContent);
       logger.info(`Cleaned content preview: ${cleanContent.substring(0, 100)}...`);
@@ -310,8 +310,9 @@ ${aiResponse}
   }
 
   private extractEmailAddress(fromText: string): string {
+    if (!fromText) return '';
     const emailMatch = fromText.match(/<([^>]+)>/) || fromText.match(/([^\s<>]+@[^\s<>]+)/);
-    return emailMatch ? emailMatch[1] : fromText;
+    return emailMatch ? emailMatch[1] || '' : fromText;
   }
 }
 
