@@ -1,6 +1,7 @@
 import express from 'express';
 import logger from './utils/logger';
 import SchedulerService from './services/schedulerService';
+import SystemStartupService from './services/systemStartupService';
 import scheduleRoutes from './routes/schedule';
 
 const app = express();
@@ -10,11 +11,18 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 let schedulerService: SchedulerService;
+let startupService: SystemStartupService;
 
 async function startServer(): Promise<void> {
   try {
+    // 初始化服务
     schedulerService = new SchedulerService();
+    startupService = new SystemStartupService();
+    
     await schedulerService.initialize();
+    
+    // 发送系统启动通知
+    await startupService.sendStartupNotification();
 
     app.get('/health', (req, res) => {
       const emailStatus = schedulerService.getEmailReceiveStatus();
@@ -73,16 +81,30 @@ async function startServer(): Promise<void> {
   }
 }
 
-process.on('SIGINT', () => {
+process.on('SIGINT', async () => {
   logger.info('Received SIGINT, shutting down gracefully...');
+  try {
+    if (startupService) {
+      await startupService.sendShutdownNotification();
+    }
+  } catch (error) {
+    logger.error('Error sending shutdown notification:', error);
+  }
   if (schedulerService) {
     schedulerService.destroy();
   }
   process.exit(0);
 });
 
-process.on('SIGTERM', () => {
+process.on('SIGTERM', async () => {
   logger.info('Received SIGTERM, shutting down gracefully...');
+  try {
+    if (startupService) {
+      await startupService.sendShutdownNotification();
+    }
+  } catch (error) {
+    logger.error('Error sending shutdown notification:', error);
+  }
   if (schedulerService) {
     schedulerService.destroy();
   }

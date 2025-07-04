@@ -15,7 +15,9 @@ export interface ParsedEmail {
   inReplyTo?: string | undefined;
   references?: string[] | undefined;
   isReply: boolean;
-  replyType?: 'work_report' | 'schedule_response' | 'general' | undefined;
+  replyType?: 'work_report' | 'schedule_response' | 'general' | 'admin_command' | undefined;
+  userId?: string; // 用户ID，用于多用户支持
+  isFromAdmin?: boolean; // 是否来自管理员
 }
 
 class EmailReceiveService extends EventEmitter {
@@ -195,6 +197,8 @@ class EmailReceiveService extends EventEmitter {
         references: Array.isArray(parsed.references) ? parsed.references : parsed.references ? [parsed.references] : undefined,
         isReply: this.isReplyEmail(parsed),
         replyType: this.determineReplyType(parsed),
+        isFromAdmin: this.isFromAdmin(fromText),
+        userId: undefined, // 将在后续通过用户服务设置
       };
 
       // 处理来自用户的邮件（包括回复和直接发送的邮件）
@@ -221,9 +225,17 @@ class EmailReceiveService extends EventEmitter {
              )));
   }
 
-  private determineReplyType(parsed: any): 'work_report' | 'schedule_response' | 'general' {
+  private determineReplyType(parsed: any): 'work_report' | 'schedule_response' | 'general' | 'admin_command' {
     const subject = (parsed.subject || '').toLowerCase();
     const content = (parsed.text || '').toLowerCase();
+    const fromText = Array.isArray(parsed.from) 
+      ? parsed.from[0]?.text || '' 
+      : parsed.from?.text || '';
+
+    // 检查是否为管理员命令
+    if (this.isFromAdmin(fromText) && parsed.subject && parsed.subject.startsWith('/')) {
+      return 'admin_command';
+    }
 
     if (subject.includes('work summary') || 
         subject.includes('daily work') ||
@@ -251,8 +263,22 @@ class EmailReceiveService extends EventEmitter {
     return 'general';
   }
 
+  private isFromAdmin(fromText: string): boolean {
+    // 提取邮件地址
+    const emailMatch = fromText.match(/<([^>]+)>/) || fromText.match(/([^\s<>]+@[^\s<>]+)/);
+    const email = emailMatch ? emailMatch[1] : fromText;
+    
+    return email.toLowerCase().trim() === config.email.user.email.toLowerCase();
+  }
+
   isConnectedToImap(): boolean {
     return this.isConnected;
+  }
+
+  // 获取发件人邮件地址
+  extractEmailAddress(fromText: string): string {
+    const emailMatch = fromText.match(/<([^>]+)>/) || fromText.match(/([^\s<>]+@[^\s<>]+)/);
+    return emailMatch ? emailMatch[1] : fromText;
   }
 }
 

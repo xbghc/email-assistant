@@ -5,13 +5,23 @@ import axios from 'axios';
 import config from '../config';
 import logger from '../utils/logger';
 import { ContextEntry } from '../models';
+import { functionTools, deepseekFunctionTools } from '../utils/functionTools';
+import FunctionCallService, { FunctionCallResult } from './functionCallService';
+import UserService from './userService';
+import EmailContentManager from './emailContentManager';
+import { UserFunctionCallService, AdminFunctionCallService } from './userFunctionCallService';
+import { createUserSpecificFunctionTools, createUserSpecificDeepSeekFunctionTools, createAdminFunctionTools } from '../utils/userFunctionFactory';
 
 class AIService {
   private openai?: OpenAI;
   private googleAI?: GoogleGenerativeAI;
   private anthropic?: Anthropic;
+  private userService: UserService;
+  private contentManager: EmailContentManager;
 
-  constructor() {
+  constructor(userService?: UserService) {
+    this.userService = userService || new UserService();
+    this.contentManager = new EmailContentManager();
     this.initializeProviders();
   }
 
@@ -173,6 +183,31 @@ ${contextText}
     }
   }
 
+  async generateResponseWithFunctionCalls(
+    systemMessage: string,
+    userMessage: string,
+    options: { maxTokens: number; temperature: number },
+    userId?: string
+  ): Promise<string> {
+    const provider = config.ai.provider;
+    const functionCallService = new FunctionCallService();
+
+    try {
+      switch (provider) {
+        case 'openai':
+          return await this.generateOpenAIResponseWithFunctions(systemMessage, userMessage, options, functionCallService);
+        case 'deepseek':
+          return await this.generateDeepSeekResponseWithFunctions(systemMessage, userMessage, options, functionCallService);
+        default:
+          // 其他提供商暂不支持Function Call，回退到普通响应
+          return await this.generateResponse(systemMessage, userMessage, options);
+      }
+    } catch (error) {
+      logger.error('Function call generation failed, falling back to normal response:', error);
+      return await this.generateResponse(systemMessage, userMessage, options);
+    }
+  }
+
   private async generateOpenAIResponse(
     systemMessage: string,
     userMessage: string,
@@ -193,6 +228,67 @@ ${contextText}
     });
 
     return response.choices[0]?.message?.content || '';
+  }
+
+  private async generateOpenAIResponseWithFunctions(
+    systemMessage: string,
+    userMessage: string,
+    options: { maxTokens: number; temperature: number },
+    functionCallService: FunctionCallService
+  ): Promise<string> {
+    if (!this.openai) {
+      throw new Error('OpenAI client not initialized');
+    }
+
+    const response = await this.openai.chat.completions.create({
+      model: config.ai.openai.model,
+      messages: [
+        { role: 'system', content: systemMessage },
+        { role: 'user', content: userMessage },
+      ],
+      max_tokens: options.maxTokens,
+      temperature: options.temperature,
+      tools: functionTools,
+      tool_choice: 'auto',
+    });
+
+    const message = response.choices[0]?.message;
+    if (!message) {
+      throw new Error('No response from OpenAI');
+    }
+
+    // 如果有function call，处理它们
+    if (message.tool_calls && message.tool_calls.length > 0) {
+      const functionResults: string[] = [];
+      
+      for (const toolCall of message.tool_calls) {
+        if (toolCall.type === 'function') {
+          const functionName = toolCall.function.name;
+          const functionArgs = JSON.parse(toolCall.function.arguments);
+          
+          let result: FunctionCallResult;
+          switch (functionName) {
+            case 'update_schedule_times':
+              result = await functionCallService.updateScheduleTimes({ ...functionArgs, userId });
+              break;
+            case 'mark_emails_as_read':
+              result = await functionCallService.markEmailsAsRead(functionArgs);
+              break;
+            case 'get_current_config':
+              result = await functionCallService.getCurrentConfig();
+              break;
+            default:
+              result = { success: false, message: `未知的函数：${functionName}` };
+          }
+          
+          functionResults.push(result.message);
+        }
+      }
+      
+      return functionResults.join('\n\n');
+    }
+
+    return message.content || '';
   }
 
   private async generateDeepSeekResponse(
@@ -220,6 +316,72 @@ ${contextText}
     );
 
     return response.data.choices[0]?.message?.content || '';
+  }
+
+  private async generateDeepSeekResponseWithFunctions(
+    systemMessage: string,
+    userMessage: string,
+    options: { maxTokens: number; temperature: number },
+    functionCallService: FunctionCallService
+  ): Promise<string> {
+    const response = await axios.post(
+      `${config.ai.deepseek.baseURL}/chat/completions`,
+      {
+        model: config.ai.deepseek.model,
+        messages: [
+          { role: 'system', content: systemMessage },
+          { role: 'user', content: userMessage },
+        ],
+        max_tokens: options.maxTokens,
+        temperature: options.temperature,
+        tools: deepseekFunctionTools,
+        tool_choice: 'auto',
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${config.ai.deepseek.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    const message = response.data.choices[0]?.message;
+    if (!message) {
+      throw new Error('No response from DeepSeek');
+    }
+
+    // 如果有function call，处理它们
+    if (message.tool_calls && message.tool_calls.length > 0) {
+      const functionResults: string[] = [];
+      
+      for (const toolCall of message.tool_calls) {
+        if (toolCall.type === 'function') {
+          const functionName = toolCall.function.name;
+          const functionArgs = JSON.parse(toolCall.function.arguments);
+          
+          let result: FunctionCallResult;
+          switch (functionName) {
+            case 'update_schedule_times':
+              result = await functionCallService.updateScheduleTimes({ ...functionArgs, userId });
+              break;
+            case 'mark_emails_as_read':
+              result = await functionCallService.markEmailsAsRead(functionArgs);
+              break;
+            case 'get_current_config':
+              result = await functionCallService.getCurrentConfig();
+              break;
+            default:
+              result = { success: false, message: `未知的函数：${functionName}` };
+          }
+          
+          functionResults.push(result.message);
+        }
+      }
+      
+      return functionResults.join('\n\n');
+    }
+
+    return message.content || '';
   }
 
   private async generateGoogleResponse(
@@ -289,10 +451,8 @@ ${contextText}
   }
 
   private formatContext(context: ContextEntry[]): string {
-    return context
-      .slice(-10)
-      .map(entry => `[${entry.timestamp.toISOString()}] ${entry.type}: ${entry.content}`)
-      .join('\n\n');
+    // 使用内容管理器优化上下文显示
+    return this.contentManager.optimizeContextForEmail(context);
   }
 }
 
