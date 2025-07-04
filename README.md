@@ -9,6 +9,7 @@ A server-side email assistant that provides daily schedule reminders and work su
 - **Context Management**: Automatic context compression to maintain conversation history
 - **Flexible Scheduling**: Configurable reminder times
 - **Email Integration**: SMTP support for various email providers
+- **Multi-AI Support**: Compatible with OpenAI, DeepSeek, Google Gemini, Anthropic Claude, and Azure OpenAI
 
 ## Installation
 
@@ -25,7 +26,7 @@ A server-side email assistant that provides daily schedule reminders and work su
 
 4. Configure your settings in `.env`:
    - Email SMTP settings
-   - OpenAI API key
+   - AI provider and API key
    - Reminder times
    - Other preferences
 
@@ -44,8 +45,29 @@ SMTP_PASS=your-app-password
 USER_EMAIL=your-email@gmail.com
 USER_NAME=Your Name
 
+# AI Configuration
+AI_PROVIDER=openai  # Choose: openai, deepseek, google, anthropic, azure-openai
+
 # OpenAI Configuration
 OPENAI_API_KEY=your-openai-api-key
+OPENAI_MODEL=gpt-3.5-turbo
+
+# DeepSeek Configuration
+DEEPSEEK_API_KEY=your-deepseek-api-key
+DEEPSEEK_MODEL=deepseek-chat
+
+# Google AI Configuration
+GOOGLE_API_KEY=your-google-api-key
+GOOGLE_MODEL=gemini-pro
+
+# Anthropic Configuration
+ANTHROPIC_API_KEY=your-anthropic-api-key
+ANTHROPIC_MODEL=claude-3-sonnet-20240229
+
+# Azure OpenAI Configuration
+AZURE_OPENAI_API_KEY=your-azure-openai-api-key
+AZURE_OPENAI_ENDPOINT=https://your-resource.openai.azure.com
+AZURE_OPENAI_DEPLOYMENT=your-deployment-name
 
 # Schedule Configuration
 MORNING_REMINDER_TIME=08:00
@@ -87,6 +109,10 @@ curl -X POST http://localhost:3000/work-report \
 - `POST /work-report` - Submit daily work report
 - `POST /test/morning-reminder` - Test morning reminder
 - `POST /test/evening-reminder` - Test evening reminder
+- `GET /api/schedule/today` - Get today's schedule
+- `GET /api/schedule/:date` - Get schedule for specific date
+- `POST /api/schedule` - Add/update schedule
+- `GET /api/schedule/upcoming/:days` - Get upcoming events
 
 ## Schedule Management
 
@@ -137,6 +163,33 @@ The assistant can work with schedule data stored in `data/schedule.json`. Exampl
 
 ### Other Providers
 Configure SMTP settings according to your provider's documentation.
+
+## AI Provider Setup
+
+### OpenAI
+1. Create an account at https://platform.openai.com/
+2. Generate an API key
+3. Set `AI_PROVIDER=openai` and `OPENAI_API_KEY=your-key`
+
+### DeepSeek
+1. Create an account at https://platform.deepseek.com/
+2. Generate an API key
+3. Set `AI_PROVIDER=deepseek` and `DEEPSEEK_API_KEY=your-key`
+
+### Google Gemini
+1. Create an account at https://ai.google.dev/
+2. Generate an API key
+3. Set `AI_PROVIDER=google` and `GOOGLE_API_KEY=your-key`
+
+### Anthropic Claude
+1. Create an account at https://console.anthropic.com/
+2. Generate an API key
+3. Set `AI_PROVIDER=anthropic` and `ANTHROPIC_API_KEY=your-key`
+
+### Azure OpenAI
+1. Create an Azure OpenAI resource
+2. Deploy a model
+3. Set `AI_PROVIDER=azure-openai` and configure the Azure-specific settings
 
 ## Contributing
 

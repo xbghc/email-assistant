@@ -1,15 +1,50 @@
 import OpenAI from 'openai';
-import config from '../config';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import Anthropic from '@anthropic-ai/sdk';
+import axios from 'axios';
+import config, { AIProvider } from '../config';
 import logger from '../utils/logger';
-import { WorkSummary, ContextEntry } from '../models';
+import { ContextEntry } from '../models';
+
+interface AIMessage {
+  role: 'system' | 'user' | 'assistant';
+  content: string;
+}
 
 class AIService {
-  private openai: OpenAI;
+  private openai?: OpenAI;
+  private googleAI?: GoogleGenerativeAI;
+  private anthropic?: Anthropic;
 
   constructor() {
-    this.openai = new OpenAI({
-      apiKey: config.openai.apiKey,
-    });
+    this.initializeProviders();
+  }
+
+  private initializeProviders(): void {
+    const provider = config.ai.provider;
+    
+    switch (provider) {
+      case 'openai':
+        if (config.ai.openai.apiKey) {
+          this.openai = new OpenAI({
+            apiKey: config.ai.openai.apiKey,
+            baseURL: config.ai.openai.baseURL,
+          });
+        }
+        break;
+      case 'google':
+        if (config.ai.google.apiKey) {
+          this.googleAI = new GoogleGenerativeAI(config.ai.google.apiKey);
+        }
+        break;
+      case 'anthropic':
+        if (config.ai.anthropic.apiKey) {
+          this.anthropic = new Anthropic({
+            apiKey: config.ai.anthropic.apiKey,
+          });
+        }
+        break;
+    }
   }
 
   async generateMorningSuggestions(
@@ -35,25 +70,14 @@ ${contextText}
 Please provide specific, actionable suggestions that will help improve productivity and address any challenges from yesterday. Keep the tone encouraging and professional.
       `.trim();
 
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a helpful productivity assistant that provides actionable daily suggestions.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        max_tokens: 500,
-        temperature: 0.7,
-      });
+      const response = await this.generateResponse(
+        'You are a helpful productivity assistant that provides actionable daily suggestions.',
+        prompt,
+        { maxTokens: 500, temperature: 0.7 }
+      );
 
-      const suggestions = response.choices[0]?.message?.content || '';
       logger.info('Morning suggestions generated successfully');
-      return suggestions;
+      return response;
     } catch (error) {
       logger.error('Failed to generate morning suggestions:', error);
       throw error;
@@ -83,25 +107,14 @@ Please create a summary that includes:
 Keep the summary professional, concise, and actionable.
       `.trim();
 
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a professional work summary assistant that creates structured, insightful summaries.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        max_tokens: 600,
-        temperature: 0.5,
-      });
+      const response = await this.generateResponse(
+        'You are a professional work summary assistant that creates structured, insightful summaries.',
+        prompt,
+        { maxTokens: 600, temperature: 0.5 }
+      );
 
-      const summary = response.choices[0]?.message?.content || '';
       logger.info('Work summary generated successfully');
-      return summary;
+      return response;
     } catch (error) {
       logger.error('Failed to generate work summary:', error);
       throw error;
@@ -128,29 +141,156 @@ ${contextText}
 Please provide a compressed summary that captures the essential information while reducing the overall length by at least 50%.
       `.trim();
 
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a context compression specialist that preserves important information while reducing length.',
-          },
-          {
-            role: 'user',
-            content: prompt,
-          },
-        ],
-        max_tokens: 800,
-        temperature: 0.3,
-      });
+      const response = await this.generateResponse(
+        'You are a context compression specialist that preserves important information while reducing length.',
+        prompt,
+        { maxTokens: 800, temperature: 0.3 }
+      );
 
-      const compressed = response.choices[0]?.message?.content || '';
       logger.info('Context compressed successfully');
-      return compressed;
+      return response;
     } catch (error) {
       logger.error('Failed to compress context:', error);
       throw error;
     }
+  }
+
+  private async generateResponse(
+    systemMessage: string,
+    userMessage: string,
+    options: { maxTokens: number; temperature: number }
+  ): Promise<string> {
+    const provider = config.ai.provider;
+
+    switch (provider) {
+      case 'openai':
+        return this.generateOpenAIResponse(systemMessage, userMessage, options);
+      case 'deepseek':
+        return this.generateDeepSeekResponse(systemMessage, userMessage, options);
+      case 'google':
+        return this.generateGoogleResponse(systemMessage, userMessage, options);
+      case 'anthropic':
+        return this.generateAnthropicResponse(systemMessage, userMessage, options);
+      case 'azure-openai':
+        return this.generateAzureOpenAIResponse(systemMessage, userMessage, options);
+      default:
+        throw new Error(`Unsupported AI provider: ${provider}`);
+    }
+  }
+
+  private async generateOpenAIResponse(
+    systemMessage: string,
+    userMessage: string,
+    options: { maxTokens: number; temperature: number }
+  ): Promise<string> {
+    if (!this.openai) {
+      throw new Error('OpenAI client not initialized');
+    }
+
+    const response = await this.openai.chat.completions.create({
+      model: config.ai.openai.model,
+      messages: [
+        { role: 'system', content: systemMessage },
+        { role: 'user', content: userMessage },
+      ],
+      max_tokens: options.maxTokens,
+      temperature: options.temperature,
+    });
+
+    return response.choices[0]?.message?.content || '';
+  }
+
+  private async generateDeepSeekResponse(
+    systemMessage: string,
+    userMessage: string,
+    options: { maxTokens: number; temperature: number }
+  ): Promise<string> {
+    const response = await axios.post(
+      `${config.ai.deepseek.baseURL}/chat/completions`,
+      {
+        model: config.ai.deepseek.model,
+        messages: [
+          { role: 'system', content: systemMessage },
+          { role: 'user', content: userMessage },
+        ],
+        max_tokens: options.maxTokens,
+        temperature: options.temperature,
+      },
+      {
+        headers: {
+          'Authorization': `Bearer ${config.ai.deepseek.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    return response.data.choices[0]?.message?.content || '';
+  }
+
+  private async generateGoogleResponse(
+    systemMessage: string,
+    userMessage: string,
+    options: { maxTokens: number; temperature: number }
+  ): Promise<string> {
+    if (!this.googleAI) {
+      throw new Error('Google AI client not initialized');
+    }
+
+    const model = this.googleAI.getGenerativeModel({ model: config.ai.google.model });
+    const prompt = `${systemMessage}\n\n${userMessage}`;
+    
+    const result = await model.generateContent(prompt);
+    const response = await result.response;
+    
+    return response.text();
+  }
+
+  private async generateAnthropicResponse(
+    systemMessage: string,
+    userMessage: string,
+    options: { maxTokens: number; temperature: number }
+  ): Promise<string> {
+    if (!this.anthropic) {
+      throw new Error('Anthropic client not initialized');
+    }
+
+    const response = await this.anthropic.messages.create({
+      model: config.ai.anthropic.model,
+      max_tokens: options.maxTokens,
+      temperature: options.temperature,
+      system: systemMessage,
+      messages: [
+        { role: 'user', content: userMessage },
+      ],
+    });
+
+    return response.content[0]?.type === 'text' ? response.content[0].text : '';
+  }
+
+  private async generateAzureOpenAIResponse(
+    systemMessage: string,
+    userMessage: string,
+    options: { maxTokens: number; temperature: number }
+  ): Promise<string> {
+    const response = await axios.post(
+      `${config.ai.azureOpenai.endpoint}/openai/deployments/${config.ai.azureOpenai.deploymentName}/chat/completions?api-version=${config.ai.azureOpenai.apiVersion}`,
+      {
+        messages: [
+          { role: 'system', content: systemMessage },
+          { role: 'user', content: userMessage },
+        ],
+        max_tokens: options.maxTokens,
+        temperature: options.temperature,
+      },
+      {
+        headers: {
+          'api-key': config.ai.azureOpenai.apiKey,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    return response.data.choices[0]?.message?.content || '';
   }
 
   private formatContext(context: ContextEntry[]): string {

@@ -2,6 +2,8 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+export type AIProvider = 'openai' | 'deepseek' | 'google' | 'anthropic' | 'azure-openai';
+
 interface Config {
   email: {
     smtp: {
@@ -15,8 +17,32 @@ interface Config {
       name: string;
     };
   };
-  openai: {
-    apiKey: string;
+  ai: {
+    provider: AIProvider;
+    openai: {
+      apiKey: string;
+      model: string;
+      baseURL?: string;
+    };
+    deepseek: {
+      apiKey: string;
+      model: string;
+      baseURL: string;
+    };
+    google: {
+      apiKey: string;
+      model: string;
+    };
+    anthropic: {
+      apiKey: string;
+      model: string;
+    };
+    azureOpenai: {
+      apiKey: string;
+      endpoint: string;
+      deploymentName: string;
+      apiVersion: string;
+    };
   };
   schedule: {
     morningReminderTime: string;
@@ -42,8 +68,32 @@ const config: Config = {
       name: process.env.USER_NAME || '',
     },
   },
-  openai: {
-    apiKey: process.env.OPENAI_API_KEY || '',
+  ai: {
+    provider: (process.env.AI_PROVIDER as AIProvider) || 'openai',
+    openai: {
+      apiKey: process.env.OPENAI_API_KEY || '',
+      model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
+      baseURL: process.env.OPENAI_BASE_URL,
+    },
+    deepseek: {
+      apiKey: process.env.DEEPSEEK_API_KEY || '',
+      model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
+      baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
+    },
+    google: {
+      apiKey: process.env.GOOGLE_API_KEY || '',
+      model: process.env.GOOGLE_MODEL || 'gemini-pro',
+    },
+    anthropic: {
+      apiKey: process.env.ANTHROPIC_API_KEY || '',
+      model: process.env.ANTHROPIC_MODEL || 'claude-3-sonnet-20240229',
+    },
+    azureOpenai: {
+      apiKey: process.env.AZURE_OPENAI_API_KEY || '',
+      endpoint: process.env.AZURE_OPENAI_ENDPOINT || '',
+      deploymentName: process.env.AZURE_OPENAI_DEPLOYMENT || '',
+      apiVersion: process.env.AZURE_OPENAI_API_VERSION || '2023-12-01-preview',
+    },
   },
   schedule: {
     morningReminderTime: process.env.MORNING_REMINDER_TIME || '08:00',
