@@ -1,5 +1,4 @@
 import express from 'express';
-import config from './config';
 import logger from './utils/logger';
 import SchedulerService from './services/schedulerService';
 import scheduleRoutes from './routes/schedule';
@@ -32,7 +31,8 @@ async function startServer(): Promise<void> {
       try {
         const { report } = req.body;
         if (!report) {
-          return res.status(400).json({ error: 'Work report is required' });
+          res.status(400).json({ error: 'Work report is required' });
+          return;
         }
 
         await schedulerService.processWorkReport(report);

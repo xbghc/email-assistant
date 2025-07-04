@@ -2,14 +2,9 @@ import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 import Anthropic from '@anthropic-ai/sdk';
 import axios from 'axios';
-import config, { AIProvider } from '../config';
+import config from '../config';
 import logger from '../utils/logger';
 import { ContextEntry } from '../models';
-
-interface AIMessage {
-  role: 'system' | 'user' | 'assistant';
-  content: string;
-}
 
 class AIService {
   private openai?: OpenAI;
@@ -230,7 +225,7 @@ Please provide a compressed summary that captures the essential information whil
   private async generateGoogleResponse(
     systemMessage: string,
     userMessage: string,
-    options: { maxTokens: number; temperature: number }
+    _options: { maxTokens: number; temperature: number }
   ): Promise<string> {
     if (!this.googleAI) {
       throw new Error('Google AI client not initialized');

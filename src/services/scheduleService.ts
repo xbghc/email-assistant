@@ -22,6 +22,9 @@ class ScheduleService {
 
   async getTodaySchedule(): Promise<DailySchedule | null> {
     const today = new Date().toISOString().split('T')[0];
+    if (!today) {
+      return null;
+    }
     return this.getScheduleForDate(today);
   }
 
@@ -107,6 +110,10 @@ class ScheduleService {
       const futureDate = new Date();
       futureDate.setDate(futureDate.getDate() + days);
       const endDate = futureDate.toISOString().split('T')[0];
+      
+      if (!today || !endDate) {
+        return [];
+      }
       
       return schedules
         .filter(schedule => schedule.date >= today && schedule.date <= endDate)

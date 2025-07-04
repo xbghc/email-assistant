@@ -110,7 +110,7 @@ class EmailReplyHandler {
 
       const acknowledgeSubject = `📝 Schedule Feedback Acknowledged - ${new Date().toLocaleDateString()}`;
       const acknowledgeContent = `
-Hello ${email.from.split('<')[0].trim() || 'there'},
+Hello ${email.from.split('<')[0]?.trim() || 'there'},
 
 Thank you for your feedback on the schedule reminder. I've noted your comments:
 
@@ -168,7 +168,7 @@ Your Email Assistant
 
       const replySubject = `Re: ${email.subject.replace(/^(Re:|RE:|回复：)\s*/i, '')}`;
       const replyContent = `
-Hello ${email.from.split('<')[0].trim() || 'there'},
+Hello ${email.from.split('<')[0]?.trim() || 'there'},
 
 Thank you for your message. I've reviewed your inquiry:
 

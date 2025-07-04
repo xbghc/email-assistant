@@ -11,11 +11,11 @@ export interface ParsedEmail {
   to: string[];
   date: Date;
   textContent: string;
-  htmlContent?: string;
-  inReplyTo?: string;
-  references?: string[];
+  htmlContent?: string | undefined;
+  inReplyTo?: string | undefined;
+  references?: string[] | undefined;
   isReply: boolean;
-  replyType?: 'work_report' | 'schedule_response' | 'general';
+  replyType?: 'work_report' | 'schedule_response' | 'general' | undefined;
 }
 
 class EmailReceiveService extends EventEmitter {
@@ -91,7 +91,7 @@ class EmailReceiveService extends EventEmitter {
   }
 
   private openInbox(): void {
-    this.imap.openBox('INBOX', false, (err, box) => {
+    this.imap.openBox('INBOX', false, (err, _box) => {
       if (err) {
         logger.error('Failed to open inbox:', err);
         return;
@@ -172,16 +172,23 @@ class EmailReceiveService extends EventEmitter {
 
       this.processedEmails.add(parsed.messageId);
 
+      const fromText = Array.isArray(parsed.from) 
+        ? parsed.from[0]?.text || '' 
+        : parsed.from?.text || '';
+      const toText = Array.isArray(parsed.to) 
+        ? parsed.to.map(addr => addr.text || '').filter(Boolean)
+        : parsed.to?.text ? [parsed.to.text] : [];
+      
       const email: ParsedEmail = {
-        messageId: parsed.messageId,
+        messageId: parsed.messageId || '',
         subject: parsed.subject || '',
-        from: parsed.from?.text || '',
-        to: parsed.to?.text ? [parsed.to.text] : [],
+        from: fromText,
+        to: toText,
         date: parsed.date || new Date(),
         textContent: parsed.text || '',
-        htmlContent: parsed.html,
-        inReplyTo: parsed.inReplyTo,
-        references: parsed.references,
+        htmlContent: parsed.html || undefined,
+        inReplyTo: parsed.inReplyTo || undefined,
+        references: Array.isArray(parsed.references) ? parsed.references : parsed.references ? [parsed.references] : undefined,
         isReply: this.isReplyEmail(parsed),
         replyType: this.determineReplyType(parsed),
       };

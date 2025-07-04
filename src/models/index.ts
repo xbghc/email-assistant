@@ -30,7 +30,7 @@ export interface ContextEntry {
   timestamp: Date;
   type: 'schedule' | 'work_summary' | 'feedback' | 'conversation';
   content: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, any> | undefined;
 }
 
 export interface UserInteraction {

@@ -30,7 +30,7 @@ interface Config {
     openai: {
       apiKey: string;
       model: string;
-      baseURL?: string;
+      baseURL?: string | undefined;
     };
     deepseek: {
       apiKey: string;
