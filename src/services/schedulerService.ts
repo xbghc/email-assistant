@@ -74,6 +74,7 @@ class SchedulerService {
   }
 
   private setupEmailReceiver(): void {
+    // 处理用户邮件回复
     this.emailReceiveService.on('emailReceived', async (email: ParsedEmail) => {
       try {
         logger.info(`Received email reply: ${email.subject} from ${email.from}`);
@@ -81,6 +82,40 @@ class SchedulerService {
         logger.info(`Email reply processed: ${result.type} - ${result.response}`);
       } catch (error) {
         logger.error('Failed to process email reply:', error);
+      }
+    });
+
+    // 处理其他人的邮件转发
+    this.emailReceiveService.on('emailForward', async (email: ParsedEmail) => {
+      try {
+        if (!config.email.forwarding.enabled) {
+          logger.info(`Email forwarding disabled, skipping: ${email.subject} from ${email.from}`);
+          return;
+        }
+
+        logger.info(`Forwarding email: ${email.subject} from ${email.from}`);
+        await this.emailService.forwardEmail(
+          email.from,
+          email.subject,
+          email.textContent,
+          email.date,
+          email.to
+        );
+        
+        // 记录转发操作到上下文
+        await this.contextService.addEntry(
+          'conversation',
+          `Email forwarded from ${email.from}: ${email.subject}`,
+          { 
+            originalFrom: email.from,
+            originalSubject: email.subject,
+            forwardedAt: new Date()
+          }
+        );
+        
+        logger.info(`Email forwarded successfully from ${email.from}`);
+      } catch (error) {
+        logger.error('Failed to forward email:', error);
       }
     });
 

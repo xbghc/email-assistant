@@ -21,6 +21,10 @@ interface Config {
       rejectUnauthorized: boolean;
       checkIntervalMs: number;
     };
+    forwarding: {
+      enabled: boolean;
+      markAsRead: boolean;
+    };
     user: {
       email: string;
       name: string;
@@ -80,6 +84,10 @@ const config: Config = {
       tls: process.env.IMAP_TLS === 'false' ? false : true,
       rejectUnauthorized: process.env.IMAP_REJECT_UNAUTHORIZED === 'false' ? false : true,
       checkIntervalMs: parseInt(process.env.EMAIL_CHECK_INTERVAL_MS || '30000'),
+    },
+    forwarding: {
+      enabled: process.env.EMAIL_FORWARDING_ENABLED === 'false' ? false : true,
+      markAsRead: process.env.EMAIL_FORWARDING_MARK_READ === 'false' ? false : true,
     },
     user: {
       email: process.env.USER_EMAIL || '',

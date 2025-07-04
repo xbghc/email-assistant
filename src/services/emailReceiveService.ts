@@ -202,7 +202,9 @@ class EmailReceiveService extends EventEmitter {
         logger.info(`Processing email from user: ${email.subject} (isReply: ${email.isReply}, type: ${email.replyType})`);
         this.emit('emailReceived', email);
       } else {
-        logger.debug(`Ignoring email from: ${email.from}`);
+        // 处理来自其他人的邮件 - 转发给用户
+        logger.info(`Forwarding email from: ${email.from}, subject: ${email.subject}`);
+        this.emit('emailForward', email);
       }
     } catch (error) {
       logger.error(`Failed to parse email ${seqno}:`, error);

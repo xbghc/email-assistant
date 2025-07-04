@@ -95,6 +95,40 @@ Your Email Assistant
     await this.sendEmail(subject, content);
   }
 
+  async forwardEmail(
+    originalFrom: string,
+    originalSubject: string,
+    originalContent: string,
+    originalDate: Date,
+    originalTo?: string[]
+  ): Promise<void> {
+    try {
+      const forwardSubject = `📧 Forwarded Email: ${originalSubject}`;
+      const forwardContent = `
+📧 FORWARDED EMAIL
+
+From: ${originalFrom}
+To: ${originalTo?.join(', ') || 'N/A'}
+Date: ${originalDate.toLocaleString()}
+Subject: ${originalSubject}
+
+──────────────────────
+
+${originalContent}
+
+──────────────────────
+
+This email was automatically forwarded by your Email Assistant.
+      `.trim();
+
+      await this.sendEmail(forwardSubject, forwardContent);
+      logger.info(`Email forwarded from ${originalFrom}: ${originalSubject}`);
+    } catch (error) {
+      logger.error('Failed to forward email:', error);
+      throw error;
+    }
+  }
+
   async verifyConnection(): Promise<boolean> {
     try {
       await this.transporter.verify();
