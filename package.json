@@ -23,13 +23,16 @@
     "winston": "^3.11.0",
     "@google/generative-ai": "^0.2.1",
     "@anthropic-ai/sdk": "^0.17.1",
-    "axios": "^1.6.7"
+    "axios": "^1.6.7",
+    "imap": "^0.8.19",
+    "mailparser": "^3.6.5"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
     "@types/express": "^4.17.21",
     "@types/nodemailer": "^6.4.14",
     "@types/node-cron": "^3.0.11",
+    "@types/imap": "^0.8.37",
     "@typescript-eslint/eslint-plugin": "^6.18.1",
     "@typescript-eslint/parser": "^6.18.1",
     "eslint": "^8.56.0",

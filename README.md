@@ -8,7 +8,8 @@ A server-side email assistant that provides daily schedule reminders and work su
 - **Evening Summaries**: Work report processing and intelligent summaries
 - **Context Management**: Automatic context compression to maintain conversation history
 - **Flexible Scheduling**: Configurable reminder times
-- **Email Integration**: SMTP support for various email providers
+- **Email Integration**: SMTP and IMAP support for various email providers
+- **Email Reply Processing**: Automatic processing of user email replies for work reports and feedback
 - **Multi-AI Support**: Compatible with OpenAI, DeepSeek, Google Gemini, Anthropic Claude, and Azure OpenAI
 
 ## Installation
@@ -25,7 +26,8 @@ A server-side email assistant that provides daily schedule reminders and work su
    ```
 
 4. Configure your settings in `.env`:
-   - Email SMTP settings
+   - Email SMTP settings (for sending)
+   - Email IMAP settings (for receiving replies)
    - AI provider and API key
    - Reminder times
    - Other preferences
@@ -35,11 +37,19 @@ A server-side email assistant that provides daily schedule reminders and work su
 Edit the `.env` file with your settings:
 
 ```env
-# Email Configuration
+# Email Configuration (SMTP for sending)
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your-email@gmail.com
 SMTP_PASS=your-app-password
+
+# Email Configuration (IMAP for receiving)
+IMAP_HOST=imap.gmail.com
+IMAP_PORT=993
+IMAP_USER=your-email@gmail.com
+IMAP_PASS=your-app-password
+IMAP_TLS=true
+EMAIL_CHECK_INTERVAL_MS=30000
 
 # User Email
 USER_EMAIL=your-email@gmail.com
@@ -162,7 +172,34 @@ The assistant can work with schedule data stored in `data/schedule.json`. Exampl
 3. Use the app password in `SMTP_PASS`
 
 ### Other Providers
-Configure SMTP settings according to your provider's documentation.
+Configure SMTP and IMAP settings according to your provider's documentation.
+
+## Email Interaction Flow
+
+The assistant communicates with users through email in the following ways:
+
+### 1. Morning Reminders
+- Sent automatically at the configured time
+- Contains today's schedule and AI-generated productivity suggestions
+- Users can reply with feedback or questions
+
+### 2. Evening Work Report Requests
+- Sent automatically at the configured time
+- Asks users to reply with their daily work summary
+- Users reply via email with their accomplishments, challenges, and plans
+
+### 3. Automatic Reply Processing
+The assistant automatically processes email replies and categorizes them as:
+
+- **Work Reports**: User responses to evening reminders containing work summaries
+- **Schedule Feedback**: User responses to morning reminders with feedback or questions
+- **General Inquiries**: Any other email communication
+
+### 4. Response Generation
+Based on the reply type, the assistant:
+- Generates AI-powered work summaries for work reports
+- Provides additional suggestions for schedule feedback
+- Answers general questions using conversation context
 
 ## AI Provider Setup
 

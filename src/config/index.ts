@@ -12,6 +12,14 @@ interface Config {
       user: string;
       pass: string;
     };
+    imap: {
+      host: string;
+      port: number;
+      user: string;
+      pass: string;
+      tls: boolean;
+      checkIntervalMs: number;
+    };
     user: {
       email: string;
       name: string;
@@ -62,6 +70,14 @@ const config: Config = {
       port: parseInt(process.env.SMTP_PORT || '587'),
       user: process.env.SMTP_USER || '',
       pass: process.env.SMTP_PASS || '',
+    },
+    imap: {
+      host: process.env.IMAP_HOST || 'imap.gmail.com',
+      port: parseInt(process.env.IMAP_PORT || '993'),
+      user: process.env.IMAP_USER || process.env.SMTP_USER || '',
+      pass: process.env.IMAP_PASS || process.env.SMTP_PASS || '',
+      tls: process.env.IMAP_TLS === 'false' ? false : true,
+      checkIntervalMs: parseInt(process.env.EMAIL_CHECK_INTERVAL_MS || '30000'),
     },
     user: {
       email: process.env.USER_EMAIL || '',

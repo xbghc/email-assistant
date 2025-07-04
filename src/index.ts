@@ -18,7 +18,12 @@ async function startServer(): Promise<void> {
     await schedulerService.initialize();
 
     app.get('/health', (req, res) => {
-      res.json({ status: 'healthy', timestamp: new Date().toISOString() });
+      const emailStatus = schedulerService.getEmailReceiveStatus();
+      res.json({ 
+        status: 'healthy', 
+        timestamp: new Date().toISOString(),
+        emailReceiver: emailStatus
+      });
     });
 
     app.use('/api/schedule', scheduleRoutes);

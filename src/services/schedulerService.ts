@@ -5,12 +5,16 @@ import EmailService from './emailService';
 import AIService from './aiService';
 import ContextService from './contextService';
 import ScheduleService from './scheduleService';
+import EmailReceiveService, { ParsedEmail } from './emailReceiveService';
+import EmailReplyHandler from './emailReplyHandler';
 
 class SchedulerService {
   private emailService: EmailService;
   private aiService: AIService;
   private contextService: ContextService;
   private scheduleService: ScheduleService;
+  private emailReceiveService: EmailReceiveService;
+  private emailReplyHandler: EmailReplyHandler;
   private morningTask?: cron.ScheduledTask;
   private eveningTask?: cron.ScheduledTask;
 
@@ -19,6 +23,8 @@ class SchedulerService {
     this.aiService = new AIService();
     this.contextService = new ContextService();
     this.scheduleService = new ScheduleService();
+    this.emailReceiveService = new EmailReceiveService();
+    this.emailReplyHandler = new EmailReplyHandler();
   }
 
   async initialize(): Promise<void> {
@@ -26,9 +32,11 @@ class SchedulerService {
       await this.contextService.initialize();
       await this.scheduleService.initialize();
       await this.emailService.verifyConnection();
+      await this.emailReplyHandler.initialize();
       
       this.setupMorningReminder();
       this.setupEveningReminder();
+      this.setupEmailReceiver();
       
       logger.info('Scheduler service initialized successfully');
     } catch (error) {
@@ -63,6 +71,24 @@ class SchedulerService {
     });
 
     logger.info(`Evening reminder scheduled for ${config.schedule.eveningReminderTime}`);
+  }
+
+  private setupEmailReceiver(): void {
+    this.emailReceiveService.on('emailReceived', async (email: ParsedEmail) => {
+      try {
+        logger.info(`Received email reply: ${email.subject} from ${email.from}`);
+        const result = await this.emailReplyHandler.handleEmailReply(email);
+        logger.info(`Email reply processed: ${result.type} - ${result.response}`);
+      } catch (error) {
+        logger.error('Failed to process email reply:', error);
+      }
+    });
+
+    this.emailReceiveService.start().catch(error => {
+      logger.error('Failed to start email receive service:', error);
+    });
+
+    logger.info('Email receiver setup completed');
   }
 
   private async sendMorningReminder(): Promise<void> {
@@ -164,6 +190,13 @@ class SchedulerService {
     await this.sendEveningReminder();
   }
 
+  getEmailReceiveStatus(): { connected: boolean; processed: number } {
+    return {
+      connected: this.emailReceiveService.isConnectedToImap(),
+      processed: 0 // You can add a counter if needed
+    };
+  }
+
   destroy(): void {
     if (this.morningTask) {
       this.morningTask.stop();
@@ -171,6 +204,7 @@ class SchedulerService {
     if (this.eveningTask) {
       this.eveningTask.stop();
     }
+    this.emailReceiveService.stop();
     logger.info('Scheduler service destroyed');
   }
 }
