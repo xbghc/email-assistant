@@ -97,6 +97,26 @@ npm run build
 npm start
 ```
 
+### Logging Configuration
+
+控制台输出已优化为只显示重要信息。可通过环境变量调整日志级别：
+
+```bash
+# 最少输出（推荐）
+LOG_LEVEL=warn
+
+# 详细输出（调试时使用）
+LOG_LEVEL=info
+
+# 完整调试信息
+LOG_LEVEL=debug
+```
+
+启动时只会看到简洁的状态信息：
+- ✅ Email Assistant Server started on port 3000
+- 📅 Scheduler configured for reminders
+- ❌ 错误信息（如需要配置凭据时）
+
 ### Testing Email Features
 ```bash
 # Test morning reminder

@@ -15,11 +15,16 @@ const logger = winston.createLogger({
   ],
 });
 
+// 简化控制台输出，只显示重要信息
 if (process.env.NODE_ENV !== 'production') {
   logger.add(new winston.transports.Console({
+    level: 'warn', // 只显示警告和错误
     format: winston.format.combine(
       winston.format.colorize(),
-      winston.format.simple()
+      winston.format.printf(({ level, message, timestamp }) => {
+        const time = timestamp ? new Date(timestamp as string).toLocaleTimeString() : new Date().toLocaleTimeString();
+        return `[${time}] ${level}: ${message}`;
+      })
     )
   }));
 }

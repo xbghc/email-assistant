@@ -72,7 +72,7 @@ async function startServer(): Promise<void> {
     });
 
     app.listen(port, () => {
-      logger.info(`Email assistant server running on port ${port}`);
+      console.log(`✅ Email Assistant Server started on port ${port}`);
     });
 
   } catch (error) {

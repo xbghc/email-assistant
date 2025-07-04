@@ -19,7 +19,7 @@ class ContextService {
     try {
       await this.ensureDataDirectory();
       await this.loadContext();
-      logger.info('Context service initialized');
+      // Context service initialized silently
     } catch (error) {
       logger.error('Failed to initialize context service:', error);
       throw error;

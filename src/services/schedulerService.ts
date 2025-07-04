@@ -38,7 +38,7 @@ class SchedulerService {
       this.setupEveningReminder();
       this.setupEmailReceiver();
       
-      logger.info('Scheduler service initialized successfully');
+      console.log('📅 Scheduler configured for reminders');
     } catch (error) {
       logger.error('Failed to initialize scheduler service:', error);
       throw error;
@@ -56,7 +56,7 @@ class SchedulerService {
       timezone: 'Asia/Shanghai',
     });
 
-    logger.info(`Morning reminder scheduled for ${config.schedule.morningReminderTime}`);
+    // Morning reminder scheduled
   }
 
   private setupEveningReminder(): void {
@@ -70,7 +70,7 @@ class SchedulerService {
       timezone: 'Asia/Shanghai',
     });
 
-    logger.info(`Evening reminder scheduled for ${config.schedule.eveningReminderTime}`);
+    // Evening reminder scheduled
   }
 
   private setupEmailReceiver(): void {
