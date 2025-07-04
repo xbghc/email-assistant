@@ -18,6 +18,7 @@ interface Config {
       user: string;
       pass: string;
       tls: boolean;
+      rejectUnauthorized: boolean;
       checkIntervalMs: number;
     };
     user: {
@@ -77,6 +78,7 @@ const config: Config = {
       user: process.env.IMAP_USER || process.env.SMTP_USER || '',
       pass: process.env.IMAP_PASS || process.env.SMTP_PASS || '',
       tls: process.env.IMAP_TLS === 'false' ? false : true,
+      rejectUnauthorized: process.env.IMAP_REJECT_UNAUTHORIZED === 'false' ? false : true,
       checkIntervalMs: parseInt(process.env.EMAIL_CHECK_INTERVAL_MS || '30000'),
     },
     user: {

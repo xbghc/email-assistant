@@ -32,6 +32,10 @@ class EmailReceiveService extends EventEmitter {
       host: config.email.imap.host,
       port: config.email.imap.port,
       tls: config.email.imap.tls,
+      tlsOptions: {
+        rejectUnauthorized: config.email.imap.rejectUnauthorized,
+        secureProtocol: 'TLSv1_2_method'
+      },
       authTimeout: 10000,
       connTimeout: 10000,
     });
