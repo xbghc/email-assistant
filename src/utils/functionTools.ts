@@ -10,16 +10,13 @@ export const functionTools = [
         properties: {
           morningTime: {
             type: "string",
-            description: "早晨提醒时间，格式为 HH:MM（24小时制），如 08:30",
-            pattern: "^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
+            description: "早晨提醒时间，格式为 HH:MM（24小时制），如 08:30"
           },
           eveningTime: {
             type: "string", 
-            description: "晚间提醒时间，格式为 HH:MM（24小时制），如 20:00",
-            pattern: "^([01]?[0-9]|2[0-3]):[0-5][0-9]$"
+            description: "晚间提醒时间，格式为 HH:MM（24小时制），如 20:00"
           }
-        },
-        additionalProperties: false
+        }
       }
     }
   },
@@ -46,8 +43,7 @@ export const functionTools = [
             type: "string",
             description: "标记来自特定发件人的所有邮件为已读"
           }
-        },
-        additionalProperties: false
+        }
       }
     }
   },

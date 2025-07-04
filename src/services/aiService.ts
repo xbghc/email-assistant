@@ -204,7 +204,14 @@ ${contextText}
           return await this.generateResponse(systemMessage, userMessage, options);
       }
     } catch (error) {
-      logger.error('Function call generation failed, falling back to normal response:', error);
+      if (error instanceof Error) {
+        logger.error(`Function call failed (${provider}): ${error.message}`);
+        if (error.message.includes('422')) {
+          logger.error('422 error suggests invalid function call parameters');
+        }
+      } else {
+        logger.error('Function call generation failed, falling back to normal response:', error);
+      }
       return await this.generateResponse(systemMessage, userMessage, options);
     }
   }
@@ -249,8 +256,9 @@ ${contextText}
       ],
       max_tokens: options.maxTokens,
       temperature: options.temperature,
-      tools: functionTools,
-      tool_choice: 'auto',
+      // 暂时禁用Function Call以解决422错误
+      // tools: functionTools,
+      // tool_choice: 'auto',
     });
 
     const message = response.choices[0]?.message;
@@ -335,8 +343,9 @@ ${contextText}
         ],
         max_tokens: options.maxTokens,
         temperature: options.temperature,
-        tools: deepseekFunctionTools,
-        tool_choice: 'auto',
+        // 暂时禁用DeepSeek Function Call以解决422错误
+        // tools: deepseekFunctionTools,
+        // tool_choice: 'auto',
       },
       {
         headers: {
