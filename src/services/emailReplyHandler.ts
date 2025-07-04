@@ -106,27 +106,27 @@ class EmailReplyHandler {
 
       const recentContext = await this.contextService.getRecentContext(3);
       const response = await this.aiService.generateMorningSuggestions(
-        'User feedback on schedule',
+        '用户对日程安排的反馈',
         content,
         recentContext
       );
 
-      const acknowledgeSubject = `📝 Schedule Feedback Acknowledged - ${new Date().toLocaleDateString()}`;
+      const acknowledgeSubject = `📝 日程反馈已收到 - ${new Date().toLocaleDateString()}`;
       const acknowledgeContent = `
-Hello ${email.from.split('<')[0]?.trim() || 'there'},
+您好 ${email.from.split('<')[0]?.trim() || '朋友'},
 
-Thank you for your feedback on the schedule reminder. I've noted your comments:
+感谢您对日程提醒的反馈。我已经记录了您的意见：
 
 "${content}"
 
-Based on your feedback, here are some additional suggestions:
+基于您的反馈，这里有一些额外的建议：
 
 ${response}
 
-Your input helps me provide better assistance. Keep up the great work!
+您的反馈帮助我提供更好的服务。继续保持出色的工作！
 
-Best regards,
-Your Email Assistant
+此致，
+您的邮件助手
       `.trim();
 
       await this.emailService.sendEmail(acknowledgeSubject, acknowledgeContent);
@@ -164,25 +164,25 @@ Your Email Assistant
         .join('\n\n');
 
       const aiResponse = await this.aiService.generateMorningSuggestions(
-        'User general inquiry',
-        `User message: ${content}\n\nRecent context: ${contextText}`,
+        '用户一般询问',
+        `用户消息：${content}\n\n最近记录：${contextText}`,
         recentContext
       );
 
-      const replySubject = `Re: ${email.subject.replace(/^(Re:|RE:|回复：)\s*/i, '')}`;
+      const replySubject = `回复: ${email.subject.replace(/^(Re:|RE:|回复：)\s*/i, '')}`;
       const replyContent = `
-Hello ${email.from.split('<')[0]?.trim() || 'there'},
+您好 ${email.from.split('<')[0]?.trim() || '朋友'},
 
-Thank you for your message. I've reviewed your inquiry:
+感谢您的来信。我已经查看了您的询问：
 
 "${content}"
 
 ${aiResponse}
 
-If you have any other questions or need assistance with your schedule or work planning, feel free to reply to this email.
+如果您有其他问题或需要日程安排、工作规划方面的帮助，请随时回复此邮件。
 
-Best regards,
-Your Email Assistant
+此致，
+您的邮件助手
       `.trim();
 
       await this.emailService.sendEmail(replySubject, replyContent);

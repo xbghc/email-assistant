@@ -35,61 +35,61 @@ class EmailService {
   }
 
   async sendMorningReminder(scheduleContent: string, suggestions: string): Promise<void> {
-    const subject = `📅 Daily Schedule Reminder - ${new Date().toLocaleDateString()}`;
+    const subject = `📅 每日日程提醒 - ${new Date().toLocaleDateString()}`;
     const content = `
-Good morning, ${config.email.user.name}!
+早上好，${config.email.user.name}！
 
-Here's your schedule for today:
+这是您今天的日程安排：
 
 ${scheduleContent}
 
-Based on yesterday's performance, here are some suggestions:
+基于昨天的表现，这里有一些建议：
 
 ${suggestions}
 
-Have a productive day!
+祝您今天工作愉快！
 
-Best regards,
-Your Email Assistant
+此致，
+您的邮件助手
     `.trim();
 
     await this.sendEmail(subject, content);
   }
 
   async sendEveningReminder(): Promise<void> {
-    const subject = `📝 Daily Work Summary Request - ${new Date().toLocaleDateString()}`;
+    const subject = `📝 每日工作总结请求 - ${new Date().toLocaleDateString()}`;
     const content = `
-Good evening, ${config.email.user.name}!
+晚上好，${config.email.user.name}！
 
-It's time to reflect on your day. Please reply to this email with:
+现在是时候回顾您的一天了。请回复此邮件并告诉我：
 
-1. What tasks did you complete today?
-2. What were your main achievements?
-3. What challenges did you face?
-4. What are your plans for tomorrow?
+1. 您今天完成了哪些任务？
+2. 您的主要成就是什么？
+3. 您遇到了什么挑战？
+4. 您明天的计划是什么？
 
-Your response will help me provide better suggestions and track your progress.
+您的回复将帮助我提供更好的建议并跟踪您的进展。
 
-Best regards,
-Your Email Assistant
+此致，
+您的邮件助手
     `.trim();
 
     await this.sendEmail(subject, content);
   }
 
   async sendWorkSummary(summary: string): Promise<void> {
-    const subject = `📊 Daily Work Summary - ${new Date().toLocaleDateString()}`;
+    const subject = `📊 每日工作总结 - ${new Date().toLocaleDateString()}`;
     const content = `
-Hello ${config.email.user.name},
+您好 ${config.email.user.name}，
 
-Here's your summarized work report for today:
+这是您今天的工作总结报告：
 
 ${summary}
 
-Keep up the great work!
+继续保持出色的工作！
 
-Best regards,
-Your Email Assistant
+此致，
+您的邮件助手
     `.trim();
 
     await this.sendEmail(subject, content);
@@ -103,14 +103,14 @@ Your Email Assistant
     originalTo?: string[]
   ): Promise<void> {
     try {
-      const forwardSubject = `📧 Forwarded Email: ${originalSubject}`;
+      const forwardSubject = `📧 转发邮件: ${originalSubject}`;
       const forwardContent = `
-📧 FORWARDED EMAIL
+📧 转发邮件
 
-From: ${originalFrom}
-To: ${originalTo?.join(', ') || 'N/A'}
-Date: ${originalDate.toLocaleString()}
-Subject: ${originalSubject}
+发件人: ${originalFrom}
+收件人: ${originalTo?.join(', ') || '无'}
+日期: ${originalDate.toLocaleString()}
+主题: ${originalSubject}
 
 ──────────────────────
 
@@ -118,7 +118,7 @@ ${originalContent}
 
 ──────────────────────
 
-This email was automatically forwarded by your Email Assistant.
+此邮件由您的邮件助手自动转发。
       `.trim();
 
       await this.sendEmail(forwardSubject, forwardContent);
