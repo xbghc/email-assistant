@@ -2,8 +2,8 @@ import express from 'express';
 import path from 'path';
 import logger from '../utils/logger';
 import UserService from '../services/userService';
-import WeeklyReportService from '../services/weeklyReportService';
-import PersonalizationService from '../services/personalizationService';
+// import WeeklyReportService from '../services/weeklyReportService';
+// import PersonalizationService from '../services/personalizationService';
 
 const router = express.Router();
 
