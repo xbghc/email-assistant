@@ -106,6 +106,52 @@ async function startServer(): Promise<void> {
       }
     });
 
+    app.post('/test/rename-command', async (req, res) => {
+      try {
+        const { email, newName } = req.body;
+        if (!email || !newName) {
+          res.status(400).json({ error: 'Email and newName are required' });
+          return;
+        }
+        
+        // 模拟管理员命令执行
+        const AdminCommandService = (await import('./services/adminCommandService')).default;
+        const UserService = (await import('./services/userService')).default;
+        const userService = new UserService();
+        await userService.initialize();
+        
+        const adminService = new AdminCommandService(userService);
+        const result = await adminService.processCommand('/rename', `${email} ${newName}`);
+        
+        res.json({ message: 'Rename command test completed', result });
+      } catch (error) {
+        logger.error('Failed to test rename command:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    });
+
+    app.post('/test/weekly-report', async (req, res) => {
+      try {
+        const { userId, weekOffset } = req.body;
+        
+        const WeeklyReportService = (await import('./services/weeklyReportService')).default;
+        const weeklyService = new WeeklyReportService();
+        await weeklyService.initialize();
+        
+        if (userId === 'all') {
+          await weeklyService.generateAllUsersWeeklyReports(weekOffset || 0);
+          res.json({ message: 'Weekly reports generated for all users' });
+        } else {
+          const targetUserId = userId || 'admin';
+          const report = await weeklyService.generateWeeklyReport(targetUserId, weekOffset || 0);
+          res.json({ message: 'Weekly report generated', report });
+        }
+      } catch (error) {
+        logger.error('Failed to test weekly report:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    });
+
     app.listen(port, () => {
       logger.info(`✅ Email Assistant Server started on port ${port}`);
     });

@@ -5,6 +5,7 @@ import EmailService from './emailService';
 import AIService from './aiService';
 import ContextService from './contextService';
 import ScheduleService from './scheduleService';
+import WeeklyReportService from './weeklyReportService';
 import EmailReceiveService, { ParsedEmail } from './emailReceiveService';
 import EmailReplyHandler from './emailReplyHandler';
 
@@ -13,16 +14,19 @@ class SchedulerService {
   private aiService: AIService;
   private contextService: ContextService;
   private scheduleService: ScheduleService;
+  private weeklyReportService: WeeklyReportService;
   private emailReceiveService: EmailReceiveService;
   private emailReplyHandler: EmailReplyHandler;
   private morningTask?: cron.ScheduledTask;
   private eveningTask?: cron.ScheduledTask;
+  private weeklyTask?: cron.ScheduledTask;
 
   constructor() {
     this.emailService = new EmailService();
     this.aiService = new AIService();
     this.contextService = new ContextService();
     this.scheduleService = new ScheduleService();
+    this.weeklyReportService = new WeeklyReportService();
     this.emailReceiveService = new EmailReceiveService();
     this.emailReplyHandler = new EmailReplyHandler();
   }
@@ -31,11 +35,13 @@ class SchedulerService {
     try {
       await this.contextService.initialize();
       await this.scheduleService.initialize();
+      await this.weeklyReportService.initialize();
       await this.emailService.verifyConnection();
       await this.emailReplyHandler.initialize();
       
       this.setupMorningReminder();
       this.setupEveningReminder();
+      this.setupWeeklyReport();
       this.setupEmailReceiver();
       
       logger.info('📅 Scheduler configured for reminders');
@@ -71,6 +77,24 @@ class SchedulerService {
     });
 
     // Evening reminder scheduled
+  }
+
+  private setupWeeklyReport(): void {
+    // 每周一早上9点发送周报
+    this.weeklyTask = cron.schedule('0 9 * * 1', async () => {
+      try {
+        logger.info('Starting weekly report generation...');
+        await this.weeklyReportService.generateAllUsersWeeklyReports(-1); // 生成上周的周报
+        logger.info('Weekly reports generated and sent to all users');
+      } catch (error) {
+        logger.error('Failed to generate weekly reports:', error);
+      }
+    }, {
+      scheduled: true,
+      timezone: 'Asia/Shanghai'
+    });
+
+    logger.info('📊 Weekly report task scheduled for Mondays at 9:00 AM');
   }
 
   private setupEmailReceiver(): void {
@@ -238,6 +262,9 @@ class SchedulerService {
     }
     if (this.eveningTask) {
       this.eveningTask.stop();
+    }
+    if (this.weeklyTask) {
+      this.weeklyTask.stop();
     }
     this.emailReceiveService.stop();
     logger.info('Scheduler service destroyed');

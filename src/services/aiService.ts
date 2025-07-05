@@ -8,12 +8,14 @@ import { ContextEntry } from '../models';
 import { simpleFunctionTools, simpleDeepSeekTools } from '../utils/simpleFunctionTools';
 import SimpleFunctionCallService, { SimpleFunctionResult } from './simpleFunctionCallService';
 import UserService from './userService';
+import MockAIService from './mockAIService';
 import EmailContentManager from './emailContentManager';
 
 class AIService {
   private openai?: OpenAI;
   private googleAI?: GoogleGenerativeAI;
   private anthropic?: Anthropic;
+  private mockAI?: MockAIService;
   private userService: UserService;
   private contentManager: EmailContentManager;
 
@@ -45,6 +47,10 @@ class AIService {
               apiKey: config.ai.anthropic.apiKey,
             });
           }
+          break;
+        case 'mock':
+          this.mockAI = new MockAIService();
+          logger.info('Mock AI service initialized for testing');
           break;
         case 'azure-openai':
           if (config.ai.azureOpenai.apiKey) {
@@ -78,6 +84,11 @@ class AIService {
 
     try {
       switch (provider) {
+        case 'mock':
+          if (!this.mockAI) {
+            throw new Error('Mock AI service not initialized');
+          }
+          return await this.mockAI.generateResponse(systemMessage, userMessage, options);
         case 'openai':
         case 'azure-openai':
           return await this.generateOpenAIResponse(systemMessage, userMessage, options);
@@ -102,6 +113,10 @@ class AIService {
     context: ContextEntry[]
   ): Promise<string> {
     try {
+      if (config.ai.provider === 'mock' && this.mockAI) {
+        return await this.mockAI.generateMorningSuggestions(todaySchedule, yesterdayPerformance, context);
+      }
+      
       const contextText = this.formatContext(context);
       
       const prompt = `
@@ -135,6 +150,10 @@ Please provide specific, actionable suggestions that will help improve productiv
 
   async summarizeWorkReport(workReport: string, context: ContextEntry[]): Promise<string> {
     try {
+      if (config.ai.provider === 'mock' && this.mockAI) {
+        return await this.mockAI.summarizeWorkReport(workReport, context);
+      }
+      
       const contextText = this.formatContext(context);
       
       const prompt = `
@@ -172,6 +191,10 @@ Keep the summary professional, concise, and actionable.
 
   async compressContext(context: ContextEntry[]): Promise<string> {
     try {
+      if (config.ai.provider === 'mock' && this.mockAI) {
+        return await this.mockAI.compressContext(context);
+      }
+      
       const contextText = this.formatContext(context);
       
       const prompt = `
@@ -216,6 +239,11 @@ Please provide a compressed summary that captures the essential information whil
 
     try {
       switch (provider) {
+        case 'mock':
+          if (!this.mockAI) {
+            throw new Error('Mock AI service not initialized');
+          }
+          return await this.mockAI.generateResponseWithFunctionCalls(systemMessage, userMessage, options, userId);
         case 'openai':
         case 'azure-openai':
           return await this.generateOpenAIResponseWithFunctions(systemMessage, userMessage, options, functionCallService, userId);

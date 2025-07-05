@@ -3,7 +3,7 @@ import { createConfigError } from '../utils/errors';
 
 dotenv.config();
 
-export type AIProvider = 'openai' | 'deepseek' | 'google' | 'anthropic' | 'azure-openai';
+export type AIProvider = 'openai' | 'deepseek' | 'google' | 'anthropic' | 'azure-openai' | 'mock';
 
 interface Config {
   email: {
@@ -56,6 +56,9 @@ interface Config {
       endpoint: string;
       deploymentName: string;
       apiVersion: string;
+    };
+    mock: {
+      enabled: boolean;
     };
   };
   schedule: {
@@ -121,6 +124,9 @@ const config: Config = {
       deploymentName: process.env.AZURE_OPENAI_DEPLOYMENT || '',
       apiVersion: process.env.AZURE_OPENAI_API_VERSION || '2023-12-01-preview',
     },
+    mock: {
+      enabled: process.env.NODE_ENV === 'test' || process.env.AI_PROVIDER === 'mock',
+    },
   },
   schedule: {
     morningReminderTime: process.env.MORNING_REMINDER_TIME || '08:00',
@@ -136,44 +142,54 @@ const config: Config = {
 // 配置验证函数
 export function validateConfig(): void {
   const errors: string[] = [];
-
-  // 验证邮件配置
-  if (!config.email.smtp.user || !config.email.smtp.pass) {
-    errors.push('SMTP credentials (SMTP_USER, SMTP_PASS) are required');
-  }
   
-  if (!config.email.user.email) {
-    errors.push('User email (USER_EMAIL) is required');
+  // 测试模式跳过某些验证
+  const isTestMode = process.env.NODE_ENV === 'test' || config.ai.provider === 'mock';
+
+  // 验证邮件配置（测试模式下放宽要求）
+  if (!isTestMode) {
+    if (!config.email.smtp.user || !config.email.smtp.pass) {
+      errors.push('SMTP credentials (SMTP_USER, SMTP_PASS) are required');
+    }
+    
+    if (!config.email.user.email) {
+      errors.push('User email (USER_EMAIL) is required');
+    }
   }
 
   // 验证AI配置
   const provider = config.ai.provider;
-  switch (provider) {
-    case 'openai':
-      if (!config.ai.openai.apiKey) {
-        errors.push('OpenAI API key (OPENAI_API_KEY) is required');
-      }
-      break;
-    case 'deepseek':
-      if (!config.ai.deepseek.apiKey) {
-        errors.push('DeepSeek API key (DEEPSEEK_API_KEY) is required');
-      }
-      break;
-    case 'google':
-      if (!config.ai.google.apiKey) {
-        errors.push('Google API key (GOOGLE_API_KEY) is required');
-      }
-      break;
-    case 'anthropic':
-      if (!config.ai.anthropic.apiKey) {
-        errors.push('Anthropic API key (ANTHROPIC_API_KEY) is required');
-      }
-      break;
-    case 'azure-openai':
-      if (!config.ai.azureOpenai.apiKey || !config.ai.azureOpenai.endpoint) {
-        errors.push('Azure OpenAI credentials (AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT) are required');
-      }
-      break;
+  if (!isTestMode) {
+    switch (provider) {
+      case 'openai':
+        if (!config.ai.openai.apiKey) {
+          errors.push('OpenAI API key (OPENAI_API_KEY) is required');
+        }
+        break;
+      case 'deepseek':
+        if (!config.ai.deepseek.apiKey) {
+          errors.push('DeepSeek API key (DEEPSEEK_API_KEY) is required');
+        }
+        break;
+      case 'google':
+        if (!config.ai.google.apiKey) {
+          errors.push('Google API key (GOOGLE_API_KEY) is required');
+        }
+        break;
+      case 'anthropic':
+        if (!config.ai.anthropic.apiKey) {
+          errors.push('Anthropic API key (ANTHROPIC_API_KEY) is required');
+        }
+        break;
+      case 'azure-openai':
+        if (!config.ai.azureOpenai.apiKey || !config.ai.azureOpenai.endpoint) {
+          errors.push('Azure OpenAI credentials (AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT) are required');
+        }
+        break;
+      case 'mock':
+        // Mock provider doesn't need API keys
+        break;
+    }
   }
 
   // 安全检查

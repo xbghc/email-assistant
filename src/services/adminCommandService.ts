@@ -1,17 +1,20 @@
 import { AdminCommand, UserConfig } from '../models/User';
 import UserService from './userService';
 import EmailService from './emailService';
+import WeeklyReportService from './weeklyReportService';
 import logger from '../utils/logger';
 import config from '../config';
 
 class AdminCommandService {
   private userService: UserService;
   private emailService: EmailService;
+  private weeklyReportService: WeeklyReportService;
   private commands: Map<string, AdminCommand>;
 
   constructor(userService: UserService) {
     this.userService = userService;
     this.emailService = new EmailService();
+    this.weeklyReportService = new WeeklyReportService();
     this.commands = new Map();
     this.initializeCommands();
   }
@@ -56,6 +59,14 @@ class AdminCommandService {
       handler: this.handleDisableUser.bind(this)
     });
 
+    // 修改用户名
+    this.commands.set('rename', {
+      command: 'rename',
+      description: '修改用户名',
+      usage: '/rename <email> <newName>',
+      handler: this.handleRenameUser.bind(this)
+    });
+
     // 更新用户配置
     this.commands.set('updateuser', {
       command: 'updateuser',
@@ -70,6 +81,14 @@ class AdminCommandService {
       description: '显示用户统计信息',
       usage: '/stats',
       handler: this.handleStats.bind(this)
+    });
+
+    // 周报生成
+    this.commands.set('weeklyreport', {
+      command: 'weeklyreport',
+      description: '生成用户周报',
+      usage: '/weeklyreport [email] [weekOffset]',
+      handler: this.handleWeeklyReport.bind(this)
     });
 
     // 帮助命令
@@ -265,6 +284,58 @@ class AdminCommandService {
     return `用户 ${email} (${user.name}) 已禁用`;
   }
 
+  private async handleRenameUser(args: string[]): Promise<string> {
+    if (args.length < 2) {
+      return '用法: /rename <email> <newName>';
+    }
+
+    const [email, ...nameParts] = args;
+    const newName = nameParts.join(' ').trim();
+    
+    if (!email) {
+      return '请提供邮箱地址';
+    }
+    
+    if (!newName) {
+      return '请提供新的用户名';
+    }
+    
+    const user = this.userService.getUserByEmail(email);
+    if (!user) {
+      return `用户 ${email} 不存在`;
+    }
+
+    const oldName = user.name;
+    await this.userService.updateUser(user.id, { name: newName });
+    
+    // 发送更名通知邮件给用户
+    try {
+      const subject = `📝 用户名更新通知`;
+      const content = `
+您好，
+
+您的用户名已经更新：
+
+旧名称：${oldName}
+新名称：${newName}
+
+更新时间：${new Date().toLocaleString()}
+
+如有疑问，请联系管理员。
+
+此致，
+邮件助手系统
+      `.trim();
+
+      await this.emailService.sendEmailToUser(user.email, subject, content);
+      logger.debug(`Name change notification sent to user: ${user.email}`);
+    } catch (error) {
+      logger.error(`Failed to send name change notification to ${user.email}:`, error);
+    }
+
+    return `用户 ${email} 的姓名已从 "${oldName}" 更新为 "${newName}"`;
+  }
+
   private async handleUpdateUser(args: string[]): Promise<string> {
     if (args.length < 3) {
       return '用法: /updateuser <email> <field> <value>\n支持的字段: name, morningTime, eveningTime, language';
@@ -354,6 +425,54 @@ class AdminCommandService {
 👥 总用户数: ${stats.total}
 ✅ 活跃用户: ${stats.active}
 ❌ 禁用用户: ${stats.inactive}`;
+  }
+
+  private async handleWeeklyReport(args: string[]): Promise<string> {
+    try {
+      // 初始化周报服务
+      await this.weeklyReportService.initialize();
+      
+      if (args.length === 0) {
+        // 生成所有用户的周报
+        await this.weeklyReportService.generateAllUsersWeeklyReports();
+        return '✅ 已为所有活跃用户生成并发送本周周报';
+      }
+      
+      const [emailOrOffset, weekOffsetStr] = args;
+      
+      if (!emailOrOffset) {
+        return '❌ 请提供用户邮箱或周偏移量';
+      }
+      
+      // 如果第一个参数是数字，则是为管理员生成指定周的周报
+      if (!isNaN(Number(emailOrOffset))) {
+        const weekOffset = parseInt(emailOrOffset);
+        await this.weeklyReportService.generateAndSendWeeklyReport('admin', weekOffset);
+        const weekDescription = weekOffset === 0 ? '本周' : weekOffset > 0 ? `${weekOffset}周后` : `${Math.abs(weekOffset)}周前`;
+        return `✅ 已生成并发送管理员${weekDescription}的周报`;
+      }
+      
+      // 否则是为指定用户生成周报
+      const email = emailOrOffset;
+      const user = this.userService.getUserByEmail(email);
+      if (!user) {
+        return `❌ 用户 ${email} 不存在`;
+      }
+      
+      const weekOffset = weekOffsetStr ? parseInt(weekOffsetStr) : 0;
+      if (isNaN(weekOffset)) {
+        return '❌ 周偏移量必须是数字（0=本周，-1=上周，1=下周）';
+      }
+      
+      await this.weeklyReportService.generateAndSendWeeklyReport(user.id, weekOffset);
+      const weekDescription = weekOffset === 0 ? '本周' : weekOffset > 0 ? `${weekOffset}周后` : `${Math.abs(weekOffset)}周前`;
+      
+      return `✅ 已为用户 ${email} 生成并发送${weekDescription}的周报`;
+      
+    } catch (error) {
+      logger.error('Failed to generate weekly report:', error);
+      return `❌ 生成周报失败: ${error instanceof Error ? error.message : '未知错误'}`;
+    }
   }
 
   private async handleHelp(args: string[]): Promise<string> {
