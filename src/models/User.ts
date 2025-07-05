@@ -18,6 +18,10 @@ export interface UserConfig {
   
   // 语言配置
   language: 'zh' | 'en';
+  
+  // 提醒暂停配置
+  reminderPaused?: boolean;
+  resumeDate?: string; // ISO字符串格式
 }
 
 export interface AdminCommand {

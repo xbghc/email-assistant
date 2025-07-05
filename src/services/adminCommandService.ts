@@ -3,6 +3,7 @@ import UserService from './userService';
 import EmailService from './emailService';
 import WeeklyReportService from './weeklyReportService';
 import PersonalizationService from './personalizationService';
+import SchedulerService from './schedulerService';
 import logger from '../utils/logger';
 import config from '../config';
 
@@ -11,13 +12,15 @@ class AdminCommandService {
   private emailService: EmailService;
   private weeklyReportService: WeeklyReportService;
   private personalizationService: PersonalizationService;
+  private schedulerService: SchedulerService;
   private commands: Map<string, AdminCommand>;
 
-  constructor(userService: UserService) {
+  constructor(userService: UserService, schedulerService?: SchedulerService) {
     this.userService = userService;
     this.emailService = new EmailService();
     this.weeklyReportService = new WeeklyReportService();
     this.personalizationService = new PersonalizationService();
+    this.schedulerService = schedulerService || new SchedulerService();
     this.commands = new Map();
     this.initializeCommands();
   }
@@ -100,6 +103,30 @@ class AdminCommandService {
       description: '生成个性化工作建议',
       usage: '/suggestions [email]',
       handler: this.handlePersonalizedSuggestions.bind(this)
+    });
+
+    // 取消提醒命令
+    this.commands.set('cancelreminder', {
+      command: 'cancelreminder',
+      description: '取消今天的提醒（晨间或晚间）',
+      usage: '/cancelreminder <type> [email] (type: morning|evening|all)',
+      handler: this.handleCancelReminder.bind(this)
+    });
+
+    // 暂停用户提醒
+    this.commands.set('pausereminder', {
+      command: 'pausereminder',
+      description: '暂停用户的提醒功能',
+      usage: '/pausereminder <email> [days]',
+      handler: this.handlePauseReminder.bind(this)
+    });
+
+    // 恢复用户提醒
+    this.commands.set('resumereminder', {
+      command: 'resumereminder',
+      description: '恢复用户的提醒功能',
+      usage: '/resumereminder <email>',
+      handler: this.handleResumeReminder.bind(this)
     });
 
     // 帮助命令
@@ -538,6 +565,203 @@ class AdminCommandService {
 
     return `📚 可用的管理员命令:\n\n${commandList}\n\n使用 /help <命令> 查看详细用法`;
   }
+
+  private async handleCancelReminder(args: string[]): Promise<string> {
+    if (args.length < 1) {
+      return '用法: /cancelreminder <type> [email]\n类型: morning（晨间）, evening（晚间）, all（全部）';
+    }
+
+    const [type, email] = args;
+    
+    if (!type) {
+      return '❌ 请提供提醒类型';
+    }
+    
+    const userId = email ? this.getUserIdByEmail(email) : 'admin';
+    
+    if (email && !userId) {
+      return `❌ 用户 ${email} 不存在`;
+    }
+
+    const userEmail = email || 'admin';
+    const finalUserId = userId || 'admin';
+
+    try {
+      switch (type.toLowerCase()) {
+        case 'morning':
+        case '晨间':
+          // 标记晨间提醒已发送，这样就不会再发送了
+          await this.schedulerService.markMorningReminderSent(finalUserId);
+          return `✅ 已取消用户 ${userEmail} 今天的晨间提醒`;
+
+        case 'evening':
+        case '晚间':
+          // 标记晚间提醒已发送，这样就不会再发送了
+          await this.schedulerService.markEveningReminderSent(finalUserId);
+          return `✅ 已取消用户 ${userEmail} 今天的晚间提醒`;
+
+        case 'all':
+        case '全部':
+          // 标记所有提醒已发送
+          await this.schedulerService.markMorningReminderSent(finalUserId);
+          await this.schedulerService.markEveningReminderSent(finalUserId);
+          return `✅ 已取消用户 ${userEmail} 今天的所有提醒`;
+
+        default:
+          return `❌ 未知的提醒类型: ${type}\n支持的类型: morning（晨间）, evening（晚间）, all（全部）`;
+      }
+    } catch (error) {
+      logger.error('Failed to cancel reminder:', error);
+      return `❌ 取消提醒失败: ${error instanceof Error ? error.message : '未知错误'}`;
+    }
+  }
+
+  private async handlePauseReminder(args: string[]): Promise<string> {
+    if (args.length < 1) {
+      return '用法: /pausereminder <email> [days]';
+    }
+
+    const [email, daysStr] = args;
+    const days = daysStr ? parseInt(daysStr) : 1;
+
+    if (!email) {
+      return '❌ 请提供用户邮箱地址';
+    }
+
+    if (isNaN(days) || days <= 0) {
+      return '❌ 暂停天数必须是正整数';
+    }
+
+    const user = this.userService.getUserByEmail(email);
+    if (!user) {
+      return `❌ 用户 ${email} 不存在`;
+    }
+
+    try {
+      // 计算恢复日期
+      const resumeDate = new Date();
+      resumeDate.setDate(resumeDate.getDate() + days);
+
+      // 更新用户配置，添加暂停信息
+      const newConfig: UserConfig = {
+        ...user.config,
+        reminderPaused: true,
+        resumeDate: resumeDate.toISOString(),
+        schedule: user.config?.schedule || {
+          morningReminderTime: '09:00',
+          eveningReminderTime: '18:00',
+          timezone: 'Asia/Shanghai'
+        },
+        language: user.config?.language || 'zh' as const
+      };
+
+      await this.userService.updateUser(user.id, { config: newConfig });
+
+      // 发送暂停通知邮件
+      try {
+        const subject = `⏸️ 提醒功能已暂停`;
+        const content = `
+您好 ${user.name}，
+
+您的提醒功能已经暂停：
+
+暂停天数：${days} 天
+恢复日期：${resumeDate.toLocaleDateString()}
+
+在此期间，您将不会收到晨间和晚间提醒邮件。
+
+如需提前恢复，请联系管理员。
+
+此致，
+邮件助手系统
+        `.trim();
+
+        await this.emailService.sendEmailToUser(user.email, subject, content);
+        logger.debug(`Reminder pause notification sent to user: ${user.email}`);
+      } catch (error) {
+        logger.error(`Failed to send pause notification to ${user.email}:`, error);
+      }
+
+      return `✅ 已暂停用户 ${email} 的提醒功能 ${days} 天\n恢复日期: ${resumeDate.toLocaleDateString()}`;
+    } catch (error) {
+      logger.error('Failed to pause reminder:', error);
+      return `❌ 暂停提醒失败: ${error instanceof Error ? error.message : '未知错误'}`;
+    }
+  }
+
+  private async handleResumeReminder(args: string[]): Promise<string> {
+    if (args.length < 1) {
+      return '用法: /resumereminder <email>';
+    }
+
+    const [email] = args;
+
+    if (!email) {
+      return '❌ 请提供用户邮箱地址';
+    }
+
+    const user = this.userService.getUserByEmail(email);
+    if (!user) {
+      return `❌ 用户 ${email} 不存在`;
+    }
+
+    if (!user.config?.reminderPaused) {
+      return `✅ 用户 ${email} 的提醒功能本来就是启用状态`;
+    }
+
+    try {
+      // 更新用户配置，移除暂停信息
+      const newConfig: UserConfig = {
+        ...user.config,
+        reminderPaused: false,
+        schedule: user.config?.schedule || {
+          morningReminderTime: '09:00',
+          eveningReminderTime: '18:00',
+          timezone: 'Asia/Shanghai'
+        },
+        language: user.config?.language || 'zh' as const
+      };
+      // 删除resumeDate属性
+      delete (newConfig as any).resumeDate;
+
+      await this.userService.updateUser(user.id, { config: newConfig });
+
+      // 发送恢复通知邮件
+      try {
+        const subject = `▶️ 提醒功能已恢复`;
+        const content = `
+您好 ${user.name}，
+
+您的提醒功能已经恢复正常：
+
+恢复时间：${new Date().toLocaleString()}
+晨间提醒：${user.config?.schedule?.morningReminderTime || '09:00'}
+晚间提醒：${user.config?.schedule?.eveningReminderTime || '18:00'}
+
+从明天开始，您将正常收到提醒邮件。
+
+此致，
+邮件助手系统
+        `.trim();
+
+        await this.emailService.sendEmailToUser(user.email, subject, content);
+        logger.debug(`Reminder resume notification sent to user: ${user.email}`);
+      } catch (error) {
+        logger.error(`Failed to send resume notification to ${user.email}:`, error);
+      }
+
+      return `✅ 已恢复用户 ${email} 的提醒功能`;
+    } catch (error) {
+      logger.error('Failed to resume reminder:', error);
+      return `❌ 恢复提醒失败: ${error instanceof Error ? error.message : '未知错误'}`;
+    }
+  }
+
+  private getUserIdByEmail(email: string): string | null {
+    const user = this.userService.getUserByEmail(email);
+    return user ? user.id : null;
+  }
+
 }
 
 export default AdminCommandService;

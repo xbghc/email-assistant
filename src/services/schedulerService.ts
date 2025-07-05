@@ -10,6 +10,7 @@ import PersonalizationService from './personalizationService';
 import EmailReceiveService, { ParsedEmail } from './emailReceiveService';
 import EmailReplyHandler from './emailReplyHandler';
 import ReminderTrackingService, { ReminderRecord } from './reminderTrackingService';
+import UserService from './userService';
 
 class SchedulerService {
   private emailService: EmailService;
@@ -21,6 +22,7 @@ class SchedulerService {
   private emailReceiveService: EmailReceiveService;
   private emailReplyHandler: EmailReplyHandler;
   private reminderTracking: ReminderTrackingService;
+  private userService: UserService;
   private morningTask?: cron.ScheduledTask;
   private eveningTask?: cron.ScheduledTask;
   private weeklyTask?: cron.ScheduledTask;
@@ -36,6 +38,7 @@ class SchedulerService {
     this.emailReceiveService = new EmailReceiveService();
     this.emailReplyHandler = new EmailReplyHandler();
     this.reminderTracking = new ReminderTrackingService();
+    this.userService = new UserService();
   }
 
   async initialize(): Promise<void> {
@@ -45,6 +48,7 @@ class SchedulerService {
       await this.weeklyReportService.initialize();
       await this.personalizationService.initialize();
       await this.reminderTracking.initialize();
+      await this.userService.initialize();
       await this.emailService.verifyConnection();
       await this.emailReplyHandler.initialize();
       
@@ -188,6 +192,13 @@ class SchedulerService {
     try {
       logger.info('Starting morning reminder process...');
       
+      // 检查用户是否暂停了提醒
+      const userRemindersEnabled = await this.checkUserRemindersEnabled('admin');
+      if (!userRemindersEnabled) {
+        logger.info('User reminders are paused, skipping morning reminder');
+        return;
+      }
+      
       // 检查是否应该发送晨间提醒
       const shouldSend = await this.reminderTracking.shouldSendMorningReminder();
       if (!shouldSend) {
@@ -229,6 +240,13 @@ class SchedulerService {
   private async sendEveningReminder(): Promise<void> {
     try {
       logger.info('Starting evening reminder process...');
+      
+      // 检查用户是否暂停了提醒
+      const userRemindersEnabled = await this.checkUserRemindersEnabled('admin');
+      if (!userRemindersEnabled) {
+        logger.info('User reminders are paused, skipping evening reminder');
+        return;
+      }
       
       // 检查是否应该发送晚间提醒
       const shouldSend = await this.reminderTracking.shouldSendEveningReminder();
@@ -334,6 +352,63 @@ class SchedulerService {
    */
   async cleanupOldReminderRecords(): Promise<void> {
     await this.reminderTracking.cleanupOldRecords();
+  }
+
+  /**
+   * 标记晨间提醒已发送（用于管理员命令）
+   */
+  async markMorningReminderSent(userId: string = 'admin'): Promise<void> {
+    await this.reminderTracking.markMorningReminderSent(userId);
+    logger.info(`Manually marked morning reminder as sent for user ${userId}`);
+  }
+
+  /**
+   * 标记晚间提醒已发送（用于管理员命令）
+   */
+  async markEveningReminderSent(userId: string = 'admin'): Promise<void> {
+    await this.reminderTracking.markEveningReminderSent(userId);
+    logger.info(`Manually marked evening reminder as sent for user ${userId}`);
+  }
+
+  /**
+   * 检查用户提醒是否启用
+   */
+  private async checkUserRemindersEnabled(userId: string): Promise<boolean> {
+    try {
+      const user = this.userService.getUserById(userId);
+      if (!user) {
+        // 如果用户不存在，默认为admin用户，允许发送
+        return userId === 'admin';
+      }
+
+      // 检查用户是否暂停了提醒
+      if (user.config?.reminderPaused) {
+        // 检查是否已经到了恢复日期
+        if (user.config.resumeDate) {
+          const resumeDate = new Date(user.config.resumeDate);
+          const now = new Date();
+          if (now >= resumeDate) {
+            // 到了恢复时间，自动恢复提醒
+            const newConfig = {
+              ...user.config,
+              reminderPaused: false
+            };
+            // 删除resumeDate属性
+            delete (newConfig as any).resumeDate;
+            await this.userService.updateUser(user.id, { config: newConfig });
+            logger.info(`Automatically resumed reminders for user ${userId}`);
+            return true;
+          }
+        }
+        return false;
+      }
+
+      return true;
+    } catch (error) {
+      logger.error(`Failed to check user reminder status for ${userId}:`, error);
+      // 出错时默认允许发送
+      return true;
+    }
   }
 
   destroy(): void {
