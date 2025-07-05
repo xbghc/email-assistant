@@ -20,7 +20,8 @@ class AdminCommandService {
     this.emailService = new EmailService();
     this.weeklyReportService = new WeeklyReportService();
     this.personalizationService = new PersonalizationService();
-    this.schedulerService = schedulerService || new SchedulerService();
+    // 避免循环依赖：只有明确传入时才使用SchedulerService
+    this.schedulerService = schedulerService || null as any;
     this.commands = new Map();
     this.initializeCommands();
   }

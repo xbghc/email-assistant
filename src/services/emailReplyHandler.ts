@@ -7,6 +7,11 @@ import AdminCommandService from './adminCommandService';
 import SecurityService from './securityService';
 import { ParsedEmail } from './emailReceiveService';
 
+// 前向声明避免循环依赖
+interface ISchedulerService {
+  // 定义需要的方法接口
+}
+
 export interface ProcessedReply {
   type: 'work_report' | 'schedule_response' | 'general' | 'admin_command';
   originalContent: string;
@@ -28,14 +33,31 @@ class EmailReplyHandler {
     this.contextService = new ContextService();
     this.emailService = new EmailService();
     this.userService = new UserService();
-    this.adminCommandService = new AdminCommandService(this.userService);
+    // 避免循环依赖：延迟初始化AdminCommandService
+    this.adminCommandService = null as any;
     this.securityService = new SecurityService(this.userService);
   }
 
   async initialize(): Promise<void> {
     await this.contextService.initialize();
     await this.userService.initialize();
+    
+    // 延迟初始化AdminCommandService避免循环依赖
+    if (!this.adminCommandService) {
+      this.adminCommandService = new AdminCommandService(this.userService);
+    }
+    
     logger.info('Email reply handler initialized');
+  }
+
+  /**
+   * 设置SchedulerService引用（避免循环依赖）
+   */
+  setSchedulerService(schedulerService: any): void {
+    // 为AdminCommandService设置SchedulerService引用
+    if (this.adminCommandService && schedulerService) {
+      (this.adminCommandService as any).schedulerService = schedulerService;
+    }
   }
 
   async handleEmailReply(email: ParsedEmail): Promise<ProcessedReply> {

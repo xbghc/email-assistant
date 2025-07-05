@@ -50,7 +50,10 @@ class SchedulerService {
       await this.reminderTracking.initialize();
       await this.userService.initialize();
       await this.emailService.verifyConnection();
+      
+      // 先初始化EmailReplyHandler，然后设置SchedulerService引用
       await this.emailReplyHandler.initialize();
+      this.emailReplyHandler.setSchedulerService(this);
       
       this.setupMorningReminder();
       this.setupEveningReminder();
