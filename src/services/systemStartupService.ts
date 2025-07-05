@@ -13,7 +13,7 @@ class SystemStartupService {
   }
 
   /**
-   * 系统启动时发送通知邮件给所有用户
+   * 系统启动时发送通知邮件给管理员
    */
   async sendStartupNotification(): Promise<void> {
     try {
@@ -30,14 +30,11 @@ class SystemStartupService {
       // 获取用户统计
       const userStats = this.userService.getStats();
       
-      // 发送管理员通知
+      // 只发送管理员通知
       await this.emailService.sendSystemStartupNotification(userStats.total);
       logger.info('Admin startup notification sent');
       
-      // 发送用户通知
-      await this.sendUserStartupNotifications();
-      
-      logger.info(`System startup notifications sent. Total users: ${userStats.total}`);
+      logger.info(`System startup notification sent to admin. Total users: ${userStats.total}`);
       
       // 在控制台也显示启动信息
       this.logStartupInfo(userStats);
@@ -65,6 +62,7 @@ class SystemStartupService {
 ├─────────────────────────────────────────────┤
 │ 💡 管理员可通过发送以 / 开头的邮件执行命令  │
 │    例如: /adduser user@example.com 张三     │
+│ 📧 启动/停止通知仅发送给管理员              │
 ├─────────────────────────────────────────────┤
 │          系统正在为用户提供服务...          │
 ╰─────────────────────────────────────────────╯
@@ -74,13 +72,13 @@ class SystemStartupService {
   }
 
   /**
-   * 系统关闭时发送通知给所有用户
+   * 系统关闭时发送通知给管理员
    */
   async sendShutdownNotification(): Promise<void> {
     try {
       await this.userService.initialize();
       
-      // 发送管理员通知
+      // 只发送管理员通知
       const adminSubject = `⚠️ 邮件助手系统关闭通知`;
       const adminContent = `
 亲爱的管理员，
@@ -100,10 +98,7 @@ class SystemStartupService {
       await this.emailService.sendEmail(adminSubject, adminContent);
       logger.info('Admin shutdown notification sent');
       
-      // 发送用户通知
-      await this.sendUserShutdownNotifications();
-      
-      logger.info('System shutdown notifications sent to all users');
+      logger.info('System shutdown notification sent to admin');
       
     } catch (error) {
       logger.error('Failed to send shutdown notification:', error);
@@ -111,7 +106,7 @@ class SystemStartupService {
   }
 
   /**
-   * 向所有非管理员用户发送系统启动通知
+   * 向所有非管理员用户发送系统启动通知（已禁用，仅供测试使用）
    */
   private async sendUserStartupNotifications(): Promise<void> {
     try {
@@ -170,7 +165,7 @@ class SystemStartupService {
   }
 
   /**
-   * 向所有非管理员用户发送系统停止通知
+   * 向所有非管理员用户发送系统停止通知（已禁用，仅供测试使用）
    */
   private async sendUserShutdownNotifications(): Promise<void> {
     try {
