@@ -5,13 +5,44 @@
 SERVICE_NAME="email-assistant"
 CURRENT_USER=$(whoami)
 PROJECT_DIR=$(pwd)
-NODE_EXECUTABLE=$(which node)
-NODE_PATH=$(dirname $NODE_EXECUTABLE)
 
 echo "🚀 开始服务器端部署..."
 echo "👤 当前用户: $CURRENT_USER"
 echo "📂 项目目录: $PROJECT_DIR"
-echo "🟢 Node.js路径: $NODE_EXECUTABLE"
+
+# 尝试找到 Node.js 和 npm
+echo "🔍 检查 Node.js 和 npm 环境..."
+
+# 常见的 Node.js 路径
+POSSIBLE_PATHS="/usr/bin:/usr/local/bin:/opt/node/bin:$HOME/.nvm/versions/node/*/bin:/snap/bin"
+export PATH="$PATH:$POSSIBLE_PATHS"
+
+# 检查 Node.js
+NODE_EXECUTABLE=$(which node 2>/dev/null || echo "")
+if [ -z "$NODE_EXECUTABLE" ]; then
+    # 手动查找常见位置
+    for path in /usr/bin/node /usr/local/bin/node /opt/node/bin/node; do
+        if [ -x "$path" ]; then
+            NODE_EXECUTABLE="$path"
+            break
+        fi
+    done
+fi
+
+# 检查 npm
+NPM_EXECUTABLE=$(which npm 2>/dev/null || echo "")
+if [ -z "$NPM_EXECUTABLE" ]; then
+    # 手动查找常见位置
+    for path in /usr/bin/npm /usr/local/bin/npm /opt/node/bin/npm; do
+        if [ -x "$path" ]; then
+            NPM_EXECUTABLE="$path"
+            break
+        fi
+    done
+fi
+
+echo "🟢 Node.js路径: ${NODE_EXECUTABLE:-未找到}"
+echo "🟢 npm路径: ${NPM_EXECUTABLE:-未找到}"
 
 # 检查必要条件
 if [ ! -f "package.json" ]; then
@@ -19,19 +50,80 @@ if [ ! -f "package.json" ]; then
     exit 1
 fi
 
-if [ ! command -v node &> /dev/null ]; then
-    echo "❌ 未找到 Node.js，请先安装 Node.js"
-    exit 1
+# 检查 Node.js 和 npm 是否可用
+if [ -z "$NODE_EXECUTABLE" ]; then
+    echo "⚠️  未找到 Node.js，正在安装..."
+    
+    # 检测操作系统并安装Node.js
+    if command -v apt-get &> /dev/null; then
+        # Ubuntu/Debian
+        echo "检测到Ubuntu/Debian系统，安装Node.js..."
+        curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+        sudo apt-get install -y nodejs
+    elif command -v yum &> /dev/null; then
+        # CentOS/RHEL
+        echo "检测到CentOS/RHEL系统，安装Node.js..."
+        curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
+        sudo yum install -y nodejs npm
+    elif command -v dnf &> /dev/null; then
+        # Fedora
+        echo "检测到Fedora系统，安装Node.js..."
+        curl -fsSL https://rpm.nodesource.com/setup_18.x | sudo bash -
+        sudo dnf install -y nodejs npm
+    else
+        echo "❌ 无法自动安装Node.js，请手动安装："
+        echo "   https://nodejs.org/en/download/"
+        exit 1
+    fi
+    
+    # 重新检查安装
+    if ! command -v node &> /dev/null; then
+        echo "❌ Node.js安装失败，请手动安装"
+        exit 1
+    fi
 fi
 
-if [ ! command -v npm &> /dev/null ]; then
-    echo "❌ 未找到 npm，请先安装 npm"
-    exit 1
+if [ -z "$NPM_EXECUTABLE" ]; then
+    echo "❌ 未找到npm，但Node.js已安装。尝试重新安装npm..."
+    
+    if command -v apt-get &> /dev/null; then
+        sudo apt-get install -y npm
+    elif command -v yum &> /dev/null; then
+        sudo yum install -y nodejs-npm
+    elif command -v dnf &> /dev/null; then
+        sudo dnf install -y npm
+    fi
+    
+    # 重新检查npm
+    NPM_EXECUTABLE=$(which npm 2>/dev/null || echo "")
+    if [ -z "$NPM_EXECUTABLE" ]; then
+        for path in /usr/bin/npm /usr/local/bin/npm /opt/node/bin/npm; do
+            if [ -x "$path" ]; then
+                NPM_EXECUTABLE="$path"
+                break
+            fi
+        done
+    fi
+    
+    if [ -z "$NPM_EXECUTABLE" ]; then
+        echo "❌ npm安装失败，请手动安装"
+        exit 1
+    fi
 fi
+
+# 更新路径信息
+if [ -n "$NODE_EXECUTABLE" ]; then
+    NODE_PATH=$(dirname "$NODE_EXECUTABLE")
+else
+    NODE_PATH="/usr/bin"
+fi
+
+echo "✅ Node.js版本: $($NODE_EXECUTABLE --version)"
+echo "✅ npm版本: $($NPM_EXECUTABLE --version)"
 
 # 1. 安装依赖
 echo "📦 安装依赖..."
-npm install
+$NPM_EXECUTABLE install
 if [ $? -ne 0 ]; then
     echo "❌ 依赖安装失败！"
     exit 1
@@ -39,7 +131,7 @@ fi
 
 # 2. 编译TypeScript
 echo "🔨 编译TypeScript..."
-npm run build
+$NPM_EXECUTABLE run build
 if [ $? -ne 0 ]; then
     echo "❌ 编译失败！"
     exit 1
