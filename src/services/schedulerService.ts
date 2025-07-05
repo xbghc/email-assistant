@@ -9,6 +9,7 @@ import WeeklyReportService from './weeklyReportService';
 import PersonalizationService from './personalizationService';
 import EmailReceiveService, { ParsedEmail } from './emailReceiveService';
 import EmailReplyHandler from './emailReplyHandler';
+import ReminderTrackingService, { ReminderRecord } from './reminderTrackingService';
 
 class SchedulerService {
   private emailService: EmailService;
@@ -19,6 +20,7 @@ class SchedulerService {
   private personalizationService: PersonalizationService;
   private emailReceiveService: EmailReceiveService;
   private emailReplyHandler: EmailReplyHandler;
+  private reminderTracking: ReminderTrackingService;
   private morningTask?: cron.ScheduledTask;
   private eveningTask?: cron.ScheduledTask;
   private weeklyTask?: cron.ScheduledTask;
@@ -33,6 +35,7 @@ class SchedulerService {
     this.personalizationService = new PersonalizationService();
     this.emailReceiveService = new EmailReceiveService();
     this.emailReplyHandler = new EmailReplyHandler();
+    this.reminderTracking = new ReminderTrackingService();
   }
 
   async initialize(): Promise<void> {
@@ -41,6 +44,7 @@ class SchedulerService {
       await this.scheduleService.initialize();
       await this.weeklyReportService.initialize();
       await this.personalizationService.initialize();
+      await this.reminderTracking.initialize();
       await this.emailService.verifyConnection();
       await this.emailReplyHandler.initialize();
       
@@ -184,6 +188,13 @@ class SchedulerService {
     try {
       logger.info('Starting morning reminder process...');
       
+      // 检查是否应该发送晨间提醒
+      const shouldSend = await this.reminderTracking.shouldSendMorningReminder();
+      if (!shouldSend) {
+        logger.info('Morning reminder already sent today, skipping');
+        return;
+      }
+      
       const todaySchedule = await this.scheduleService.getTodaySchedule();
       const scheduleText = todaySchedule 
         ? this.scheduleService.formatScheduleText(todaySchedule)
@@ -200,13 +211,16 @@ class SchedulerService {
 
       await this.emailService.sendMorningReminder(scheduleText, suggestions);
       
+      // 标记晨间提醒已发送
+      await this.reminderTracking.markMorningReminderSent();
+      
       await this.contextService.addEntry(
         'schedule',
         `Morning reminder sent with schedule: ${scheduleText}`,
         { suggestions }
       );
 
-      logger.debug('Morning reminder sent successfully');
+      logger.info('Morning reminder sent successfully');
     } catch (error) {
       logger.error('Failed to send morning reminder:', error);
     }
@@ -216,7 +230,17 @@ class SchedulerService {
     try {
       logger.info('Starting evening reminder process...');
       
+      // 检查是否应该发送晚间提醒
+      const shouldSend = await this.reminderTracking.shouldSendEveningReminder();
+      if (!shouldSend) {
+        logger.info('Evening reminder skipped - already sent or work report received today');
+        return;
+      }
+      
       await this.emailService.sendEveningReminder();
+      
+      // 标记晚间提醒已发送
+      await this.reminderTracking.markEveningReminderSent();
       
       await this.contextService.addEntry(
         'conversation',
@@ -224,28 +248,32 @@ class SchedulerService {
         { type: 'evening_reminder' }
       );
 
-      logger.debug('Evening reminder sent successfully');
+      logger.info('Evening reminder sent successfully');
     } catch (error) {
       logger.error('Failed to send evening reminder:', error);
     }
   }
 
-  async processWorkReport(workReport: string): Promise<void> {
+  async processWorkReport(workReport: string, userId: string = 'admin'): Promise<void> {
     try {
       logger.info('Processing work report...');
       
-      const recentContext = await this.contextService.getRecentContext(7);
+      const recentContext = await this.contextService.getRecentContext(7, userId);
       const summary = await this.aiService.summarizeWorkReport(workReport, recentContext);
       
       await this.emailService.sendWorkSummary(summary);
       
+      // 标记工作报告已接收
+      await this.reminderTracking.markWorkReportReceived(userId);
+      
       await this.contextService.addEntry(
         'work_summary',
         `Work report processed: ${workReport}`,
-        { summary }
+        { summary },
+        userId
       );
 
-      logger.debug('Work report processed and summary sent');
+      logger.info('Work report processed and summary sent');
     } catch (error) {
       logger.error('Failed to process work report:', error);
       throw error;
@@ -284,6 +312,28 @@ class SchedulerService {
       connected: this.emailReceiveService.isConnectedToImap(),
       processed: 0 // You can add a counter if needed
     };
+  }
+
+  /**
+   * 获取今天的提醒状态
+   */
+  getTodayReminderStatus(userId: string = 'admin'): ReminderRecord | null {
+    return this.reminderTracking.getReminderStatus(userId);
+  }
+
+  /**
+   * 重置今天的提醒记录（用于测试）
+   */
+  async resetTodayReminders(userId: string = 'admin'): Promise<void> {
+    await this.reminderTracking.resetTodayRecord(userId);
+    logger.info(`Reset today's reminder records for user ${userId}`);
+  }
+
+  /**
+   * 清理旧的提醒记录
+   */
+  async cleanupOldReminderRecords(): Promise<void> {
+    await this.reminderTracking.cleanupOldRecords();
   }
 
   destroy(): void {

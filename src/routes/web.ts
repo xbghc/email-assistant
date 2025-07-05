@@ -401,4 +401,49 @@ router.get('/api/dashboard/stats', async (req, res) => {
   }
 });
 
+// API路由 - 提醒状态
+router.get('/api/reminder-status', async (req, res) => {
+  try {
+    const SchedulerService = require('../services/schedulerService').default;
+    const schedulerService = new SchedulerService();
+    
+    const userId = req.query.userId as string || 'admin';
+    const reminderStatus = schedulerService.getTodayReminderStatus(userId);
+    
+    res.json({ 
+      success: true, 
+      data: reminderStatus || {
+        userId,
+        date: new Date().toISOString().split('T')[0],
+        morningReminderSent: false,
+        eveningReminderSent: false,
+        workReportReceived: false
+      }
+    });
+  } catch (error) {
+    logger.error('Failed to get reminder status:', error);
+    res.status(500).json({ success: false, error: 'Failed to get reminder status' });
+  }
+});
+
+// API路由 - 重置今天的提醒状态（用于测试）
+router.post('/api/reminder-status/reset', async (req, res) => {
+  try {
+    const SchedulerService = require('../services/schedulerService').default;
+    const schedulerService = new SchedulerService();
+    
+    const userId = req.body.userId || 'admin';
+    await schedulerService.resetTodayReminders(userId);
+    
+    res.json({ 
+      success: true, 
+      message: `Reset today's reminder status for user ${userId}`,
+      timestamp: new Date()
+    });
+  } catch (error) {
+    logger.error('Failed to reset reminder status:', error);
+    res.status(500).json({ success: false, error: 'Failed to reset reminder status' });
+  }
+});
+
 export default router;

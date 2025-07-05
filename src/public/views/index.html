@@ -144,6 +144,42 @@
                                 </div>
                             </div>
                         </div>
+
+                        <div class="card">
+                            <div class="card-header">
+                                <h3>今日提醒状态</h3>
+                                <button class="btn btn-small btn-secondary" onclick="refreshReminderStatus()">
+                                    <i data-feather="refresh-cw"></i> 刷新
+                                </button>
+                            </div>
+                            <div class="card-content">
+                                <div class="reminder-status">
+                                    <div class="status-item">
+                                        <span class="status-label">
+                                            <i data-feather="sunrise"></i> 晨间提醒
+                                        </span>
+                                        <span class="status-value" id="morning-reminder-status">检查中...</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <span class="status-label">
+                                            <i data-feather="sunset"></i> 晚间提醒
+                                        </span>
+                                        <span class="status-value" id="evening-reminder-status">检查中...</span>
+                                    </div>
+                                    <div class="status-item">
+                                        <span class="status-label">
+                                            <i data-feather="file-text"></i> 工作报告
+                                        </span>
+                                        <span class="status-value" id="work-report-status">检查中...</span>
+                                    </div>
+                                    <div class="status-actions">
+                                        <button class="btn btn-small btn-warning" onclick="resetReminderStatus()">
+                                            <i data-feather="rotate-ccw"></i> 重置状态
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
 

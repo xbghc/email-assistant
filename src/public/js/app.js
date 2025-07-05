@@ -169,9 +169,97 @@ async function loadDashboardData() {
         document.getElementById('system-uptime').textContent = stats.systemUptime;
         
         app.data.systemStats = stats;
+        
+        // 加载提醒状态
+        await loadReminderStatus();
     } catch (error) {
         console.error('Failed to load dashboard data:', error);
         showNotification('加载仪表板数据失败', 'error');
+    }
+}
+
+// 加载提醒状态
+async function loadReminderStatus() {
+    try {
+        const response = await fetch('/api/reminder-status?userId=admin');
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            const status = result.data;
+            
+            // 更新晨间提醒状态
+            const morningElement = document.getElementById('morning-reminder-status');
+            if (morningElement) {
+                morningElement.textContent = status.morningReminderSent ? '✅ 已发送' : '❌ 未发送';
+                morningElement.className = `status-value ${status.morningReminderSent ? 'sent' : 'not-sent'}`;
+            }
+            
+            // 更新晚间提醒状态
+            const eveningElement = document.getElementById('evening-reminder-status');
+            if (eveningElement) {
+                eveningElement.textContent = status.eveningReminderSent ? '✅ 已发送' : '❌ 未发送';
+                eveningElement.className = `status-value ${status.eveningReminderSent ? 'sent' : 'not-sent'}`;
+            }
+            
+            // 更新工作报告状态
+            const workReportElement = document.getElementById('work-report-status');
+            if (workReportElement) {
+                workReportElement.textContent = status.workReportReceived ? '✅ 已接收' : '❌ 未接收';
+                workReportElement.className = `status-value ${status.workReportReceived ? 'received' : 'not-sent'}`;
+            }
+            
+            app.data.reminderStatus = status;
+        } else {
+            console.error('Failed to load reminder status:', result.error);
+        }
+    } catch (error) {
+        console.error('Failed to load reminder status:', error);
+        // 显示错误状态
+        ['morning-reminder-status', 'evening-reminder-status', 'work-report-status'].forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                element.textContent = '❌ 加载失败';
+                element.className = 'status-value error';
+            }
+        });
+    }
+}
+
+// 刷新提醒状态
+async function refreshReminderStatus() {
+    await loadReminderStatus();
+    showNotification('提醒状态已刷新', 'info');
+}
+
+// 重置提醒状态
+async function resetReminderStatus() {
+    if (!confirm('确定要重置今天的提醒状态吗？这将允许重新发送提醒邮件。')) {
+        return;
+    }
+    
+    try {
+        showLoading();
+        const response = await fetch('/api/reminder-status/reset', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ userId: 'admin' })
+        });
+        
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            showNotification('提醒状态已重置', 'success');
+            await loadReminderStatus();
+        } else {
+            showNotification('重置提醒状态失败', 'error');
+        }
+    } catch (error) {
+        console.error('Failed to reset reminder status:', error);
+        showNotification('重置提醒状态失败', 'error');
+    } finally {
+        hideLoading();
     }
 }
 
