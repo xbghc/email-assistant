@@ -4,6 +4,7 @@ import { validateConfig } from './config';
 import SchedulerService from './services/schedulerService';
 import SystemStartupService from './services/systemStartupService';
 import scheduleRoutes from './routes/schedule';
+import webRoutes from './routes/web';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -39,6 +40,9 @@ async function startServer(): Promise<void> {
     });
 
     app.use('/api/schedule', scheduleRoutes);
+    
+    // Web管理界面路由
+    app.use('/', webRoutes);
 
     app.post('/work-report', async (req, res) => {
       try {
