@@ -119,7 +119,7 @@ class SystemStartupService {
       const activeUsers = users.filter(user => user.isActive);
       
       if (activeUsers.length === 0) {
-        logger.info('No active users found, skipping user startup notifications');
+        logger.debug('No active users found, skipping user startup notifications');
         return;
       }
 
@@ -162,7 +162,7 @@ class SystemStartupService {
         }
       }
 
-      logger.info(`User startup notifications sent: ${successCount} success, ${failureCount} failed`);
+      logger.debug(`User startup notifications sent: ${successCount} success, ${failureCount} failed`);
       
     } catch (error) {
       logger.error('Failed to send user startup notifications:', error);
@@ -178,7 +178,7 @@ class SystemStartupService {
       const activeUsers = users.filter(user => user.isActive);
       
       if (activeUsers.length === 0) {
-        logger.info('No active users found, skipping user shutdown notifications');
+        logger.debug('No active users found, skipping user shutdown notifications');
         return;
       }
 
@@ -220,7 +220,7 @@ class SystemStartupService {
         }
       }
 
-      logger.info(`User shutdown notifications sent: ${successCount} success, ${failureCount} failed`);
+      logger.debug(`User shutdown notifications sent: ${successCount} success, ${failureCount} failed`);
       
     } catch (error) {
       logger.error('Failed to send user shutdown notifications:', error);
@@ -232,14 +232,14 @@ class SystemStartupService {
    */
   async testUserNotifications(): Promise<void> {
     try {
-      logger.info('Testing user notification system...');
+      logger.debug('Testing user notification system...');
       
       await this.userService.initialize();
       const users = this.userService.getAllUsers();
       const activeUsers = users.filter(user => user.isActive);
       
       if (activeUsers.length === 0) {
-        logger.info('No active users found for testing');
+        logger.debug('No active users found for testing');
         return;
       }
 
@@ -261,7 +261,7 @@ class SystemStartupService {
         `.trim();
 
         await this.emailService.sendEmailToUser(user.email, subject, content);
-        logger.info(`Test notification sent to user: ${user.email}`);
+        logger.debug(`Test notification sent to user: ${user.email}`);
         break; // 只发送给一个用户进行测试
       }
       

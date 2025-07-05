@@ -152,7 +152,7 @@ class SchedulerService {
         { suggestions }
       );
 
-      logger.info('Morning reminder sent successfully');
+      logger.debug('Morning reminder sent successfully');
     } catch (error) {
       logger.error('Failed to send morning reminder:', error);
     }
@@ -170,7 +170,7 @@ class SchedulerService {
         { type: 'evening_reminder' }
       );
 
-      logger.info('Evening reminder sent successfully');
+      logger.debug('Evening reminder sent successfully');
     } catch (error) {
       logger.error('Failed to send evening reminder:', error);
     }
@@ -191,7 +191,7 @@ class SchedulerService {
         { summary }
       );
 
-      logger.info('Work report processed and summary sent');
+      logger.debug('Work report processed and summary sent');
     } catch (error) {
       logger.error('Failed to process work report:', error);
       throw error;

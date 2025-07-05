@@ -109,7 +109,7 @@ ${isLastWarning ? '用户已被禁用，如需恢复请使用 /enableuser 命令
       `.trim();
 
       await this.emailService.sendEmail(subject, content);
-      logger.info(`Security warning sent to admin for user ${violation.userEmail}`);
+      logger.debug(`Security warning sent to admin for user ${violation.userEmail}`);
 
     } catch (error) {
       logger.error('Failed to send security warning:', error);

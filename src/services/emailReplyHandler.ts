@@ -40,9 +40,9 @@ class EmailReplyHandler {
 
   async handleEmailReply(email: ParsedEmail): Promise<ProcessedReply> {
     try {
-      logger.info(`Processing ${email.replyType} email from ${email.from}`);
-      logger.info(`Email subject: ${email.subject}`);
-      logger.info(`Email content preview: ${email.textContent.substring(0, 100)}...`);
+      logger.debug(`Processing ${email.replyType} email from ${email.from}`);
+      logger.debug(`Email subject: ${email.subject}`);
+      logger.debug(`Email content preview: ${email.textContent.substring(0, 100)}...`);
 
       // 设置用户ID
       const fromEmail = this.extractEmailAddress(email.from);
@@ -50,7 +50,7 @@ class EmailReplyHandler {
       email.userId = user?.id || undefined;
 
       const cleanContent = this.cleanEmailContent(email.textContent);
-      logger.info(`Cleaned content preview: ${cleanContent.substring(0, 100)}...`);
+      logger.debug(`Cleaned content preview: ${cleanContent.substring(0, 100)}...`);
       
       switch (email.replyType) {
         case 'admin_command':

@@ -39,7 +39,7 @@ class EmailService {
       };
 
       await this.transporter.sendMail(mailOptions);
-      logger.info(`Email sent successfully to ${mailOptions.to}: ${subject} (${optimizedContent.length} chars)`);
+      logger.debug(`Email sent successfully to ${mailOptions.to}: ${subject} (${optimizedContent.length} chars)`);
     } catch (error) {
       logger.error('Failed to send email:', error);
       throw error;
@@ -59,7 +59,7 @@ class EmailService {
       };
 
       await this.transporter.sendMail(mailOptions);
-      logger.info(`Email sent successfully to user ${userEmail}: ${subject}`);
+      logger.debug(`Email sent successfully to user ${userEmail}: ${subject}`);
     } catch (error) {
       logger.error(`Failed to send email to user ${userEmail}:`, error);
       throw error;

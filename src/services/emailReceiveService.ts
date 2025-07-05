@@ -182,14 +182,14 @@ class EmailReceiveService extends EventEmitter {
       const parsed = await simpleParser(buffer);
       
       if (!parsed.messageId || this.processedEmails.has(parsed.messageId)) {
-        logger.info(`Skipping duplicate email: ${parsed.messageId}`);
+        logger.debug(`Skipping duplicate email: ${parsed.messageId}`);
         // 即使是重复邮件，也需要标记为已读
         this.markEmailAsRead(uid);
         return;
       }
 
       this.processedEmails.add(parsed.messageId);
-      logger.info(`Processing new email: ${parsed.messageId}`);
+      logger.debug(`Processing new email: ${parsed.messageId}`);
 
       const fromText = Array.isArray(parsed.from) 
         ? parsed.from[0]?.text || '' 
@@ -216,7 +216,7 @@ class EmailReceiveService extends EventEmitter {
 
       // 处理来自用户的邮件（包括回复和直接发送的邮件）
       if (email.from.includes(config.email.user.email)) {
-        logger.info(`Processing email from user: ${email.subject} (isReply: ${email.isReply}, type: ${email.replyType})`);
+        logger.info(`Processing email from user: ${email.subject} (${email.replyType})`);
         this.emit('emailReceived', email);
         // 处理完成后标记邮件为已读
         this.markEmailAsRead(uid);
@@ -303,7 +303,7 @@ class EmailReceiveService extends EventEmitter {
         if (err) {
           logger.error(`Failed to mark email ${uid} as read:`, err);
         } else {
-          logger.info(`Email ${uid} marked as read successfully`);
+          logger.debug(`Email ${uid} marked as read successfully`);
         }
       });
     } catch (error) {

@@ -20,7 +20,7 @@ class SimpleFunctionCallService {
 
   async handleFunctionCall(functionName: string, args: any, userId?: string): Promise<SimpleFunctionResult> {
     try {
-      logger.info(`Processing function call: ${functionName}`, { args, userId });
+      logger.debug(`Processing function call: ${functionName}`, { args, userId });
 
       switch (functionName) {
         case 'update_reminder_times':

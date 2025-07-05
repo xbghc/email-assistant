@@ -15,10 +15,22 @@ const logger = winston.createLogger({
   ],
 });
 
-// 简化控制台输出，只显示重要信息
+// 控制台输出配置
 if (process.env.NODE_ENV !== 'production') {
   logger.add(new winston.transports.Console({
-    level: 'warn', // 只显示警告和错误
+    level: 'info', // 显示info级别及以上的信息
+    format: winston.format.combine(
+      winston.format.colorize(),
+      winston.format.printf(({ level, message, timestamp }) => {
+        const time = timestamp ? new Date(timestamp as string).toLocaleTimeString() : new Date().toLocaleTimeString();
+        return `[${time}] ${level}: ${message}`;
+      })
+    )
+  }));
+} else {
+  // 生产环境只显示警告和错误
+  logger.add(new winston.transports.Console({
+    level: 'warn',
     format: winston.format.combine(
       winston.format.colorize(),
       winston.format.printf(({ level, message, timestamp }) => {

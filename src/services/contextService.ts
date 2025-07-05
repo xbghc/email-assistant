@@ -45,7 +45,7 @@ class ContextService {
       await this.compressContext(userId);
     }
 
-    logger.info(`Context entry added: ${type}`);
+    logger.debug(`Context entry added: ${type}`);
   }
 
   async getContext(limit?: number, userId = 'admin'): Promise<ContextEntry[]> {
@@ -133,7 +133,7 @@ class ContextService {
 
   private async compressContext(userId: string): Promise<void> {
     try {
-      logger.info(`Starting context compression for user ${userId}...`);
+      logger.debug(`Starting context compression for user ${userId}...`);
       
       const userContext = this.context.get(userId) || [];
       const oldContext = userContext.slice(0, -5);
@@ -152,7 +152,7 @@ class ContextService {
       this.context.set(userId, [compressedEntry, ...recentContext]);
       await this.saveContext();
       
-      logger.info(`Context compressed for user ${userId}: ${oldContext.length} entries → 1 compressed entry`);
+      logger.debug(`Context compressed for user ${userId}: ${oldContext.length} entries → 1 compressed entry`);
     } catch (error) {
       logger.error(`Failed to compress context for user ${userId}:`, error);
     }
@@ -180,7 +180,7 @@ class ContextService {
   async clearUserContext(userId: string): Promise<void> {
     this.context.delete(userId);
     await this.saveContext();
-    logger.info(`Cleared context for user ${userId}`);
+    logger.debug(`Cleared context for user ${userId}`);
   }
 }
 

@@ -168,7 +168,7 @@ class AdminCommandService {
         email
       );
       
-      logger.info(`Welcome email sent to new user: ${email}`);
+      logger.debug(`Welcome email sent to new user: ${email}`);
     } catch (error) {
       logger.error(`Failed to send welcome email to ${email}:`, error);
     }
