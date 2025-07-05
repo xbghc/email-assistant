@@ -9,6 +9,18 @@ import webRoutes from './routes/web';
 const app = express();
 const port = process.env.PORT || 3000;
 
+// CORS支持，允许远程访问
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
+  if (req.method === 'OPTIONS') {
+    res.sendStatus(200);
+  } else {
+    next();
+  }
+});
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -178,8 +190,14 @@ async function startServer(): Promise<void> {
       }
     });
 
-    app.listen(port, () => {
-      logger.info(`✅ Email Assistant Server started on port ${port}`);
+    // 绑定到所有网络接口以支持远程访问
+    const host = process.env.HOST || '0.0.0.0';
+    app.listen(Number(port), host, () => {
+      logger.info(`✅ Email Assistant Server started on ${host}:${port}`);
+      logger.info(`📱 Web管理界面: http://${host}:${port}`);
+      if (host === '0.0.0.0') {
+        logger.info(`🌐 远程访问: http://YOUR_SERVER_IP:${port}`);
+      }
     });
 
   } catch (error) {
