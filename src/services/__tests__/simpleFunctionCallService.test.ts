@@ -44,7 +44,7 @@ describe('SimpleFunctionCallService', () => {
         eveningTime: '20:00'
       };
 
-      mockUserServiceInstance.updateUserConfig.mockResolvedValue();
+      mockUserServiceInstance.updateUserConfig.mockResolvedValue(undefined);
 
       const result = await service.handleFunctionCall('update_reminder_times', args, 'user123');
 
@@ -64,7 +64,7 @@ describe('SimpleFunctionCallService', () => {
         morningTime: '09:00'
       };
 
-      mockUserServiceInstance.updateUserConfig.mockResolvedValue();
+      mockUserServiceInstance.updateUserConfig.mockResolvedValue(undefined);
 
       const result = await service.handleFunctionCall('update_reminder_times', args, 'user123');
 
@@ -129,7 +129,7 @@ describe('SimpleFunctionCallService', () => {
     });
 
     it('should handle get_user_config for non-existent user', async () => {
-      mockUserServiceInstance.getUserById.mockReturnValue(null);
+      mockUserServiceInstance.getUserById.mockReturnValue(undefined);
 
       const result = await service.handleFunctionCall('get_user_config', {}, 'nonexistent');
 
@@ -171,7 +171,7 @@ describe('SimpleFunctionCallService', () => {
         eveningTime: '20:30'
       };
 
-      mockUserServiceInstance.updateUserConfig.mockResolvedValue();
+      mockUserServiceInstance.updateUserConfig.mockResolvedValue(undefined);
 
       const result = await updateMethod(validArgs, 'user123');
       expect(result.success).toBe(true);

@@ -54,8 +54,8 @@ describe('ContextService', () => {
 
       const context = await contextService.getRecentContext(10, 'user1');
       expect(context).toHaveLength(1);
-      expect(context[0].content).toBe('Test content');
-      expect(context[0].timestamp).toBeInstanceOf(Date);
+      expect(context[0]?.content).toBe('Test content');
+      expect(context[0]?.timestamp).toBeInstanceOf(Date);
     });
 
     it('should handle legacy format (array instead of object)', async () => {
@@ -74,7 +74,7 @@ describe('ContextService', () => {
 
       const context = await contextService.getRecentContext(10, 'admin');
       expect(context).toHaveLength(1);
-      expect(context[0].content).toBe('Legacy content');
+      expect(context[0]?.content).toBe('Legacy content');
     });
   });
 
@@ -101,9 +101,9 @@ describe('ContextService', () => {
 
       const context = await contextService.getRecentContext(10, 'user1');
       expect(context).toHaveLength(1);
-      expect(context[0].content).toBe('Test message');
-      expect(context[0].type).toBe('conversation');
-      expect(context[0].metadata).toEqual({ source: 'test' });
+      expect(context[0]?.content).toBe('Test message');
+      expect(context[0]?.type).toBe('conversation');
+      expect(context[0]?.metadata).toEqual({ source: 'test' });
     });
 
     it('should use admin as default userId', async () => {
@@ -111,7 +111,7 @@ describe('ContextService', () => {
 
       const context = await contextService.getRecentContext(10, 'admin');
       expect(context).toHaveLength(1);
-      expect(context[0].content).toBe('Admin message');
+      expect(context[0]?.content).toBe('Admin message');
     });
 
     it('should handle save errors gracefully', async () => {
@@ -167,7 +167,7 @@ describe('ContextService', () => {
       
       const context = await contextService.getRecentContext(10);
       expect(context).toHaveLength(1);
-      expect(context[0].content).toBe('Admin message');
+      expect(context[0]?.content).toBe('Admin message');
     });
   });
 
@@ -194,7 +194,7 @@ describe('ContextService', () => {
       const conversations = await contextService.getContextByType('conversation', 1, 'user1');
       
       expect(conversations).toHaveLength(1);
-      expect(conversations[0].content).toBe('Conv 2');
+      expect(conversations[0]?.content).toBe('Conv 2');
     });
 
     it('should return empty array for non-matching type', async () => {
