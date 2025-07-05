@@ -150,37 +150,33 @@ router.delete('/api/users/:userId', async (req, res) => {
 // API路由 - 系统状态
 router.get('/api/system/status', async (req, res) => {
   try {
+    const SystemHealthService = require('../services/systemHealthService').default;
+    const healthService = new SystemHealthService();
+    await healthService.initialize();
+    
+    const systemHealth = await healthService.getSystemHealth();
+    
+    // 转换为 web 界面期望的格式
     const systemStatus = {
-      services: [
-        {
-          name: 'API服务',
-          status: 'running',
-          description: 'Express服务器运行正常',
-          uptime: process.uptime()
-        },
-        {
-          name: '邮件服务',
-          status: 'running',
-          description: 'SMTP/IMAP连接正常'
-        },
-        {
-          name: '调度器',
-          status: 'running',
-          description: '定时任务正常执行'
-        },
-        {
-          name: 'AI服务',
-          status: 'running',
-          description: 'AI接口响应正常'
-        }
-      ],
+      services: systemHealth.services.map((service: any) => ({
+        name: service.name,
+        status: service.status === 'healthy' ? 'running' : 
+               service.status === 'warning' ? 'warning' : 'error',
+        description: service.message,
+        uptime: service.responseTime ? `${service.responseTime}ms` : undefined,
+        lastChecked: service.lastChecked
+      })),
       metrics: {
-        memoryUsage: process.memoryUsage(),
+        memoryUsage: systemHealth.metrics.memoryUsage,
         cpuUsage: process.cpuUsage(),
-        uptime: process.uptime(),
-        version: process.version
+        uptime: systemHealth.metrics.uptime,
+        version: systemHealth.version,
+        emailsToday: systemHealth.metrics.emailsToday,
+        errorsLastHour: systemHealth.metrics.errorsLastHour,
+        warningsLastHour: systemHealth.metrics.warningsLastHour
       },
-      timestamp: new Date()
+      timestamp: systemHealth.lastChecked,
+      overall: systemHealth.overall
     };
     
     res.json({ success: true, data: systemStatus });
@@ -274,101 +270,179 @@ router.get('/api/reports/:reportId', async (req, res) => {
 // API路由 - 日志查看
 router.get('/api/logs', async (req, res) => {
   try {
-    const { level, limit = 100 } = req.query;
+    const { level, limit, search, startDate, endDate } = req.query;
     
-    // 这里应该从日志文件读取
-    // 目前返回模拟数据
-    const logs = [
-      {
-        timestamp: new Date('2025-01-06T10:30:15Z'),
-        level: 'info',
-        message: '系统启动完成',
-        module: 'main'
-      },
-      {
-        timestamp: new Date('2025-01-06T10:31:22Z'),
-        level: 'info',
-        message: '邮件服务初始化成功',
-        module: 'emailService'
-      },
-      {
-        timestamp: new Date('2025-01-06T10:32:10Z'),
-        level: 'warn',
-        message: 'AI服务响应较慢',
-        module: 'aiService'
-      },
-      {
-        timestamp: new Date('2025-01-06T10:35:45Z'),
-        level: 'info',
-        message: '周报生成任务完成',
-        module: 'weeklyReportService'
-      }
-    ];
+    const LogReaderService = require('../services/logReaderService').default;
+    const logReader = new LogReaderService();
+    await logReader.initialize();
     
-    let filteredLogs = logs;
+    const query = {
+      level: level as any,
+      limit: limit ? parseInt(limit as string) : undefined,
+      search: search as string,
+      startDate: startDate ? new Date(startDate as string) : undefined,
+      endDate: endDate ? new Date(endDate as string) : undefined
+    };
     
-    if (level && level !== 'all') {
-      filteredLogs = filteredLogs.filter(log => log.level === level);
-    }
+    const logs = await logReader.readLogs(query);
     
-    // 按时间倒序排列并限制数量
-    filteredLogs = filteredLogs
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-      .slice(0, parseInt(limit as string));
-    
-    res.json({ success: true, data: filteredLogs });
+    res.json({ success: true, data: logs });
   } catch (error) {
     logger.error('Failed to get logs:', error);
     res.status(500).json({ success: false, error: 'Failed to get logs' });
   }
 });
 
+// API路由 - 日志统计
+router.get('/api/logs/stats', async (req, res) => {
+  try {
+    const hours = req.query.hours ? parseInt(req.query.hours as string) : 24;
+    
+    const LogReaderService = require('../services/logReaderService').default;
+    const logReader = new LogReaderService();
+    await logReader.initialize();
+    
+    const stats = await logReader.getLogStatistics(hours);
+    
+    res.json({ success: true, data: stats });
+  } catch (error) {
+    logger.error('Failed to get log stats:', error);
+    res.status(500).json({ success: false, error: 'Failed to get log stats' });
+  }
+});
+
+// API路由 - 导出日志
+router.get('/api/logs/export', async (req, res) => {
+  try {
+    const { level, startDate, endDate } = req.query;
+    
+    const LogReaderService = require('../services/logReaderService').default;
+    const logReader = new LogReaderService();
+    await logReader.initialize();
+    
+    const query = {
+      level: level as any,
+      startDate: startDate ? new Date(startDate as string) : undefined,
+      endDate: endDate ? new Date(endDate as string) : undefined
+    };
+    
+    const csvContent = await logReader.exportLogsAsCSV(query);
+    
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename="logs-${new Date().toISOString().split('T')[0]!}.csv"`);
+    res.send(csvContent);
+  } catch (error) {
+    logger.error('Failed to export logs:', error);
+    res.status(500).json({ success: false, error: 'Failed to export logs' });
+  }
+});
+
 // API路由 - 配置管理
 router.get('/api/settings', async (req, res) => {
   try {
-    // 这里应该从配置文件或数据库获取设置
-    // 目前返回模拟数据（不包含敏感信息）
-    const settings = {
+    const ConfigService = require('../services/configService').default;
+    const configService = new ConfigService();
+    await configService.initialize();
+    
+    const config = configService.getConfig();
+    if (!config) {
+      return res.status(404).json({ success: false, error: 'Configuration not found' });
+    }
+    
+    // 返回安全的配置（不包含敏感信息）
+    const safeConfig = {
       email: {
-        smtpHost: process.env.SMTP_HOST || '',
-        smtpPort: process.env.SMTP_PORT || '',
-        emailUser: process.env.EMAIL_USER || '',
-        // 不返回密码等敏感信息
+        smtpHost: config.email.smtp.host,
+        smtpPort: config.email.smtp.port,
+        emailUser: config.email.smtp.user,
+        userEmail: config.email.user.email,
+        userName: config.email.user.name
       },
       ai: {
-        provider: process.env.AI_PROVIDER || 'mock',
-        model: process.env.AI_MODEL || 'gpt-3.5-turbo'
+        provider: config.ai.provider,
+        model: config.ai.model,
+        hasApiKey: !!config.ai.apiKey
       },
       schedule: {
-        morningReminderTime: '09:00',
-        eveningReminderTime: '18:00',
-        timezone: 'Asia/Shanghai'
-      }
+        morningTime: config.schedule.morningReminderTime,
+        eveningTime: config.schedule.eveningReminderTime,
+        timezone: config.schedule.timezone,
+        weeklyReportDay: config.schedule.weeklyReportDay,
+        weeklyReportTime: config.schedule.weeklyReportTime
+      },
+      server: {
+        port: config.server.port,
+        host: config.server.host,
+        logLevel: config.server.logLevel
+      },
+      features: config.features
     };
     
-    res.json({ success: true, data: settings });
+    return res.json({ success: true, data: safeConfig });
   } catch (error) {
     logger.error('Failed to get settings:', error);
-    res.status(500).json({ success: false, error: 'Failed to get settings' });
+    return res.status(500).json({ success: false, error: 'Failed to get settings' });
   }
 });
 
 router.put('/api/settings', async (req, res) => {
   try {
-    const { email, ai, schedule } = req.body;
+    const { email, ai, schedule, server, features } = req.body;
     
-    // 这里应该验证并保存配置到文件或数据库
-    // 目前只是模拟保存
-    logger.info('Settings update requested:', {
-      email: email ? 'Updated' : 'No change',
-      ai: ai ? 'Updated' : 'No change',
-      schedule: schedule ? 'Updated' : 'No change'
-    });
+    const ConfigService = require('../services/configService').default;
+    const configService = new ConfigService();
+    await configService.initialize();
+    
+    // 构建更新的配置
+    const updates: any = {};
+    
+    if (email) {
+      updates.email = {};
+      if (email.smtpHost) updates.email.smtp = { ...updates.email.smtp, host: email.smtpHost };
+      if (email.smtpPort) updates.email.smtp = { ...updates.email.smtp, port: parseInt(email.smtpPort) };
+      if (email.emailUser) updates.email.smtp = { ...updates.email.smtp, user: email.emailUser };
+      if (email.emailPass) updates.email.smtp = { ...updates.email.smtp, pass: email.emailPass };
+      if (email.userEmail) updates.email.user = { ...updates.email.user, email: email.userEmail };
+      if (email.userName) updates.email.user = { ...updates.email.user, name: email.userName };
+    }
+    
+    if (ai) {
+      updates.ai = {};
+      if (ai.provider) updates.ai.provider = ai.provider;
+      if (ai.model) updates.ai.model = ai.model;
+      if (ai.apiKey) updates.ai.apiKey = ai.apiKey;
+    }
+    
+    if (schedule) {
+      updates.schedule = {};
+      if (schedule.morningTime) updates.schedule.morningReminderTime = schedule.morningTime;
+      if (schedule.eveningTime) updates.schedule.eveningReminderTime = schedule.eveningTime;
+      if (schedule.timezone) updates.schedule.timezone = schedule.timezone;
+      if (schedule.weeklyReportDay !== undefined) updates.schedule.weeklyReportDay = schedule.weeklyReportDay;
+      if (schedule.weeklyReportTime) updates.schedule.weeklyReportTime = schedule.weeklyReportTime;
+    }
+    
+    if (server) {
+      updates.server = {};
+      if (server.port) updates.server.port = parseInt(server.port);
+      if (server.host) updates.server.host = server.host;
+      if (server.logLevel) updates.server.logLevel = server.logLevel;
+    }
+    
+    if (features) {
+      updates.features = features;
+    }
+    
+    // 保存配置
+    await configService.saveConfig(updates);
+    
+    logger.info('Settings updated successfully', { updatedSections: Object.keys(updates) });
     
     res.json({ 
       success: true, 
-      message: 'Settings updated successfully',
-      timestamp: new Date()
+      message: 'Settings updated successfully. Please restart the service for changes to take effect.',
+      timestamp: new Date(),
+      requiresRestart: true
     });
   } catch (error) {
     logger.error('Failed to update settings:', error);
@@ -385,19 +459,51 @@ router.get('/api/dashboard/stats', async (req, res) => {
     const users = userService.getAllUsers();
     const activeUsers = users.filter(user => user.isActive);
     
+    // 获取真实的邮件统计数据
+    const EmailService = require('../services/emailService').default;
+    const emailService = new EmailService();
+    await emailService.initialize();
+    const emailStats = emailService.getEmailStats();
+    
     const stats = {
       totalUsers: users.length,
       activeUsers: activeUsers.length,
-      emailsSent: Math.floor(Math.random() * 50) + 10, // 模拟数据
-      reportsGenerated: Math.floor(Math.random() * 20) + 5, // 模拟数据
+      emailsSent: emailStats.today.sent, // 真实数据：今日已发送邮件
+      reportsGenerated: emailStats.today.byType.report || 0, // 真实数据：今日生成报告数
       systemUptime: Math.floor(process.uptime() / 3600) + '小时',
-      lastUpdate: new Date()
+      lastUpdate: new Date(),
+      emailStats: {
+        today: emailStats.today,
+        thisWeek: emailStats.thisWeek,
+        thisMonth: emailStats.thisMonth
+      }
     };
     
     res.json({ success: true, data: stats });
   } catch (error) {
     logger.error('Failed to get dashboard stats:', error);
     res.status(500).json({ success: false, error: 'Failed to get dashboard stats' });
+  }
+});
+
+// API路由 - 邮件趋势数据
+router.get('/api/email-trends', async (req, res) => {
+  try {
+    const days = parseInt(req.query.days as string) || 7;
+    
+    const EmailService = require('../services/emailService').default;
+    const emailService = new EmailService();
+    await emailService.initialize();
+    
+    const trendData = emailService.getEmailTrendData(days);
+    
+    res.json({ 
+      success: true, 
+      data: trendData 
+    });
+  } catch (error) {
+    logger.error('Failed to get email trends:', error);
+    res.status(500).json({ success: false, error: 'Failed to get email trends' });
   }
 });
 

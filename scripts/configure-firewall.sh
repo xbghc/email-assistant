@@ -11,10 +11,25 @@ echo "🔧 配置防火墙以开放端口 $PORT..."
 if command -v ufw &> /dev/null; then
     echo "检测到 UFW 防火墙"
     
-    # 启用防火墙（如果未启用）
-    sudo ufw --force enable
+    # 检查防火墙状态
+    UFW_STATUS=$(sudo ufw status | grep -o "Status: active" || echo "inactive")
     
-    # 开放端口
+    if [ "$UFW_STATUS" = "inactive" ]; then
+        echo "⚠️  UFW防火墙未启用，将启用并配置基本规则..."
+        
+        # 首先允许SSH连接（防止锁定）
+        sudo ufw allow ssh
+        sudo ufw allow 22/tcp
+        
+        # 允许基本的出站连接
+        sudo ufw --force enable
+        
+        echo "✅ 已开放SSH端口以防止锁定"
+    else
+        echo "ℹ️  UFW防火墙已启用"
+    fi
+    
+    # 开放应用端口
     sudo ufw allow $PORT/tcp
     
     # 显示状态

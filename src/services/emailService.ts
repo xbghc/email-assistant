@@ -2,13 +2,16 @@ import nodemailer from 'nodemailer';
 import config from '../config';
 import logger from '../utils/logger';
 import EmailContentManager from './emailContentManager';
+import EmailStatsService from './emailStatsService';
 
 class EmailService {
   private transporter: nodemailer.Transporter;
   private contentManager: EmailContentManager;
+  private statsService: EmailStatsService;
 
   constructor() {
     this.contentManager = new EmailContentManager();
+    this.statsService = new EmailStatsService();
     this.transporter = nodemailer.createTransport({
       host: config.email.smtp.host,
       port: config.email.smtp.port,
@@ -18,6 +21,10 @@ class EmailService {
         pass: config.email.smtp.pass,
       },
     });
+  }
+
+  async initialize(): Promise<void> {
+    await this.statsService.initialize();
   }
 
   async sendEmail(subject: string, content: string, isHtml: boolean = false, toEmail?: string, contentType: 'help' | 'response' | 'notification' = 'response'): Promise<void> {
@@ -40,8 +47,26 @@ class EmailService {
 
       await this.transporter.sendMail(mailOptions);
       logger.debug(`Email sent successfully to ${mailOptions.to}: ${subject} (${optimizedContent.length} chars)`);
+      
+      // 记录邮件发送统计
+      await this.statsService.recordEmailSent({
+        to: mailOptions.to,
+        subject,
+        type: this.getEmailType(subject, contentType),
+        status: 'sent'
+      });
     } catch (error) {
       logger.error('Failed to send email:', error);
+      
+      // 记录邮件发送失败
+      await this.statsService.recordEmailSent({
+        to: toEmail || config.email.user.email,
+        subject,
+        type: this.getEmailType(subject, contentType),
+        status: 'failed',
+        errorMessage: error instanceof Error ? error.message : String(error)
+      });
+      
       throw error;
     }
   }
@@ -60,8 +85,26 @@ class EmailService {
 
       await this.transporter.sendMail(mailOptions);
       logger.debug(`Email sent successfully to user ${userEmail}: ${subject}`);
+      
+      // 记录邮件发送统计
+      await this.statsService.recordEmailSent({
+        to: userEmail,
+        subject,
+        type: this.getEmailType(subject, 'notification'),
+        status: 'sent'
+      });
     } catch (error) {
       logger.error(`Failed to send email to user ${userEmail}:`, error);
+      
+      // 记录邮件发送失败
+      await this.statsService.recordEmailSent({
+        to: userEmail,
+        subject,
+        type: this.getEmailType(subject, 'notification'),
+        status: 'failed',
+        errorMessage: error instanceof Error ? error.message : String(error)
+      });
+      
       throw error;
     }
   }
@@ -266,6 +309,39 @@ ${originalContent}
       logger.error('Email service connection failed:', error);
       return false;
     }
+  }
+
+  /**
+   * 根据邮件主题和内容类型确定邮件类型
+   */
+  private getEmailType(subject: string, contentType: string): 'reminder' | 'report' | 'suggestion' | 'system' | 'admin' {
+    if (subject.includes('提醒') || subject.includes('reminder')) {
+      return 'reminder';
+    }
+    if (subject.includes('周报') || subject.includes('报告') || subject.includes('report')) {
+      return 'report';
+    }
+    if (subject.includes('建议') || subject.includes('suggestion')) {
+      return 'suggestion';
+    }
+    if (subject.includes('系统') || subject.includes('启动') || subject.includes('关闭') || contentType === 'notification') {
+      return 'system';
+    }
+    return 'admin';
+  }
+
+  /**
+   * 获取邮件发送统计
+   */
+  getEmailStats() {
+    return this.statsService.getEmailStats();
+  }
+
+  /**
+   * 获取邮件趋势数据
+   */
+  getEmailTrendData(days: number = 7) {
+    return this.statsService.getEmailTrendData(days);
   }
 }
 

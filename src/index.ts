@@ -3,6 +3,7 @@ import logger from './utils/logger';
 import { validateConfig } from './config';
 import SchedulerService from './services/schedulerService';
 import SystemStartupService from './services/systemStartupService';
+import SystemHealthService from './services/systemHealthService';
 import scheduleRoutes from './routes/schedule';
 import webRoutes from './routes/web';
 
@@ -26,6 +27,7 @@ app.use(express.urlencoded({ extended: true }));
 
 let schedulerService: SchedulerService;
 let startupService: SystemStartupService;
+let healthService: SystemHealthService;
 
 async function startServer(): Promise<void> {
   try {
@@ -36,19 +38,28 @@ async function startServer(): Promise<void> {
 
     schedulerService = new SchedulerService();
     startupService = new SystemStartupService();
+    healthService = new SystemHealthService();
     
     await schedulerService.initialize();
+    await healthService.initialize();
     
     // 发送系统启动通知
     await startupService.sendStartupNotification();
 
-    app.get('/health', (req, res) => {
-      const emailStatus = schedulerService.getEmailReceiveStatus();
-      res.json({ 
-        status: 'healthy', 
-        timestamp: new Date().toISOString(),
-        emailReceiver: emailStatus
-      });
+    app.get('/health', async (req, res) => {
+      try {
+        const health = await healthService.getQuickHealth();
+        res.json(health);
+      } catch (error) {
+        logger.error('Health check failed:', error);
+        res.status(503).json({
+          status: 'critical',
+          timestamp: new Date(),
+          uptime: process.uptime(),
+          memoryUsage: process.memoryUsage(),
+          error: 'Health check failed'
+        });
+      }
     });
 
     app.use('/api/schedule', scheduleRoutes);
