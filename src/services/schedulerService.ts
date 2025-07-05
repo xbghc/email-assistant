@@ -6,6 +6,7 @@ import AIService from './aiService';
 import ContextService from './contextService';
 import ScheduleService from './scheduleService';
 import WeeklyReportService from './weeklyReportService';
+import PersonalizationService from './personalizationService';
 import EmailReceiveService, { ParsedEmail } from './emailReceiveService';
 import EmailReplyHandler from './emailReplyHandler';
 
@@ -15,11 +16,13 @@ class SchedulerService {
   private contextService: ContextService;
   private scheduleService: ScheduleService;
   private weeklyReportService: WeeklyReportService;
+  private personalizationService: PersonalizationService;
   private emailReceiveService: EmailReceiveService;
   private emailReplyHandler: EmailReplyHandler;
   private morningTask?: cron.ScheduledTask;
   private eveningTask?: cron.ScheduledTask;
   private weeklyTask?: cron.ScheduledTask;
+  private personalizationTask?: cron.ScheduledTask;
 
   constructor() {
     this.emailService = new EmailService();
@@ -27,6 +30,7 @@ class SchedulerService {
     this.contextService = new ContextService();
     this.scheduleService = new ScheduleService();
     this.weeklyReportService = new WeeklyReportService();
+    this.personalizationService = new PersonalizationService();
     this.emailReceiveService = new EmailReceiveService();
     this.emailReplyHandler = new EmailReplyHandler();
   }
@@ -36,12 +40,14 @@ class SchedulerService {
       await this.contextService.initialize();
       await this.scheduleService.initialize();
       await this.weeklyReportService.initialize();
+      await this.personalizationService.initialize();
       await this.emailService.verifyConnection();
       await this.emailReplyHandler.initialize();
       
       this.setupMorningReminder();
       this.setupEveningReminder();
       this.setupWeeklyReport();
+      this.setupPersonalizationSuggestions();
       this.setupEmailReceiver();
       
       logger.info('📅 Scheduler configured for reminders');
@@ -95,6 +101,30 @@ class SchedulerService {
     });
 
     logger.info('📊 Weekly report task scheduled for Mondays at 9:00 AM');
+  }
+
+  private setupPersonalizationSuggestions(): void {
+    // 每两周的周五下午3点发送个性化建议
+    this.personalizationTask = cron.schedule('0 15 * * 5', async () => {
+      try {
+        const now = new Date();
+        const weekOfYear = Math.ceil((now.getTime() - new Date(now.getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000));
+        
+        // 只在偶数周发送（每两周一次）
+        if (weekOfYear % 2 === 0) {
+          logger.info('Starting personalized suggestions generation...');
+          await this.personalizationService.generatePersonalizedSuggestionsForAllUsers();
+          logger.info('Personalized suggestions generated and sent to all users');
+        }
+      } catch (error) {
+        logger.error('Failed to generate personalized suggestions:', error);
+      }
+    }, {
+      scheduled: true,
+      timezone: 'Asia/Shanghai'
+    });
+
+    logger.info('🎯 Personalized suggestions task scheduled for every other Friday at 3:00 PM');
   }
 
   private setupEmailReceiver(): void {
@@ -265,6 +295,9 @@ class SchedulerService {
     }
     if (this.weeklyTask) {
       this.weeklyTask.stop();
+    }
+    if (this.personalizationTask) {
+      this.personalizationTask.stop();
     }
     this.emailReceiveService.stop();
     logger.info('Scheduler service destroyed');

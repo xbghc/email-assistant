@@ -152,6 +152,28 @@ async function startServer(): Promise<void> {
       }
     });
 
+    app.post('/test/personalized-suggestions', async (req, res) => {
+      try {
+        const { userId } = req.body;
+        
+        const PersonalizationService = (await import('./services/personalizationService')).default;
+        const personalizationService = new PersonalizationService();
+        await personalizationService.initialize();
+        
+        if (userId === 'all') {
+          await personalizationService.generatePersonalizedSuggestionsForAllUsers();
+          res.json({ message: 'Personalized suggestions generated for all users' });
+        } else {
+          const targetUserId = userId || 'admin';
+          const result = await personalizationService.generatePersonalizedSuggestions(targetUserId);
+          res.json({ message: 'Personalized suggestions generated', result });
+        }
+      } catch (error) {
+        logger.error('Failed to test personalized suggestions:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    });
+
     app.listen(port, () => {
       logger.info(`✅ Email Assistant Server started on port ${port}`);
     });

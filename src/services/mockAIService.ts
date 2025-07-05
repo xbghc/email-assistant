@@ -19,6 +19,10 @@ class MockAIService {
       return this.generateMockWeeklyReport();
     }
     
+    if (userPrompt.includes('个性化') || userPrompt.includes('建议') || userPrompt.includes('工作模式')) {
+      return this.generateMockPersonalizedSuggestions();
+    }
+    
     if (userPrompt.includes('morning') || userPrompt.includes('日程')) {
       return this.generateMockMorningReminder();
     }
@@ -142,6 +146,16 @@ class MockAIService {
 
 💡 经验收获：
 通过本次工作，进一步提升了技术能力和项目管理经验。
+    `.trim();
+  }
+
+  private generateMockPersonalizedSuggestions(): string {
+    return `
+[productivity] 优化深度工作时间 | 根据您的工作模式，建议在上午9-11点安排最重要的创造性任务 | 调整日程安排、设置免打扰时段、准备深度工作清单
+
+[time_management] 建立任务批处理习惯 | 将相似类型的任务集中处理可以提升效率 | 每天固定时间处理邮件、集中进行代码review、批量处理文档工作
+
+[skill_development] 提升自动化技能 | 基于您的工作内容，学习自动化工具可以节省大量时间 | 学习脚本编写、探索CI/CD工具、建立个人工作流模板
     `.trim();
   }
 }

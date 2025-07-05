@@ -2,6 +2,7 @@ import { AdminCommand, UserConfig } from '../models/User';
 import UserService from './userService';
 import EmailService from './emailService';
 import WeeklyReportService from './weeklyReportService';
+import PersonalizationService from './personalizationService';
 import logger from '../utils/logger';
 import config from '../config';
 
@@ -9,12 +10,14 @@ class AdminCommandService {
   private userService: UserService;
   private emailService: EmailService;
   private weeklyReportService: WeeklyReportService;
+  private personalizationService: PersonalizationService;
   private commands: Map<string, AdminCommand>;
 
   constructor(userService: UserService) {
     this.userService = userService;
     this.emailService = new EmailService();
     this.weeklyReportService = new WeeklyReportService();
+    this.personalizationService = new PersonalizationService();
     this.commands = new Map();
     this.initializeCommands();
   }
@@ -89,6 +92,14 @@ class AdminCommandService {
       description: '生成用户周报',
       usage: '/weeklyreport [email] [weekOffset]',
       handler: this.handleWeeklyReport.bind(this)
+    });
+
+    // 个性化建议
+    this.commands.set('suggestions', {
+      command: 'suggestions',
+      description: '生成个性化工作建议',
+      usage: '/suggestions [email]',
+      handler: this.handlePersonalizedSuggestions.bind(this)
     });
 
     // 帮助命令
@@ -472,6 +483,36 @@ class AdminCommandService {
     } catch (error) {
       logger.error('Failed to generate weekly report:', error);
       return `❌ 生成周报失败: ${error instanceof Error ? error.message : '未知错误'}`;
+    }
+  }
+
+  private async handlePersonalizedSuggestions(args: string[]): Promise<string> {
+    try {
+      // 初始化个性化服务
+      await this.personalizationService.initialize();
+      
+      if (args.length === 0) {
+        // 为所有用户生成个性化建议
+        await this.personalizationService.generatePersonalizedSuggestionsForAllUsers();
+        return '✅ 已为所有活跃用户生成并发送个性化建议';
+      }
+      
+      const [email] = args;
+      if (!email) {
+        return '❌ 请提供用户邮箱地址';
+      }
+      
+      const user = this.userService.getUserByEmail(email);
+      if (!user) {
+        return `❌ 用户 ${email} 不存在`;
+      }
+      
+      await this.personalizationService.sendPersonalizedSuggestions(user.id);
+      return `✅ 已为用户 ${email} 生成并发送个性化建议`;
+      
+    } catch (error) {
+      logger.error('Failed to generate personalized suggestions:', error);
+      return `❌ 生成个性化建议失败: ${error instanceof Error ? error.message : '未知错误'}`;
     }
   }
 
