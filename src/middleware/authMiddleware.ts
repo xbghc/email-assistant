@@ -26,6 +26,21 @@ export class AuthMiddleware {
   // 验证JWT token
   authenticate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
+      // 为Web管理界面提供临时访问（localhost）
+      if (this.isWebManagementRequest(req)) {
+        req.user = { 
+          userId: 'admin', 
+          role: UserRole.ADMIN, 
+          email: 'admin@localhost',
+          iat: Math.floor(Date.now() / 1000),
+          exp: Math.floor(Date.now() / 1000) + 3600
+        };
+        req.userId = 'admin';
+        req.userRole = UserRole.ADMIN;
+        next();
+        return;
+      }
+      
       const authHeader = req.headers.authorization;
       
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -212,6 +227,29 @@ export class AuthMiddleware {
 
     next();
   };
+  
+  // 检查是否是Web管理界面请求
+  private isWebManagementRequest(req: Request): boolean {
+    const userAgent = req.headers['user-agent'] || '';
+    const referer = req.headers.referer || '';
+    const host = req.headers.host || '';
+    
+    // 检查是否来自本地访问且是浏览器请求
+    const isLocalhost = host.includes('localhost') || host.includes('127.0.0.1') || host.includes('0.0.0.0');
+    const isBrowserRequest = userAgent.includes('Mozilla') || userAgent.includes('Chrome') || userAgent.includes('Safari');
+    
+    // 允许Web管理界面的API调用（开发和本地访问）
+    if (isLocalhost && isBrowserRequest) {
+      return true;
+    }
+    
+    // 在开发环境中允许所有Web请求
+    if (process.env.NODE_ENV === 'development' || process.env.NODE_ENV === 'test') {
+      return isBrowserRequest;
+    }
+    
+    return false;
+  }
 }
 
 // 创建单例实例

@@ -185,16 +185,18 @@ async function loadDashboardData() {
             document.getElementById('reports-generated').textContent = '--';
             document.getElementById('system-uptime').textContent = '--';
             console.error('Failed to load dashboard stats:', result.error);
+            showNotification(`仪表板数据加载失败: ${result.error || '未知错误'}`, 'error');
         }
         
         // 加载提醒状态
         await loadReminderStatus();
     } catch (error) {
         console.error('Failed to load dashboard data:', error);
-        showNotification('加载仪表板数据失败', 'error');
+        const errorMsg = error.message || '网络连接失败';
+        showNotification(`仪表板数据加载失败: ${errorMsg}`, 'error');
         // 显示错误状态
         ['total-users', 'emails-sent', 'reports-generated', 'system-uptime'].forEach(id => {
-            document.getElementById(id).textContent = '加载失败';
+            document.getElementById(id).textContent = '连接失败';
         });
     }
 }
@@ -306,12 +308,13 @@ async function loadUsersData() {
             renderUsersTable(users);
         } else {
             console.error('Failed to load users:', result.error);
-            showNotification('加载用户数据失败', 'error');
+            showNotification(`用户数据加载失败: ${result.error || '服务器错误'}`, 'error');
             renderUsersTable([]);
         }
     } catch (error) {
         console.error('Failed to load users data:', error);
-        showNotification('加载用户数据失败', 'error');
+        const errorMsg = error.message || '网络连接失败';
+        showNotification(`用户数据加载失败: ${errorMsg}`, 'error');
         renderUsersTable([]);
     }
 }
@@ -469,10 +472,13 @@ async function loadReportsData() {
                 title: report.title,
                 date: new Date(report.createdAt).toLocaleDateString(),
                 summary: report.summary || report.content?.substring(0, 100) + '...',
+                content: report.content, // 保存完整内容供查看使用
                 userId: report.userId,
                 status: report.status
             }));
             
+            // 保存到全局数据中
+            app.data.reports = reports;
             renderReports(reports);
         } else {
             console.error('Failed to load reports:', result.error);
@@ -597,7 +603,7 @@ function renderLogs(logs) {
 async function loadSettingsData() {
     try {
         // 从真实API获取配置数据
-        const response = await fetch('/api/config');
+        const response = await fetch('/api/settings');
         const result = await response.json();
         
         if (response.ok && result.success) {
@@ -886,8 +892,110 @@ async function refreshLogs() {
 }
 
 // 查看报告
-function viewReport(reportId) {
-    showNotification('报告查看功能开发中', 'info');
+async function viewReport(reportId) {
+    try {
+        showLoading('加载报告内容...');
+        
+        // 从报告列表中找到对应报告
+        const report = app.data.reports?.find(r => r.id === reportId);
+        
+        if (!report) {
+            showNotification('未找到报告内容', 'error');
+            return;
+        }
+        
+        // 显示报告详情模态框
+        const modalContent = `
+            <div class="report-detail">
+                <h3>${report.title}</h3>
+                <div class="report-meta">
+                    <span class="report-type">${getReportTypeText(report.type)}</span>
+                    <span class="report-date">${report.date}</span>
+                    ${report.status ? `<span class="badge ${getStatusClass(report.status)}">${getStatusText(report.status)}</span>` : ''}
+                </div>
+                <div class="report-summary">
+                    <h4>摘要</h4>
+                    <p>${report.summary}</p>
+                </div>
+                ${report.content ? `
+                    <div class="report-content">
+                        <h4>详细内容</h4>
+                        <pre>${report.content}</pre>
+                    </div>
+                ` : ''}
+            </div>
+        `;
+        
+        // 创建临时模态框
+        const modal = document.createElement('div');
+        modal.id = 'report-detail-modal';
+        modal.className = 'modal active';
+        modal.innerHTML = `
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2>报告详情</h2>
+                    <button class="modal-close" onclick="closeReportModal()">&times;</button>
+                </div>
+                <div class="modal-body">
+                    ${modalContent}
+                </div>
+                <div class="modal-footer">
+                    <button class="btn btn-outline" onclick="closeReportModal()">关闭</button>
+                </div>
+            </div>
+        `;
+        
+        document.body.appendChild(modal);
+        
+        // 保存报告数据到全局变量
+        if (!app.data.reports) {
+            app.data.reports = [];
+        }
+        
+    } catch (error) {
+        console.error('Failed to view report:', error);
+        showNotification('加载报告失败', 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// 关闭报告模态框
+function closeReportModal() {
+    const modal = document.getElementById('report-detail-modal');
+    if (modal) {
+        modal.remove();
+    }
+}
+
+// 辅助函数
+function getReportTypeText(type) {
+    const types = {
+        'weekly': '周报',
+        'suggestions': '个性化建议',
+        'daily': '日报',
+        'monthly': '月报',
+        'system': '系统报告'
+    };
+    return types[type] || '报告';
+}
+
+function getStatusClass(status) {
+    const statusMap = {
+        'completed': 'badge-success',
+        'pending': 'badge-warning',
+        'failed': 'badge-error'
+    };
+    return statusMap[status] || 'badge-secondary';
+}
+
+function getStatusText(status) {
+    const statusMap = {
+        'completed': '已完成',
+        'pending': '处理中',
+        'failed': '失败'
+    };
+    return statusMap[status] || '未知';
 }
 
 // 模态框控制
