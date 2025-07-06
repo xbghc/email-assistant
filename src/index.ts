@@ -67,6 +67,21 @@ let schedulerService: SchedulerService;
 let startupService: SystemStartupService;
 let healthService: SystemHealthService;
 
+// 导出服务实例供其他模块使用
+export function getSchedulerService(): SchedulerService {
+  if (!schedulerService) {
+    throw new Error('SchedulerService not initialized');
+  }
+  return schedulerService;
+}
+
+export function getHealthService(): SystemHealthService {
+  if (!healthService) {
+    throw new Error('SystemHealthService not initialized');
+  }
+  return healthService;
+}
+
 async function startServer(): Promise<void> {
   try {
     // 初始化服务

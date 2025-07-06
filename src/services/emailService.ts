@@ -447,7 +447,21 @@ ${originalContent}
     return {
       isConnected: this.isConnected,
       queueLength: this.emailQueue.length,
-      circuitBreakerOpen: this.circuitBreaker ? true : false
+      circuitBreakerOpen: this.circuitBreaker ? true : false,
+      config: {
+        smtpHost: config.email.smtp.host,
+        smtpPort: config.email.smtp.port,
+        smtpUserConfigured: !!config.email.smtp.user,
+        smtpPassConfigured: !!config.email.smtp.pass,
+        imapHost: config.email.imap.host,
+        imapPort: config.email.imap.port,
+        imapUserConfigured: !!config.email.imap.user,
+        imapPassConfigured: !!config.email.imap.pass
+      },
+      lastConnection: {
+        timestamp: new Date(),
+        success: this.isConnected
+      }
     };
   }
   

@@ -532,8 +532,8 @@ router.get('/api/email-trends', authenticate, async (req, res) => {
 // API路由 - 提醒状态（需要认证）
 router.get('/api/reminder-status', authenticate, async (req, res) => {
   try {
-    const SchedulerService = require('../services/schedulerService').default;
-    const schedulerService = new SchedulerService();
+    const { getSchedulerService } = require('../index');
+    const schedulerService = getSchedulerService();
     
     const userId = req.query.userId as string || 'admin';
     const reminderStatus = schedulerService.getTodayReminderStatus(userId);
@@ -557,8 +557,8 @@ router.get('/api/reminder-status', authenticate, async (req, res) => {
 // API路由 - 重置今天的提醒状态（需要管理员权限）
 router.post('/api/reminder-status/reset', authenticate, requireAdmin, async (req, res) => {
   try {
-    const SchedulerService = require('../services/schedulerService').default;
-    const schedulerService = new SchedulerService();
+    const { getSchedulerService } = require('../index');
+    const schedulerService = getSchedulerService();
     
     const userId = req.body.userId || 'admin';
     await schedulerService.resetTodayReminders(userId);
