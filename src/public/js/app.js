@@ -101,6 +101,16 @@ function setupEventListeners() {
         showNotification('数据已刷新', 'success');
     });
     
+    // 日志级别过滤
+    const logLevelSelect = document.getElementById('log-level');
+    if (logLevelSelect) {
+        logLevelSelect.addEventListener('change', function() {
+            if (app.currentPage === 'logs') {
+                loadLogsData();
+            }
+        });
+    }
+    
     // 模态框关闭
     document.addEventListener('click', function(e) {
         if (e.target.classList.contains('modal')) {
@@ -155,26 +165,37 @@ function updateHealthMetrics(data) {
 // 加载仪表板数据
 async function loadDashboardData() {
     try {
-        // 模拟数据加载
-        const stats = {
-            totalUsers: 3,
-            emailsSent: 12,
-            reportsGenerated: 5,
-            systemUptime: '2天 15小时'
-        };
+        // 从真实API获取统计数据
+        const response = await fetch('/api/dashboard/stats');
+        const result = await response.json();
         
-        document.getElementById('total-users').textContent = stats.totalUsers;
-        document.getElementById('emails-sent').textContent = stats.emailsSent;
-        document.getElementById('reports-generated').textContent = stats.reportsGenerated;
-        document.getElementById('system-uptime').textContent = stats.systemUptime;
-        
-        app.data.systemStats = stats;
+        if (response.ok && result.success) {
+            const stats = result.data;
+            
+            document.getElementById('total-users').textContent = stats.totalUsers;
+            document.getElementById('emails-sent').textContent = stats.emailsSent;
+            document.getElementById('reports-generated').textContent = stats.reportsGenerated;
+            document.getElementById('system-uptime').textContent = stats.systemUptime;
+            
+            app.data.systemStats = stats;
+        } else {
+            // 发生错误时显示占位数据
+            document.getElementById('total-users').textContent = '--';
+            document.getElementById('emails-sent').textContent = '--';
+            document.getElementById('reports-generated').textContent = '--';
+            document.getElementById('system-uptime').textContent = '--';
+            console.error('Failed to load dashboard stats:', result.error);
+        }
         
         // 加载提醒状态
         await loadReminderStatus();
     } catch (error) {
         console.error('Failed to load dashboard data:', error);
         showNotification('加载仪表板数据失败', 'error');
+        // 显示错误状态
+        ['total-users', 'emails-sent', 'reports-generated', 'system-uptime'].forEach(id => {
+            document.getElementById(id).textContent = '加载失败';
+        });
     }
 }
 
@@ -266,29 +287,32 @@ async function resetReminderStatus() {
 // 加载用户数据
 async function loadUsersData() {
     try {
-        // 从用户管理API获取数据
-        const users = [
-            {
-                id: 'admin',
-                name: '管理员',
-                email: 'admin@example.com',
-                status: 'active',
-                createdAt: '2025-01-01'
-            },
-            {
-                id: 'user1',
-                name: '张三',
-                email: 'zhangsan@example.com',
-                status: 'active',
-                createdAt: '2025-01-02'
-            }
-        ];
+        // 从真实API获取用户数据
+        const response = await fetch('/api/users');
+        const result = await response.json();
         
-        app.data.users = users;
-        renderUsersTable(users);
+        if (response.ok && result.success) {
+            const users = result.data.map(user => ({
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                status: user.isActive ? 'active' : 'inactive',
+                role: user.role,
+                createdAt: new Date(user.createdAt).toLocaleDateString(),
+                lastLogin: user.lastLoginAt ? new Date(user.lastLoginAt).toLocaleString() : '从未登录'
+            }));
+            
+            app.data.users = users;
+            renderUsersTable(users);
+        } else {
+            console.error('Failed to load users:', result.error);
+            showNotification('加载用户数据失败', 'error');
+            renderUsersTable([]);
+        }
     } catch (error) {
         console.error('Failed to load users data:', error);
         showNotification('加载用户数据失败', 'error');
+        renderUsersTable([]);
     }
 }
 
@@ -297,7 +321,7 @@ function renderUsersTable(users) {
     const tbody = document.getElementById('users-table-body');
     
     if (users.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" class="loading">暂无用户数据</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="8" class="loading">暂无用户数据</td></tr>';
         return;
     }
     
@@ -311,7 +335,13 @@ function renderUsersTable(users) {
                     ${user.status === 'active' ? '活跃' : '非活跃'}
                 </span>
             </td>
+            <td>
+                <span class="badge ${user.role === 'admin' ? 'badge-primary' : 'badge-secondary'}">
+                    ${user.role === 'admin' ? '管理员' : '用户'}
+                </span>
+            </td>
             <td>${user.createdAt}</td>
+            <td>${user.lastLogin}</td>
             <td>
                 <button class="btn btn-outline" onclick="editUser('${user.id}')">编辑</button>
                 <button class="btn btn-outline" onclick="deleteUser('${user.id}')">删除</button>
@@ -323,25 +353,78 @@ function renderUsersTable(users) {
 // 加载系统数据
 async function loadSystemData() {
     try {
-        const services = [
-            { name: 'API服务', status: 'running', description: 'Express服务器运行正常' },
-            { name: '邮件服务', status: 'running', description: 'SMTP/IMAP连接正常' },
-            { name: '调度器', status: 'running', description: '定时任务正常执行' },
-            { name: 'AI服务', status: 'running', description: 'AI接口响应正常' }
-        ];
+        // 获取真实的系统健康数据
+        const response = await fetch('/health');
+        const healthData = await response.json();
         
-        const metrics = [
-            { name: 'CPU使用率', value: '15%', status: 'normal' },
-            { name: '内存使用', value: '256MB', status: 'normal' },
-            { name: '磁盘空间', value: '2.1GB', status: 'normal' },
-            { name: '网络延迟', value: '45ms', status: 'normal' }
-        ];
-        
-        renderSystemServices(services);
-        renderPerformanceMetrics(metrics);
+        if (response.ok) {
+            // 根据真实数据构建服务状态
+            const services = [
+                { 
+                    name: 'API服务', 
+                    status: 'running', 
+                    description: `Express服务器运行正常 (端口: ${healthData.port || 3000})` 
+                },
+                { 
+                    name: '邮件服务', 
+                    status: healthData.emailReceiver?.connected ? 'running' : 'warning',
+                    description: healthData.emailReceiver?.connected ? 'SMTP/IMAP连接正常' : 'SMTP/IMAP连接异常' 
+                },
+                { 
+                    name: '调度器', 
+                    status: healthData.scheduler?.active ? 'running' : 'warning',
+                    description: healthData.scheduler?.active ? '定时任务正常执行' : '调度器未启动' 
+                },
+                { 
+                    name: 'AI服务', 
+                    status: healthData.aiService?.available ? 'running' : 'warning',
+                    description: healthData.aiService?.available ? `AI接口响应正常 (${healthData.aiService?.provider})` : 'AI服务不可用' 
+                }
+            ];
+            
+            // 根据真实系统指标构建性能数据
+            const metrics = [
+                { 
+                    name: 'CPU使用率', 
+                    value: healthData.cpu ? `${Math.round(healthData.cpu)}%` : '监控中...',
+                    status: healthData.cpu > 80 ? 'warning' : 'normal' 
+                },
+                { 
+                    name: '内存使用', 
+                    value: healthData.memoryUsage ? `${Math.round(healthData.memoryUsage.rss / 1024 / 1024)}MB` : '监控中...',
+                    status: healthData.memoryUsage?.rss > 500 * 1024 * 1024 ? 'warning' : 'normal' 
+                },
+                { 
+                    name: '系统运行时间', 
+                    value: healthData.uptime ? `${Math.floor(healthData.uptime / 3600)}小时` : '监控中...',
+                    status: 'normal' 
+                },
+                { 
+                    name: '响应状态', 
+                    value: healthData.status === 'healthy' ? '正常' : '异常',
+                    status: healthData.status === 'healthy' ? 'normal' : 'warning' 
+                }
+            ];
+            
+            renderSystemServices(services);
+            renderPerformanceMetrics(metrics);
+        } else {
+            throw new Error('Failed to fetch health data');
+        }
     } catch (error) {
         console.error('Failed to load system data:', error);
         showNotification('加载系统数据失败', 'error');
+        
+        // 显示错误状态
+        const errorServices = [
+            { name: '系统状态', status: 'error', description: '无法获取系统状态数据' }
+        ];
+        const errorMetrics = [
+            { name: '系统监控', value: '连接失败', status: 'warning' }
+        ];
+        
+        renderSystemServices(errorServices);
+        renderPerformanceMetrics(errorMetrics);
     }
 }
 
@@ -375,27 +458,32 @@ function renderPerformanceMetrics(metrics) {
 // 加载报告数据
 async function loadReportsData() {
     try {
-        const reports = [
-            {
-                id: 1,
-                type: 'weekly',
-                title: '工作周报 - 2025年第1周',
-                date: '2025-01-06',
-                summary: '本周完成了邮件助手的核心功能开发...'
-            },
-            {
-                id: 2,
-                type: 'suggestions',
-                title: '个性化建议报告',
-                date: '2025-01-05',
-                summary: '基于用户工作模式分析生成的个性化建议...'
-            }
-        ];
+        // 从真实API获取报告数据
+        const response = await fetch('/api/reports?limit=20');
+        const result = await response.json();
         
-        renderReports(reports);
+        if (response.ok && result.success) {
+            const reports = result.data.map(report => ({
+                id: report.id,
+                type: report.type,
+                title: report.title,
+                date: new Date(report.createdAt).toLocaleDateString(),
+                summary: report.summary || report.content?.substring(0, 100) + '...',
+                userId: report.userId,
+                status: report.status
+            }));
+            
+            renderReports(reports);
+        } else {
+            console.error('Failed to load reports:', result.error);
+            renderReports([]);
+        }
     } catch (error) {
         console.error('Failed to load reports data:', error);
         showNotification('加载报告数据失败', 'error');
+        
+        // 显示提示信息
+        renderReports([]);
     }
 }
 
@@ -404,17 +492,48 @@ function renderReports(reports) {
     const container = document.getElementById('reports-list');
     
     if (reports.length === 0) {
-        container.innerHTML = '<div class="loading">暂无报告数据</div>';
+        container.innerHTML = `
+            <div class="empty-state">
+                <div class="empty-icon">📄</div>
+                <div class="empty-title">暂无报告数据</div>
+                <div class="empty-description">使用上方的生成报告功能创建新报告</div>
+            </div>
+        `;
         return;
     }
     
+    const getReportTypeText = (type) => {
+        const types = {
+            'weekly': '周报',
+            'suggestions': '个性化建议',
+            'daily': '日报',
+            'monthly': '月报'
+        };
+        return types[type] || '报告';
+    };
+    
+    const getStatusBadge = (status) => {
+        const statusMap = {
+            'completed': { text: '已完成', class: 'badge-success' },
+            'pending': { text: '处理中', class: 'badge-warning' },
+            'failed': { text: '失败', class: 'badge-error' }
+        };
+        const statusInfo = statusMap[status] || { text: '未知', class: 'badge-secondary' };
+        return `<span class="badge ${statusInfo.class}">${statusInfo.text}</span>`;
+    };
+    
     container.innerHTML = reports.map(report => `
-        <div class="report-item" onclick="viewReport(${report.id})">
+        <div class="report-item" onclick="viewReport('${report.id}')">
             <div class="report-header">
                 <div class="report-title">${report.title}</div>
-                <div class="report-date">${report.date}</div>
+                <div class="report-meta">
+                    <span class="report-type">${getReportTypeText(report.type)}</span>
+                    ${report.status ? getStatusBadge(report.status) : ''}
+                    <span class="report-date">${report.date}</span>
+                </div>
             </div>
             <div class="report-summary">${report.summary}</div>
+            ${report.userId ? `<div class="report-user">用户: ${report.userId}</div>` : ''}
         </div>
     `).join('');
 }
@@ -422,18 +541,37 @@ function renderReports(reports) {
 // 加载日志数据
 async function loadLogsData() {
     try {
-        // 模拟日志数据
-        const logs = [
-            { timestamp: '2025-01-06 10:30:15', level: 'info', message: '系统启动完成' },
-            { timestamp: '2025-01-06 10:31:22', level: 'info', message: '邮件服务初始化成功' },
-            { timestamp: '2025-01-06 10:32:10', level: 'warn', message: 'AI服务响应较慢' },
-            { timestamp: '2025-01-06 10:35:45', level: 'info', message: '周报生成任务完成' }
-        ];
+        // 从真实API获取日志数据
+        const level = document.getElementById('log-level')?.value || 'all';
+        const limit = 100; // 限制日志条数
         
-        renderLogs(logs);
+        const response = await fetch(`/api/logs?level=${level}&limit=${limit}`);
+        const result = await response.json();
+        
+        if (response.ok && result.success) {
+            const logs = result.data.map(log => ({
+                timestamp: new Date(log.timestamp).toLocaleString(),
+                level: log.level,
+                message: log.message,
+                meta: log.meta ? JSON.stringify(log.meta) : null
+            }));
+            
+            renderLogs(logs);
+        } else {
+            console.error('Failed to load logs:', result.error);
+            showNotification('加载日志数据失败', 'error');
+            renderLogs([]);
+        }
     } catch (error) {
         console.error('Failed to load logs data:', error);
         showNotification('加载日志数据失败', 'error');
+        
+        // 显示错误信息
+        renderLogs([{
+            timestamp: new Date().toLocaleString(),
+            level: 'error',
+            message: '无法连接到日志服务器'
+        }]);
     }
 }
 
@@ -458,34 +596,99 @@ function renderLogs(logs) {
 // 加载设置数据
 async function loadSettingsData() {
     try {
-        // 从配置API获取设置
-        const settings = {
-            email: {
-                smtpHost: 'smtp.example.com',
-                smtpPort: 587,
-                emailUser: 'user@example.com'
-            },
-            ai: {
-                provider: 'mock',
-                model: 'gpt-3.5-turbo'
-            }
-        };
+        // 从真实API获取配置数据
+        const response = await fetch('/api/config');
+        const result = await response.json();
         
-        app.data.settings = settings;
-        populateSettingsForm(settings);
+        if (response.ok && result.success) {
+            const config = result.data;
+            
+            // 构建设置数据（隐藏敏感信息）
+            const settings = {
+                email: {
+                    smtpHost: config.email?.smtp?.host || '',
+                    smtpPort: config.email?.smtp?.port || 587,
+                    emailUser: config.email?.user?.email || '',
+                    smtpConfigured: !!(config.email?.smtp?.user && config.email?.smtp?.pass)
+                },
+                ai: {
+                    provider: config.ai?.provider || '',
+                    model: config.ai?.model || '',
+                    configured: config.ai?.configured || false
+                },
+                schedule: {
+                    morningTime: config.schedule?.morningReminderTime || '09:00',
+                    eveningTime: config.schedule?.eveningReminderTime || '18:00'
+                },
+                features: {
+                    emailForwarding: config.features?.emailForwarding?.enabled || false,
+                    markAsRead: config.features?.emailForwarding?.markAsRead || false
+                }
+            };
+            
+            app.data.settings = settings;
+            populateSettingsForm(settings);
+        } else {
+            console.error('Failed to load config:', result.error);
+            showNotification('加载配置数据失败', 'error');
+            populateSettingsForm({});
+        }
     } catch (error) {
         console.error('Failed to load settings data:', error);
         showNotification('加载配置数据失败', 'error');
+        populateSettingsForm({});
     }
 }
 
 // 填充设置表单
 function populateSettingsForm(settings) {
-    document.getElementById('smtp-host').value = settings.email.smtpHost || '';
-    document.getElementById('smtp-port').value = settings.email.smtpPort || '';
-    document.getElementById('email-user').value = settings.email.emailUser || '';
-    document.getElementById('ai-provider').value = settings.ai.provider || '';
-    document.getElementById('ai-model').value = settings.ai.model || '';
+    if (settings.email) {
+        const smtpHost = document.getElementById('smtp-host');
+        const smtpPort = document.getElementById('smtp-port');
+        const emailUser = document.getElementById('email-user');
+        
+        if (smtpHost) smtpHost.value = settings.email.smtpHost || '';
+        if (smtpPort) smtpPort.value = settings.email.smtpPort || '';
+        if (emailUser) emailUser.value = settings.email.emailUser || '';
+        
+        // 显示SMTP配置状态
+        const smtpStatus = document.getElementById('smtp-status');
+        if (smtpStatus) {
+            smtpStatus.textContent = settings.email.smtpConfigured ? '✅ 已配置' : '❌ 未配置';
+            smtpStatus.className = `status-indicator ${settings.email.smtpConfigured ? 'configured' : 'not-configured'}`;
+        }
+    }
+    
+    if (settings.ai) {
+        const aiProvider = document.getElementById('ai-provider');
+        const aiModel = document.getElementById('ai-model');
+        
+        if (aiProvider) aiProvider.value = settings.ai.provider || '';
+        if (aiModel) aiModel.value = settings.ai.model || '';
+        
+        // 显示AI配置状态
+        const aiStatus = document.getElementById('ai-status');
+        if (aiStatus) {
+            aiStatus.textContent = settings.ai.configured ? '✅ 已配置' : '❌ 未配置';
+            aiStatus.className = `status-indicator ${settings.ai.configured ? 'configured' : 'not-configured'}`;
+        }
+    }
+    
+    if (settings.schedule) {
+        const morningTime = document.getElementById('morning-time');
+        const eveningTime = document.getElementById('evening-time');
+        
+        if (morningTime) morningTime.value = settings.schedule.morningTime || '';
+        if (eveningTime) eveningTime.value = settings.schedule.eveningTime || '';
+    }
+    
+    if (settings.features) {
+        const emailForwarding = document.getElementById('email-forwarding');
+        const markAsRead = document.getElementById('mark-as-read');
+        
+        if (emailForwarding) emailForwarding.checked = settings.features.emailForwarding || false;
+        if (markAsRead) markAsRead.checked = settings.features.markAsRead || false;
+    }
 }
 
 // 测试功能函数
