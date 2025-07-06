@@ -1,242 +1,259 @@
-# 邮件助手服务器部署指南
+# 生产环境部署指南
 
-## 📋 部署方式说明
+## ⚠️ 当前状态：不建议直接上线
 
-本项目支持通过Git克隆到服务器，然后在服务器上构建和运行。
+**安全风险评估：** 有多个关键安全问题需要修复
 
-## 🔧 环境要求
+## 🔴 必须修复的安全问题
 
-### 服务器环境
-- Ubuntu 18.04+ / CentOS 7+ / Debian 10+
-- Node.js 16.0+ 
-- npm 或 yarn
-- Git
-- sudo权限（用于配置系统服务）
+### 1. JWT密钥安全
+```bash
+# 设置强随机JWT密钥
+export JWT_SECRET="$(openssl rand -base64 32)"
+```
 
-### 必要的外部服务
-- 邮箱账号（支持SMTP/IMAP，如Gmail、QQ邮箱等）
-- AI API密钥（OpenAI、DeepSeek、Google Gemini等）
+### 2. CORS配置
+修改 `src/index.ts` 第14-23行：
+```typescript
+// 替换为安全的CORS配置
+app.use(cors({
+  origin: ['https://yourdomain.com', 'https://admin.yourdomain.com'],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+```
+
+### 3. 安全头部
+添加安全中间件：
+```bash
+npm install helmet
+```
+
+```typescript
+import helmet from 'helmet';
+app.use(helmet());
+```
+
+## 🟡 建议修复的问题
+
+### 1. 增强速率限制
+修改认证路由的速率限制：
+```typescript
+// 登录端点：5次/15分钟
+// 密码重置：3次/1小时
+// 注册：3次/1小时
+```
+
+### 2. 密码策略强化
+增加密码复杂度要求：
+- 最少12字符
+- 必须包含大小写字母、数字、特殊字符
+
+### 3. 账户锁定机制
+实现失败尝试后的账户锁定
+
+## 📋 生产环境检查清单
+
+### 环境配置
+- [ ] 设置强JWT密钥 (`JWT_SECRET`)
+- [ ] 配置正确的CORS域名
+- [ ] 设置生产环境 (`NODE_ENV=production`)
+- [ ] 配置日志级别 (`LOG_LEVEL=warn`)
+- [ ] 设置正确的邮件凭据
+- [ ] 配置AI服务API密钥
+
+### 安全配置
+- [ ] 禁用默认JWT密钥
+- [ ] 配置安全头部 (helmet.js)
+- [ ] 实现严格的速率限制
+- [ ] 设置强密码策略
+- [ ] 配置SSL/TLS证书
+
+### 监控和日志
+- [ ] 配置日志轮转
+- [ ] 设置错误监控
+- [ ] 配置健康检查
+- [ ] 设置性能监控
+
+### 备份和恢复
+- [ ] 用户数据备份策略
+- [ ] 配置文件备份
+- [ ] 日志文件管理
+- [ ] 恢复测试
 
 ## 🚀 部署步骤
 
-### 1. 克隆项目到服务器
-
+### 1. 环境准备
 ```bash
-# 克隆项目
-git clone https://github.com/your-username/email-assistant.git
-cd email-assistant
+# 创建生产环境配置
+cp .env.production.example .env
 
-# 或者如果已有项目，更新代码
-git pull origin main
-```
-
-### 2. 运行自动部署脚本
-
-```bash
-# 给脚本执行权限
-chmod +x scripts/server-deploy.sh
-
-# 运行部署脚本
-./scripts/server-deploy.sh
-```
-
-脚本会自动完成：
-- 安装Node.js依赖
-- 编译TypeScript代码
-- 创建配置文件模板
-- 配置系统服务
-- 配置防火墙
-- 启动服务
-
-### 3. 配置环境变量
-
-如果是首次部署，脚本会提示您配置环境变量：
-
-```bash
 # 编辑配置文件
 nano .env
 ```
 
-**必须配置的项目：**
-
-```env
-# 邮件配置
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_USER=your-email@gmail.com
-SMTP_PASS=your-app-password
-
-IMAP_HOST=imap.gmail.com
-IMAP_PORT=993
-IMAP_USER=your-email@gmail.com
-IMAP_PASS=your-app-password
-
-USER_EMAIL=your-email@gmail.com
-USER_NAME=Your Name
-
-# AI配置（选择一个）
-AI_PROVIDER=openai
-OPENAI_API_KEY=your-openai-api-key
+### 2. 安装依赖
+```bash
+npm ci --production
 ```
 
-配置完成后重新运行部署：
+### 3. 构建应用
 ```bash
-./scripts/server-deploy.sh
+npm run build
 ```
 
-### 4. 验证部署
-
-部署成功后，您可以通过以下方式访问：
-
-- **本地访问**: http://localhost:3000
-- **远程访问**: http://YOUR_SERVER_IP:3000
-
-## 🔄 更新部署
-
-当有代码更新时：
-
+### 4. 配置进程管理
 ```bash
-cd email-assistant
-git pull origin main
-./scripts/server-deploy.sh
-```
+# 使用 PM2
+npm install -g pm2
+pm2 start dist/index.js --name email-assistant
 
-## 🔧 管理命令
-
-```bash
-# 查看服务状态
-sudo systemctl status email-assistant
-
-# 查看实时日志
-sudo journalctl -u email-assistant -f
-
-# 重启服务
-sudo systemctl restart email-assistant
-
-# 停止服务
-sudo systemctl stop email-assistant
-
-# 启动服务
+# 或使用 systemd
+sudo systemctl enable email-assistant
 sudo systemctl start email-assistant
-
-# 禁用自启动
-sudo systemctl disable email-assistant
 ```
 
-## 🌐 远程访问配置
-
-### 防火墙配置
-部署脚本会自动配置防火墙，如需手动配置：
-
-```bash
-# Ubuntu/Debian
-sudo ufw allow 3000
-sudo ufw status
-
-# CentOS/RHEL
-sudo firewall-cmd --permanent --add-port=3000/tcp
-sudo firewall-cmd --reload
-sudo firewall-cmd --list-ports
+### 5. 配置反向代理 (Nginx)
+```nginx
+server {
+    listen 80;
+    server_name your-domain.com;
+    
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
 ```
 
-### 云服务器安全组
-如果使用云服务器（阿里云、腾讯云、AWS等），还需要在云控制台配置安全组：
-- 开放入方向端口：3000
-- 协议：TCP
-- 源：0.0.0.0/0（或指定IP段）
-
-## 🔐 安全建议
-
-### 1. 使用反向代理（推荐）
+### 6. SSL证书配置
 ```bash
-# 安装Nginx
-sudo apt update
-sudo apt install nginx
-
-# 复制Nginx配置
-sudo cp scripts/nginx-email-assistant.conf /etc/nginx/sites-available/email-assistant
-sudo ln -s /etc/nginx/sites-available/email-assistant /etc/nginx/sites-enabled/
-sudo nginx -t
-sudo systemctl reload nginx
-```
-
-### 2. 配置SSL证书
-建议使用Let's Encrypt免费SSL证书：
-```bash
-sudo apt install certbot python3-certbot-nginx
+# 使用 Let's Encrypt
 sudo certbot --nginx -d your-domain.com
 ```
 
-### 3. 修改默认端口
-如需修改端口，编辑 `.env` 文件：
-```env
-PORT=8080
-```
+## 📊 测试API端点
 
-## 📝 配置说明
-
-### 邮件配置详解
-- **Gmail**: 需要启用"应用专用密码"
-- **QQ邮箱**: 需要开启SMTP/IMAP服务并获取授权码
-- **企业邮箱**: 联系管理员获取SMTP/IMAP配置
-
-### AI提供商配置
-支持多个AI提供商，任选其一：
-- OpenAI (ChatGPT)
-- DeepSeek
-- Google Gemini
-- Anthropic Claude
-- Azure OpenAI
-
-### 时间配置
-```env
-MORNING_REMINDER_TIME=08:00
-EVENING_REMINDER_TIME=20:00
-```
-
-## 🔍 故障排除
-
-### 1. 服务无法启动
+### 认证测试
 ```bash
-# 查看详细错误信息
-sudo journalctl -u email-assistant -n 50
+# 系统初始化
+curl -X POST https://your-domain.com/api/auth/init \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@yourdomain.com","password":"YourStrongPassword123!","name":"Admin"}'
 
-# 检查配置文件
-cat .env
+# 用户登录
+curl -X POST https://your-domain.com/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email":"admin@yourdomain.com","password":"YourStrongPassword123!"}'
 
-# 手动测试启动
-node dist/index.js
+# 健康检查
+curl https://your-domain.com/health
 ```
 
-### 2. 无法远程访问
-- 检查防火墙设置
-- 检查云服务器安全组
-- 确认服务绑定到 0.0.0.0:3000
+## 🔧 维护指南
 
-### 3. 邮件功能异常
-- 检查邮箱配置是否正确
-- 确认邮箱已开启SMTP/IMAP
-- 查看邮件服务日志
+### 日志管理
+```bash
+# 查看应用日志
+tail -f logs/combined.log
 
-### 4. AI功能异常
-- 检查API密钥是否正确
-- 确认网络可以访问AI服务
-- 查看AI服务调用日志
+# 查看错误日志
+tail -f logs/error.log
+```
 
-## 📞 支持
+### 备份脚本
+```bash
+#!/bin/bash
+# backup.sh
+DATE=$(date +%Y%m%d_%H%M%S)
+tar -czf backup_${DATE}.tar.gz users.json data/ logs/
+```
 
-如遇到问题，请查看：
-1. 项目日志：`sudo journalctl -u email-assistant -f`
-2. 系统日志：`dmesg | tail`
-3. 网络连接：`netstat -tlnp | grep 3000`
+### 更新流程
+1. 停止服务
+2. 备份数据
+3. 更新代码
+4. 重新构建
+5. 重启服务
+6. 验证功能
 
-## 🎯 功能特性
+## 🚨 紧急情况处理
 
-部署完成后，您将获得：
-- 📧 智能邮件助手
-- 🕐 定时提醒功能
-- 📊 周报生成
-- 🎯 个性化建议
-- 🌐 Web管理界面
-- 🚫 重复邮件防护
-- ⏸️ 提醒取消和暂停功能
+### 服务停止
+```bash
+# 重启服务
+pm2 restart email-assistant
+
+# 检查状态
+pm2 status
+pm2 logs email-assistant
+```
+
+### 数据恢复
+```bash
+# 从备份恢复
+tar -xzf backup_YYYYMMDD_HHMMSS.tar.gz
+```
+
+## 📈 性能优化
+
+### 内存监控
+```bash
+# 查看内存使用
+ps aux | grep node
+free -h
+```
+
+### 数据库优化
+建议在用户量增长后迁移到数据库：
+- PostgreSQL (推荐)
+- MySQL
+- MongoDB
+
+## 🛡️ 安全建议
+
+1. **定期更新**
+   - 定期更新依赖包
+   - 监控安全漏洞
+
+2. **访问控制**
+   - 限制管理界面访问
+   - 使用VPN或IP白名单
+
+3. **监控告警**
+   - 设置异常登录告警
+   - 监控API调用频率
+   - 关键操作日志审计
+
+4. **数据保护**
+   - 加密敏感数据
+   - 定期清理过期日志
+   - 备份数据加密
+
+## 🎯 生产就绪评估
+
+当前状态：**60% 就绪**
+
+### 已完成 ✅
+- 基础功能实现
+- 错误处理机制
+- 日志记录系统
+- API接口完整
+- 基础数据验证
+
+### 需要修复 ⚠️
+- JWT密钥安全问题
+- CORS配置漏洞
+- 缺少安全头部
+- 速率限制不足
+- 密码策略较弱
+
+### 预计修复时间
+- 关键安全问题：1-2天
+- 全部优化完成：1-2周
+
+修复这些问题后，系统可以安全上线运行。

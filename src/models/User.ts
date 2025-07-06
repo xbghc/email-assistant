@@ -2,10 +2,21 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  password?: string; // hashed password
+  role: UserRole;
   config: UserConfig;
   createdAt: Date;
   updatedAt: Date;
   isActive: boolean;
+  lastLoginAt?: Date;
+  emailVerified: boolean;
+  resetToken?: string;
+  resetTokenExpiry?: Date;
+}
+
+export enum UserRole {
+  ADMIN = 'admin',
+  USER = 'user'
 }
 
 export interface UserConfig {
@@ -31,6 +42,32 @@ export interface AdminCommand {
   handler: (args: string[]) => Promise<string>;
 }
 
+export interface LoginRequest {
+  email: string;
+  password: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  password: string;
+  name: string;
+  timezone?: string;
+}
+
+export interface AuthResponse {
+  user: Omit<User, 'password'>;
+  token: string;
+  expiresIn: number;
+}
+
+export interface JWTPayload {
+  userId: string;
+  email: string;
+  role: UserRole;
+  iat: number;
+  exp: number;
+}
+
 export interface UserStorage {
   users: Map<string, User>;
   getUserById(id: string): User | undefined;
@@ -42,4 +79,8 @@ export interface UserStorage {
   getActiveUsers(): User[];
   saveToFile(): Promise<void>;
   loadFromFile(): Promise<void>;
+  validatePassword(email: string, password: string): Promise<boolean>;
+  updatePassword(userId: string, newPassword: string): Promise<void>;
+  generateResetToken(email: string): Promise<string | null>;
+  resetPassword(token: string, newPassword: string): Promise<boolean>;
 }

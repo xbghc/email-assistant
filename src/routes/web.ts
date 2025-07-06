@@ -2,6 +2,7 @@ import express from 'express';
 import path from 'path';
 import logger from '../utils/logger';
 import UserService from '../services/userService';
+import { authenticate, requireAdmin, requireOwnershipOrAdmin } from '../middleware/authMiddleware';
 // import WeeklyReportService from '../services/weeklyReportService';
 // import PersonalizationService from '../services/personalizationService';
 
@@ -21,8 +22,8 @@ router.get('/', (req, res) => {
   }
 });
 
-// API路由 - 用户管理
-router.get('/api/users', async (req, res) => {
+// API路由 - 用户管理（需要管理员权限）
+router.get('/api/users', authenticate, requireAdmin, async (req, res) => {
   try {
     const userService = new UserService();
     await userService.initialize();
@@ -46,7 +47,7 @@ router.get('/api/users', async (req, res) => {
   }
 });
 
-router.post('/api/users', async (req, res) => {
+router.post('/api/users', authenticate, requireAdmin, async (req, res) => {
   try {
     const { name, email, timezone } = req.body;
     
@@ -65,6 +66,7 @@ router.post('/api/users', async (req, res) => {
       id: `user_${Date.now()}`,
       name,
       email,
+      role: 'user' as any,
       config: {
         schedule: {
           morningReminderTime: '09:00',
@@ -74,6 +76,7 @@ router.post('/api/users', async (req, res) => {
         language: 'zh' as 'zh' | 'en'
       },
       isActive: true,
+      emailVerified: true,
       createdAt: new Date(),
       updatedAt: new Date()
     };
@@ -88,9 +91,14 @@ router.post('/api/users', async (req, res) => {
   }
 });
 
-router.put('/api/users/:userId', async (req, res) => {
+router.put('/api/users/:userId', authenticate, requireOwnershipOrAdmin, async (req, res) => {
   try {
-    const { userId } = req.params;
+    const userId = req.params.userId;
+    if (!userId) {
+      res.status(400).json({ success: false, error: 'User ID is required' });
+      return;
+    }
+    
     const updateData = req.body;
     
     const userService = new UserService();
@@ -105,13 +113,12 @@ router.put('/api/users/:userId', async (req, res) => {
       return;
     }
     
-    const updatedUser = {
-      ...user,
+    userService.updateUser(userId, {
       ...updateData,
       updatedAt: new Date()
-    };
+    });
     
-    userService.updateUser(userId, updatedUser);
+    const updatedUser = userService.getUserById(userId);
     
     logger.info(`User updated: ${userId}`);
     res.json({ success: true, data: updatedUser });
@@ -121,9 +128,13 @@ router.put('/api/users/:userId', async (req, res) => {
   }
 });
 
-router.delete('/api/users/:userId', async (req, res) => {
+router.delete('/api/users/:userId', authenticate, requireAdmin, async (req, res) => {
   try {
-    const { userId } = req.params;
+    const userId = req.params.userId;
+    if (!userId) {
+      res.status(400).json({ success: false, error: 'User ID is required' });
+      return;
+    }
     
     const userService = new UserService();
     await userService.initialize();
@@ -137,7 +148,14 @@ router.delete('/api/users/:userId', async (req, res) => {
       return;
     }
     
-    userService.removeUser(userId);
+    const success = await userService.removeUser(userId);
+    if (!success) {
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to delete user' 
+      });
+      return;
+    }
     
     logger.info(`User deleted: ${userId}`);
     res.json({ success: true, message: 'User deleted successfully' });
@@ -147,8 +165,8 @@ router.delete('/api/users/:userId', async (req, res) => {
   }
 });
 
-// API路由 - 系统状态
-router.get('/api/system/status', async (req, res) => {
+// API路由 - 系统状态（需要认证）
+router.get('/api/system/status', authenticate, async (req, res) => {
   try {
     const SystemHealthService = require('../services/systemHealthService').default;
     const healthService = new SystemHealthService();
@@ -186,8 +204,8 @@ router.get('/api/system/status', async (req, res) => {
   }
 });
 
-// API路由 - 报告管理
-router.get('/api/reports', async (req, res) => {
+// API路由 - 报告管理（需要认证）
+router.get('/api/reports', authenticate, async (req, res) => {
   try {
     const { type, userId, limit = 20 } = req.query;
     
@@ -234,9 +252,13 @@ router.get('/api/reports', async (req, res) => {
   }
 });
 
-router.get('/api/reports/:reportId', async (req, res) => {
+router.get('/api/reports/:reportId', authenticate, async (req, res) => {
   try {
-    const { reportId } = req.params;
+    const reportId = req.params.reportId;
+    if (!reportId) {
+      res.status(400).json({ success: false, error: 'Report ID is required' });
+      return;
+    }
     
     // 这里应该从数据库或文件系统获取具体报告内容
     // 目前返回模拟数据
@@ -267,8 +289,8 @@ router.get('/api/reports/:reportId', async (req, res) => {
   }
 });
 
-// API路由 - 日志查看
-router.get('/api/logs', async (req, res) => {
+// API路由 - 日志查看（需要管理员权限）
+router.get('/api/logs', authenticate, requireAdmin, async (req, res) => {
   try {
     const { level, limit, search, startDate, endDate } = req.query;
     
@@ -293,8 +315,8 @@ router.get('/api/logs', async (req, res) => {
   }
 });
 
-// API路由 - 日志统计
-router.get('/api/logs/stats', async (req, res) => {
+// API路由 - 日志统计（需要管理员权限）
+router.get('/api/logs/stats', authenticate, requireAdmin, async (req, res) => {
   try {
     const hours = req.query.hours ? parseInt(req.query.hours as string) : 24;
     
@@ -311,8 +333,8 @@ router.get('/api/logs/stats', async (req, res) => {
   }
 });
 
-// API路由 - 导出日志
-router.get('/api/logs/export', async (req, res) => {
+// API路由 - 导出日志（需要管理员权限）
+router.get('/api/logs/export', authenticate, requireAdmin, async (req, res) => {
   try {
     const { level, startDate, endDate } = req.query;
     
@@ -337,8 +359,8 @@ router.get('/api/logs/export', async (req, res) => {
   }
 });
 
-// API路由 - 配置管理
-router.get('/api/settings', async (req, res) => {
+// API路由 - 配置管理（需要管理员权限）
+router.get('/api/settings', authenticate, requireAdmin, async (req, res) => {
   try {
     const ConfigService = require('../services/configService').default;
     const configService = new ConfigService();
@@ -385,7 +407,7 @@ router.get('/api/settings', async (req, res) => {
   }
 });
 
-router.put('/api/settings', async (req, res) => {
+router.put('/api/settings', authenticate, requireAdmin, async (req, res) => {
   try {
     const { email, ai, schedule, server, features } = req.body;
     
@@ -450,8 +472,8 @@ router.put('/api/settings', async (req, res) => {
   }
 });
 
-// API路由 - 统计数据
-router.get('/api/dashboard/stats', async (req, res) => {
+// API路由 - 统计数据（需要认证）
+router.get('/api/dashboard/stats', authenticate, async (req, res) => {
   try {
     const userService = new UserService();
     await userService.initialize();
@@ -486,8 +508,8 @@ router.get('/api/dashboard/stats', async (req, res) => {
   }
 });
 
-// API路由 - 邮件趋势数据
-router.get('/api/email-trends', async (req, res) => {
+// API路由 - 邮件趋势数据（需要认证）
+router.get('/api/email-trends', authenticate, async (req, res) => {
   try {
     const days = parseInt(req.query.days as string) || 7;
     
@@ -507,8 +529,8 @@ router.get('/api/email-trends', async (req, res) => {
   }
 });
 
-// API路由 - 提醒状态
-router.get('/api/reminder-status', async (req, res) => {
+// API路由 - 提醒状态（需要认证）
+router.get('/api/reminder-status', authenticate, async (req, res) => {
   try {
     const SchedulerService = require('../services/schedulerService').default;
     const schedulerService = new SchedulerService();
@@ -532,8 +554,8 @@ router.get('/api/reminder-status', async (req, res) => {
   }
 });
 
-// API路由 - 重置今天的提醒状态（用于测试）
-router.post('/api/reminder-status/reset', async (req, res) => {
+// API路由 - 重置今天的提醒状态（需要管理员权限）
+router.post('/api/reminder-status/reset', authenticate, requireAdmin, async (req, res) => {
   try {
     const SchedulerService = require('../services/schedulerService').default;
     const schedulerService = new SchedulerService();

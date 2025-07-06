@@ -1,4 +1,6 @@
 import express from 'express';
+import helmet from 'helmet';
+import cors from 'cors';
 import logger from './utils/logger';
 import { validateConfig } from './config';
 import SchedulerService from './services/schedulerService';
@@ -6,24 +8,60 @@ import SystemStartupService from './services/systemStartupService';
 import SystemHealthService from './services/systemHealthService';
 import scheduleRoutes from './routes/schedule';
 import webRoutes from './routes/web';
+import authRoutes from './routes/auth';
 
 const app = express();
 const port = process.env.PORT || 3000;
 
-// CORS支持，允许远程访问
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  if (req.method === 'OPTIONS') {
-    res.sendStatus(200);
-  } else {
-    next();
-  }
-});
+// 安全头部中间件
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      styleSrc: ["'self'", "'unsafe-inline'"],
+      scriptSrc: ["'self'"],
+      imgSrc: ["'self'", "data:", "https:"],
+    },
+  },
+}));
 
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// 安全的CORS配置
+const corsOptions = {
+  origin: function (origin: string | undefined, callback: (err: Error | null, allow?: boolean) => void) {
+    // 开发环境允许所有来源
+    if (process.env.NODE_ENV === 'development' || !origin) {
+      callback(null, true);
+      return;
+    }
+    
+    // 生产环境只允许配置的域名
+    const allowedOrigins = process.env.CORS_ORIGINS ? 
+      process.env.CORS_ORIGINS.split(',') : 
+      ['https://localhost:3000'];
+    
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
+  allowedHeaders: ['Content-Type', 'Authorization'],
+  optionsSuccessStatus: 200
+};
+
+app.use(cors(corsOptions));
+
+// 请求体解析中间件（带安全限制）
+app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// 支持路径前缀部署
+const pathPrefix = process.env.PATH_PREFIX || '';
+if (pathPrefix) {
+  logger.info(`📍 Application will be served with path prefix: ${pathPrefix}`);
+}
 
 let schedulerService: SchedulerService;
 let startupService: SystemStartupService;
@@ -63,6 +101,7 @@ async function startServer(): Promise<void> {
     });
 
     app.use('/api/schedule', scheduleRoutes);
+    app.use('/api/auth', authRoutes);
     
     // Web管理界面路由
     app.use('/', webRoutes);
