@@ -4,72 +4,18 @@ import logger from '../utils/logger';
 import EmailContentManager from './emailContentManager';
 import EmailStatsService from './emailStatsService';
 
-interface QueuedEmail {
-  id: string;
-  mailOptions: any;
-  attempts: number;
-  maxAttempts: number;
-  nextRetryTime: Date;
-}
-
-class EmailCircuitBreaker {
-  private failures = 0;
-  private isOpen = false;
-  private lastFailureTime = 0;
-  private readonly failureThreshold = 3;
-  private readonly resetTimeout = 60000; // 1分钟
-  
-  async execute<T>(operation: () => Promise<T>): Promise<T> {
-    if (this.isOpen) {
-      if (Date.now() - this.lastFailureTime > this.resetTimeout) {
-        this.isOpen = false;
-        this.failures = 0;
-        logger.info('📧 Email circuit breaker reset');
-      } else {
-        throw new Error('Email service temporarily unavailable');
-      }
-    }
-    
-    try {
-      const result = await operation();
-      this.failures = 0;
-      return result;
-    } catch (error) {
-      this.failures++;
-      this.lastFailureTime = Date.now();
-      
-      if (this.failures >= this.failureThreshold) {
-        this.isOpen = true;
-        logger.warn(`🚨 Email circuit breaker opened after ${this.failures} failures`);
-      }
-      
-      throw error;
-    }
-  }
-}
-
 class EmailService {
   private transporter: nodemailer.Transporter;
   private contentManager: EmailContentManager;
   private statsService: EmailStatsService;
-  private circuitBreaker: EmailCircuitBreaker;
-  private emailQueue: QueuedEmail[] = [];
-  private isConnected: boolean = false;
-  private queueProcessInterval: NodeJS.Timeout | null = null;
 
   constructor() {
     this.contentManager = new EmailContentManager();
     this.statsService = new EmailStatsService();
-    this.circuitBreaker = new EmailCircuitBreaker();
     this.transporter = nodemailer.createTransport({
       host: config.email.smtp.host,
       port: config.email.smtp.port,
       secure: config.email.smtp.port === 465,
-      pool: true, // 启用连接池
-      maxConnections: 3,
-      maxMessages: 10,
-      connectionTimeout: 30000,
-      socketTimeout: 30000,
       auth: {
         user: config.email.smtp.user,
         pass: config.email.smtp.pass,
@@ -79,160 +25,87 @@ class EmailService {
 
   async initialize(): Promise<void> {
     await this.statsService.initialize();
-    await this.verifyConnection();
-    this.startQueueProcessor();
-  }
-  
-  private startQueueProcessor(): void {
-    this.queueProcessInterval = setInterval(() => {
-      this.processEmailQueue().catch(error => {
-        logger.error('📧 Email queue processing error:', error);
-      });
-    }, 60000); // 每分钟处理一次队列
-  }
-  
-  private async processEmailQueue(): Promise<void> {
-    if (this.emailQueue.length === 0) return;
-    
-    logger.debug(`📨 Processing ${this.emailQueue.length} queued emails`);
-    
-    const emailsToProcess = [...this.emailQueue];
-    this.emailQueue = [];
-    
-    for (const queuedEmail of emailsToProcess) {
-      if (Date.now() < queuedEmail.nextRetryTime.getTime()) {
-        this.emailQueue.push(queuedEmail);
-        continue;
-      }
-      
-      try {
-        await this.circuitBreaker.execute(async () => {
-          await this.transporter.sendMail(queuedEmail.mailOptions);
-        });
-        
-        logger.info(`✅ Queued email sent: ${queuedEmail.id}`);
-        
-      } catch (error) {
-        queuedEmail.attempts++;
-        
-        if (queuedEmail.attempts < queuedEmail.maxAttempts) {
-          const delay = Math.pow(2, queuedEmail.attempts) * 30000; // 30s, 60s, 120s
-          queuedEmail.nextRetryTime = new Date(Date.now() + delay);
-          this.emailQueue.push(queuedEmail);
-          logger.warn(`📧 Email ${queuedEmail.id} queued for retry (${queuedEmail.attempts}/${queuedEmail.maxAttempts})`);
-        } else {
-          logger.error(`❌ Email ${queuedEmail.id} failed permanently`);
-        }
-      }
-    }
-  }
-  
-  private generateEmailId(): string {
-    return `email_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`;
   }
 
   async sendEmail(subject: string, content: string, isHtml: boolean = false, toEmail?: string, contentType: 'help' | 'response' | 'notification' = 'response'): Promise<void> {
-    // 优化邮件内容长度
-    const optimizedContent = this.contentManager.optimizeEmailContent(content, contentType);
-    
-    // 记录优化统计
-    const stats = this.contentManager.getContentStats(content);
-    if (stats.needsOptimization) {
-      logger.info(`Email content optimized: ${stats.length} → ${optimizedContent.length} chars`);
-    }
-
-    const mailOptions = {
-      from: config.email.smtp.user,
-      to: toEmail || config.email.user.email,
-      subject,
-      [isHtml ? 'html' : 'text']: optimizedContent,
-    };
-
     try {
-      // 尝试立即发送
-      await this.circuitBreaker.execute(async () => {
-        await this.transporter.sendMail(mailOptions);
-      });
+      // 优化邮件内容长度
+      const optimizedContent = this.contentManager.optimizeEmailContent(content, contentType);
       
-      logger.debug(`📧 Email sent: ${mailOptions.to}: ${subject}`);
+      // 记录优化统计
+      const stats = this.contentManager.getContentStats(content);
+      if (stats.needsOptimization) {
+        logger.info(`Email content optimized: ${stats.length} → ${optimizedContent.length} chars`);
+      }
+
+      const mailOptions = {
+        from: config.email.smtp.user,
+        to: toEmail || config.email.user.email,
+        subject,
+        [isHtml ? 'html' : 'text']: optimizedContent,
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      logger.debug(`Email sent successfully to ${mailOptions.to}: ${subject} (${optimizedContent.length} chars)`);
       
-      // 记录成功统计
+      // 记录邮件发送统计
       await this.statsService.recordEmailSent({
         to: mailOptions.to,
         subject,
         type: this.getEmailType(subject, contentType),
         status: 'sent'
       });
-      
     } catch (error) {
-      // 立即发送失败，加入队列
-      const queuedEmail: QueuedEmail = {
-        id: this.generateEmailId(),
-        mailOptions: mailOptions,
-        attempts: 0,
-        maxAttempts: 3,
-        nextRetryTime: new Date(Date.now() + 30000) // 30秒后重试
-      };
+      logger.error('Failed to send email:', error);
       
-      this.emailQueue.push(queuedEmail);
-      logger.warn(`📪 Email queued for retry: ${queuedEmail.id} (${error})`);
-      
-      // 记录初始失败，但不抛出错误
+      // 记录邮件发送失败
       await this.statsService.recordEmailSent({
         to: toEmail || config.email.user.email,
         subject,
         type: this.getEmailType(subject, contentType),
         status: 'failed',
-        errorMessage: `Queued for retry: ${error instanceof Error ? error.message : String(error)}`
+        errorMessage: error instanceof Error ? error.message : String(error)
       });
+      
+      throw error;
     }
   }
 
   async sendEmailToUser(userEmail: string, subject: string, content: string, isHtml: boolean = false): Promise<void> {
-    // 优化邮件内容长度
-    const optimizedContent = this.contentManager.optimizeEmailContent(content, 'notification');
-    
-    const mailOptions = {
-      from: config.email.smtp.user,
-      to: userEmail,
-      subject,
-      [isHtml ? 'html' : 'text']: optimizedContent,
-    };
-
     try {
-      await this.circuitBreaker.execute(async () => {
-        await this.transporter.sendMail(mailOptions);
-      });
+      // 优化邮件内容长度
+      const optimizedContent = this.contentManager.optimizeEmailContent(content, 'notification');
       
-      logger.debug(`📧 Email sent to user ${userEmail}: ${subject}`);
+      const mailOptions = {
+        from: config.email.smtp.user,
+        to: userEmail,
+        subject,
+        [isHtml ? 'html' : 'text']: optimizedContent,
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      logger.debug(`Email sent successfully to user ${userEmail}: ${subject}`);
       
+      // 记录邮件发送统计
       await this.statsService.recordEmailSent({
         to: userEmail,
         subject,
         type: this.getEmailType(subject, 'notification'),
         status: 'sent'
       });
-      
     } catch (error) {
-      // 加入队列重试
-      const queuedEmail: QueuedEmail = {
-        id: this.generateEmailId(),
-        mailOptions: mailOptions,
-        attempts: 0,
-        maxAttempts: 3,
-        nextRetryTime: new Date(Date.now() + 30000)
-      };
+      logger.error(`Failed to send email to user ${userEmail}:`, error);
       
-      this.emailQueue.push(queuedEmail);
-      logger.warn(`📪 User email queued: ${queuedEmail.id}`);
-      
+      // 记录邮件发送失败
       await this.statsService.recordEmailSent({
         to: userEmail,
         subject,
         type: this.getEmailType(subject, 'notification'),
         status: 'failed',
-        errorMessage: `Queued for retry: ${error instanceof Error ? error.message : String(error)}`
+        errorMessage: error instanceof Error ? error.message : String(error)
       });
+      
+      throw error;
     }
   }
 
@@ -429,42 +302,13 @@ ${originalContent}
 
   async verifyConnection(): Promise<boolean> {
     try {
-      await this.circuitBreaker.execute(async () => {
-        await this.transporter.verify();
-      });
-      this.isConnected = true;
-      logger.info('✅ Email service connection verified');
+      await this.transporter.verify();
+      logger.info('Email service connection verified');
       return true;
     } catch (error) {
-      this.isConnected = false;
-      logger.warn('⚠️  Email service connection failed, emails will be queued:', error);
+      logger.error('Email service connection failed:', error);
       return false;
     }
-  }
-  
-  // 获取邮件服务状态
-  getServiceStatus() {
-    return {
-      isConnected: this.isConnected,
-      queueLength: this.emailQueue.length,
-      circuitBreakerOpen: this.circuitBreaker ? true : false
-    };
-  }
-  
-  // 优雅关闭
-  async shutdown(): Promise<void> {
-    if (this.queueProcessInterval) {
-      clearInterval(this.queueProcessInterval);
-    }
-    
-    // 处理剩余队列
-    if (this.emailQueue.length > 0) {
-      logger.info(`📨 Processing ${this.emailQueue.length} remaining emails...`);
-      await this.processEmailQueue();
-    }
-    
-    this.transporter.close();
-    logger.info('📧 Email service shutdown complete');
   }
 
   /**
