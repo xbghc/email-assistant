@@ -93,7 +93,7 @@ export const simpleFunctionTools = [
     type: "function" as const,
     function: {
       name: "get_system_status",
-      description: "获取邮件助手系统的当前状态和统计信息",
+      description: "获取邮件助手系统的当前状态和统计信息（仅管理员可用）",
       parameters: {
         type: "object",
         properties: {},
@@ -218,7 +218,7 @@ export const simpleDeepSeekTools = [
     type: "function",
     function: {
       name: "get_system_status",
-      description: "获取邮件助手系统的当前状态和统计信息",
+      description: "获取邮件助手系统的当前状态和统计信息（仅管理员可用）",
       parameters: {
         type: "object",
         properties: {},

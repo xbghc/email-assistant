@@ -1,6 +1,6 @@
 import logger from '../utils/logger';
 import UserService from './userService';
-import { UserConfig } from '../models/User';
+import { UserConfig, UserRole } from '../models/User';
 import ContextService from './contextService';
 
 export interface SimpleFunctionResult {
@@ -308,6 +308,15 @@ class SimpleFunctionCallService {
       };
     }
 
+    // 验证用户存在
+    const user = this.userService.getUserById(userId);
+    if (!user) {
+      return {
+        success: false,
+        message: '用户未找到'
+      };
+    }
+
     const days = Math.min((args.days as number) || 7, 30);
     
     try {
@@ -366,13 +375,22 @@ class SimpleFunctionCallService {
   }
 
   /**
-   * 获取系统状态
+   * 获取系统状态 - 仅管理员可访问
    */
   private async getSystemStatus(userId?: string): Promise<SimpleFunctionResult> {
     if (!userId) {
       return {
         success: false,
         message: '需要用户身份验证才能查看系统状态'
+      };
+    }
+
+    // 检查用户权限
+    const user = this.userService.getUserById(userId);
+    if (!user || user.role !== UserRole.ADMIN) {
+      return {
+        success: false,
+        message: '⚠️ 抱歉，只有管理员可以查看系统状态信息。'
       };
     }
 
