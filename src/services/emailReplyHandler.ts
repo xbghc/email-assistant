@@ -217,9 +217,7 @@ ${commandResult}
       const acknowledgeContent = `
 您好 ${email.from.split('<')[0]?.trim() || '朋友'},
 
-感谢您对日程提醒的反馈。我已经记录了您的意见：
-
-"${content}"
+感谢您对日程提醒的反馈。
 
 基于您的反馈，这里有一些额外的建议：
 
@@ -279,9 +277,7 @@ ${response}
       const replyContent = `
 您好 ${email.from.split('<')[0]?.trim() || '朋友'},
 
-感谢您的来信。我已经查看了您的询问：
-
-"${content}"
+感谢您的来信。
 
 ${aiResponse}
 
