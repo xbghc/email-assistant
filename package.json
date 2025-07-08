@@ -4,7 +4,7 @@
   "description": "A server-side email assistant for daily schedule reminders and work summaries",
   "main": "dist/index.js",
   "scripts": {
-    "start": "node dist/index.js",
+    "start": "node --max-old-space-size=2048 dist/index.js",
     "dev": "nodemon src/index.ts",
     "build": "tsc && npm run copy-static",
     "copy-static": "cp -r src/public dist/",

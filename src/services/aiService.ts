@@ -9,7 +9,7 @@ import SimpleFunctionCallService, { SimpleFunctionResult } from './simpleFunctio
 import UserService from './userService';
 import MockAIService from './mockAIService';
 import EmailContentManager from './emailContentManager';
-import { withTimeout, retryNetworkOperation } from '../utils/asyncUtils';
+import { withTimeout, retryNetworkOperation, PromiseQueue } from '../utils/asyncUtils';
 
 class AIService {
   private openai?: OpenAI;
@@ -18,14 +18,17 @@ class AIService {
   private mockAI?: MockAIService;
   private userService: UserService;
   private contentManager: EmailContentManager;
+  private requestQueue: PromiseQueue;
   
   // 超时配置
-  private readonly DEFAULT_TIMEOUT = 30000; // 30秒
-  private readonly FUNCTION_CALL_TIMEOUT = 60000; // 函数调用1分钟
+  private readonly DEFAULT_TIMEOUT = 60000; // 60秒 - 增加超时时间
+  private readonly FUNCTION_CALL_TIMEOUT = 90000; // 函数调用90秒
+  private readonly DEEPSEEK_TIMEOUT = 45000; // DeepSeek 专用超时45秒
 
   constructor(userService?: UserService) {
     this.userService = userService || new UserService();
     this.contentManager = new EmailContentManager();
+    this.requestQueue = new PromiseQueue(2); // 限制并发请求数为2
     this.initializeProviders();
   }
 
@@ -86,6 +89,25 @@ class AIService {
   ): Promise<string> {
     const provider = config.ai.provider;
 
+    // 检查内存使用情况
+    const memUsage = process.memoryUsage();
+    const heapUsedPercent = (memUsage.heapUsed / memUsage.heapTotal) * 100;
+    
+    if (heapUsedPercent > 85) {
+      logger.warn(`High memory usage detected: ${heapUsedPercent.toFixed(1)}%. Consider using simpler responses.`);
+      // 强制垃圾回收（如果可用）
+      if (global.gc) {
+        global.gc();
+        logger.info('Forced garbage collection completed');
+      }
+      
+      // 在极高内存使用时返回简化响应
+      if (heapUsedPercent > 90) {
+        logger.warn('Critical memory usage - returning simplified response');
+        return '系统当前负载较高，请稍后重试。如需帮助，请直接联系管理员。';
+      }
+    }
+
     try {
       const operation = async () => {
         switch (provider) {
@@ -108,9 +130,14 @@ class AIService {
         }
       };
 
-      // 添加超时和重试机制
-      return await retryNetworkOperation(() => 
-        withTimeout(operation(), this.DEFAULT_TIMEOUT, `AI ${provider} request timed out`)
+      // 添加超时和重试机制 - DeepSeek使用专门超时
+      const timeout = provider === 'deepseek' ? this.DEEPSEEK_TIMEOUT : this.DEFAULT_TIMEOUT;
+      
+      // 使用请求队列限制并发
+      return await this.requestQueue.add(() => 
+        retryNetworkOperation(() => 
+          withTimeout(operation(), timeout, `AI ${provider} request timed out`)
+        )
       );
     } catch (error) {
       logger.error(`AI response generation failed with ${provider}:`, error);
@@ -382,6 +409,7 @@ Please provide a compressed summary that captures the essential information whil
           'Authorization': `Bearer ${config.ai.deepseek.apiKey}`,
           'Content-Type': 'application/json',
         },
+        timeout: this.DEEPSEEK_TIMEOUT, // 添加axios级别超时
       }
     );
 
@@ -414,6 +442,7 @@ Please provide a compressed summary that captures the essential information whil
           'Authorization': `Bearer ${config.ai.deepseek.apiKey}`,
           'Content-Type': 'application/json',
         },
+        timeout: this.DEEPSEEK_TIMEOUT, // 添加axios级别超时
       }
     );
 

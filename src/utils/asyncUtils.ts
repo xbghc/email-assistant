@@ -250,8 +250,8 @@ export const createRetryWrapper = (defaultOptions: Partial<RetryOptions>) => {
 
 // 预定义的重试包装器
 export const retryNetworkOperation = createRetryWrapper({
-  maxAttempts: 3,
-  baseDelay: 1000,
+  maxAttempts: 2, // 减少重试次数以降低系统负载
+  baseDelay: 2000, // 增加延迟以给服务器更多恢复时间
   exponentialBackoff: true,
   retryCondition: retryConditions.defaultRetryable
 });
