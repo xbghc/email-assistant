@@ -30,7 +30,7 @@ export interface ContextEntry {
   timestamp: Date;
   type: 'schedule' | 'work_summary' | 'feedback' | 'conversation';
   content: string;
-  metadata?: Record<string, any> | undefined;
+  metadata?: Record<string, unknown> | undefined;
 }
 
 // 原始上下文条目（从文件读取时的格式）
@@ -39,7 +39,7 @@ export interface RawContextEntry {
   timestamp: string; // JSON中时间戳是字符串
   type: 'schedule' | 'work_summary' | 'feedback' | 'conversation';
   content: string;
-  metadata?: Record<string, any>;
+  metadata?: Record<string, unknown>;
 }
 
 export interface UserInteraction {

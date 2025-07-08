@@ -718,7 +718,7 @@ ${pattern.achievements.recent.slice(0, 3).join('\n')}
             });
           }
         }
-      } catch (error) {
+      } catch {
         logger.debug('Failed to parse AI suggestion line:', line);
       }
     }
@@ -729,7 +729,7 @@ ${pattern.achievements.recent.slice(0, 3).join('\n')}
   /**
    * 生成深度洞察
    */
-  private async generateInsights(pattern: UserPattern, user: User): Promise<string[]> {
+  private async generateInsights(pattern: UserPattern, _user: User): Promise<string[]> {
     const insights: string[] = [];
     
     // 工作模式洞察

@@ -4,7 +4,6 @@ import EmailService from './emailService';
 import ContextService from './contextService';
 import { FunctionCallResult } from './functionCallService';
 import { User } from '../models/User';
-import config from '../config';
 
 /**
  * 用户专属的Function Call服务
@@ -767,7 +766,7 @@ export class AdminFunctionCallService {
     return {
       success: true,
       message: `当前有 ${users.length} 个用户`,
-      data: userList
+      data: { users: userList }
     };
   }
 

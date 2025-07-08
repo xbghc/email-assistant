@@ -1,9 +1,10 @@
-import fs from 'fs/promises';
 import path from 'path';
+import fs from 'fs/promises';
 import { ContextEntry, RawContextEntry } from '../models';
 import config from '../config';
 import logger from '../utils/logger';
 import AIService from './aiService';
+import { safeReadJsonFile, safeWriteJsonFile, withFileLock } from '../utils/fileUtils';
 
 class ContextService {
   private contextFile: string;
@@ -26,7 +27,7 @@ class ContextService {
     }
   }
 
-  async addEntry(type: ContextEntry['type'], content: string, metadata?: Record<string, any>, userId = 'admin'): Promise<void> {
+  async addEntry(type: ContextEntry['type'], content: string, metadata?: Record<string, unknown>, userId = 'admin'): Promise<void> {
     const entry: ContextEntry = {
       id: this.generateId(),
       timestamp: new Date(),
@@ -38,8 +39,12 @@ class ContextService {
     if (!this.context.has(userId)) {
       this.context.set(userId, []);
     }
-    this.context.get(userId)!.push(entry);
-    await this.saveContext();
+    const userContext = this.context.get(userId);
+    if (userContext) {
+      userContext.push(entry);
+    }
+    // 使用防抖保存，减少频繁文件写入
+    this.saveContextDebounced();
     
     if (this.shouldCompress(userId)) {
       await this.compressContext(userId);
@@ -78,8 +83,7 @@ class ContextService {
 
   private async loadContext(): Promise<void> {
     try {
-      const data = await fs.readFile(this.contextFile, 'utf-8');
-      const parsed = JSON.parse(data);
+      const parsed = await safeReadJsonFile<Record<string, unknown>>(this.contextFile, {});
       
       this.context.clear();
       if (Array.isArray(parsed)) {
@@ -102,12 +106,9 @@ class ContextService {
         }
       }
     } catch (error) {
-      if ((error as any).code === 'ENOENT') {
-        this.context.clear();
-        await this.saveContext();
-      } else {
-        throw error;
-      }
+      logger.error('Failed to load context:', error);
+      this.context.clear();
+      await this.saveContext();
     }
   }
 
@@ -118,7 +119,12 @@ class ContextService {
       for (const [userId, entries] of this.context.entries()) {
         contextObj[userId] = entries;
       }
-      await fs.writeFile(this.contextFile, JSON.stringify(contextObj, null, 2));
+      
+      await withFileLock(this.contextFile, async () => {
+        await safeWriteJsonFile(this.contextFile, contextObj, { backup: true });
+      });
+      
+      logger.debug('Context saved with atomic write');
     } catch (error) {
       logger.error('Failed to save context:', error);
       throw error;
@@ -181,6 +187,31 @@ class ContextService {
     this.context.delete(userId);
     await this.saveContext();
     logger.debug(`Cleared context for user ${userId}`);
+  }
+
+  // 防抖保存方法
+  private saveContextDebounced(): void {
+    const contextData: Record<string, ContextEntry[]> = {};
+    for (const [userId, entries] of this.context.entries()) {
+      contextData[userId] = entries;
+    }
+    
+    safeWriteJsonFile(this.contextFile, contextData, { 
+      backup: true, 
+      debounceMs: 3000  // 3秒防抖
+    }).catch(err => logger.error('Failed to save context (debounced):', err));
+  }
+
+  // 立即保存方法（用于重要操作）
+  private async saveContextImmediate(): Promise<void> {
+    const contextData: Record<string, ContextEntry[]> = {};
+    for (const [userId, entries] of this.context.entries()) {
+      contextData[userId] = entries;
+    }
+    
+    await withFileLock(this.contextFile, async () => {
+      await safeWriteJsonFile(this.contextFile, contextData, { backup: true });
+    });
   }
 }
 

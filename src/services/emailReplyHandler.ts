@@ -8,8 +8,10 @@ import SecurityService from './securityService';
 import { ParsedEmail } from './emailReceiveService';
 
 // 前向声明避免循环依赖
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 interface ISchedulerService {
   // 定义需要的方法接口
+  testMorningReminder?(): Promise<void>;
 }
 
 export interface ProcessedReply {
@@ -25,7 +27,7 @@ class EmailReplyHandler {
   private contextService: ContextService;
   private emailService: EmailService;
   private userService: UserService;
-  private adminCommandService: AdminCommandService;
+  private adminCommandService: AdminCommandService | null;
   private securityService: SecurityService;
 
   constructor() {
@@ -34,7 +36,7 @@ class EmailReplyHandler {
     this.emailService = new EmailService();
     this.userService = new UserService();
     // 避免循环依赖：延迟初始化AdminCommandService
-    this.adminCommandService = null as any;
+    this.adminCommandService = null;
     this.securityService = new SecurityService(this.userService);
   }
 
@@ -53,10 +55,10 @@ class EmailReplyHandler {
   /**
    * 设置SchedulerService引用（避免循环依赖）
    */
-  setSchedulerService(schedulerService: any): void {
+  setSchedulerService(schedulerService: unknown): void {
     // 为AdminCommandService设置SchedulerService引用
     if (this.adminCommandService && schedulerService) {
-      (this.adminCommandService as any).schedulerService = schedulerService;
+      (this.adminCommandService as unknown as { schedulerService?: unknown }).schedulerService = schedulerService;
     }
   }
 
@@ -111,7 +113,7 @@ class EmailReplyHandler {
         };
       }
 
-      const commandResult = await this.adminCommandService.processCommand(email.subject, content);
+      const commandResult = await this.adminCommandService?.processCommand(email.subject, content);
       
       // 发送命令结果给管理员
       const replySubject = `命令结果: ${email.subject}`;
@@ -133,7 +135,7 @@ ${commandResult}
       return {
         type: 'admin_command',
         originalContent: content,
-        processedContent: commandResult,
+        processedContent: commandResult || 'No result returned',
         response: 'Admin command processed successfully.'
       };
     } catch (error) {

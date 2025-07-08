@@ -1,6 +1,0 @@
-node_modules/
-dist/
-*.js
-test-*.js
-debug-*.js
-src/public/js/

@@ -1,7 +1,7 @@
 import express from 'express';
 import { AuthService } from '../services/authService';
 import UserService from '../services/userService';
-import { authenticate, requireAdmin, rateLimit } from '../middleware/authMiddleware';
+import { authenticate, rateLimit } from '../middleware/authMiddleware';
 import { LoginRequest, RegisterRequest } from '../models/User';
 import logger from '../utils/logger';
 
@@ -198,7 +198,11 @@ router.post('/change-password', authenticate, async (req, res) => {
     await initServices();
     
     const { currentPassword, newPassword } = req.body;
-    const userId = req.userId!;
+    const userId = req.userId;
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
 
     // 验证输入
     if (!currentPassword || !newPassword) {
@@ -234,7 +238,7 @@ router.post('/change-password', authenticate, async (req, res) => {
 
     await authService.changePassword(userId, currentPassword, newPassword);
 
-    logger.info(`Password changed for user: ${req.user!.email}`);
+    logger.info(`Password changed for user: ${req.user?.email || 'unknown'}`);
 
     res.json({
       success: true,
@@ -376,7 +380,11 @@ router.get('/me', authenticate, async (req, res) => {
   try {
     await initServices();
     
-    const userId = req.userId!;
+    const userId = req.userId;
+    if (!userId) {
+      res.status(401).json({ error: 'User not authenticated' });
+      return;
+    }
     const user = userService.getUserById(userId);
 
     if (!user) {
@@ -388,7 +396,8 @@ router.get('/me', authenticate, async (req, res) => {
     }
 
     // 返回用户信息（不包含密码）
-    const { password, ...safeUser } = user;
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { password: _, ...safeUser } = user;
 
     res.json({
       success: true,
@@ -409,7 +418,7 @@ router.post('/logout', authenticate, async (req, res) => {
     // 在真实应用中，可能需要将token加入黑名单
     // 这里只是返回成功消息
     
-    logger.info(`User logged out: ${req.user!.email}`);
+    logger.info(`User logged out: ${req.user?.email || 'unknown'}`);
 
     res.json({
       success: true,
@@ -431,8 +440,8 @@ router.get('/validate-token', authenticate, async (req, res) => {
     message: 'Token is valid',
     data: {
       userId: req.userId,
-      email: req.user!.email,
-      role: req.user!.role
+      email: req.user?.email || 'unknown',
+      role: req.user?.role || 'user'
     }
   });
 });

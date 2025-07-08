@@ -5,11 +5,11 @@ import axios from 'axios';
 import config from '../config';
 import logger from '../utils/logger';
 import { ContextEntry } from '../models';
-import { simpleFunctionTools, simpleDeepSeekTools } from '../utils/simpleFunctionTools';
 import SimpleFunctionCallService, { SimpleFunctionResult } from './simpleFunctionCallService';
 import UserService from './userService';
 import MockAIService from './mockAIService';
 import EmailContentManager from './emailContentManager';
+import { withTimeout, retryNetworkOperation } from '../utils/asyncUtils';
 
 class AIService {
   private openai?: OpenAI;
@@ -18,6 +18,10 @@ class AIService {
   private mockAI?: MockAIService;
   private userService: UserService;
   private contentManager: EmailContentManager;
+  
+  // 超时配置
+  private readonly DEFAULT_TIMEOUT = 30000; // 30秒
+  private readonly FUNCTION_CALL_TIMEOUT = 60000; // 函数调用1分钟
 
   constructor(userService?: UserService) {
     this.userService = userService || new UserService();
@@ -83,24 +87,31 @@ class AIService {
     const provider = config.ai.provider;
 
     try {
-      switch (provider) {
-        case 'mock':
-          if (!this.mockAI) {
-            throw new Error('Mock AI service not initialized');
-          }
-          return await this.mockAI.generateResponse(systemMessage, userMessage, options);
-        case 'openai':
-        case 'azure-openai':
-          return await this.generateOpenAIResponse(systemMessage, userMessage, options);
-        case 'deepseek':
-          return await this.generateDeepSeekResponse(systemMessage, userMessage, options);
-        case 'google':
-          return await this.generateGoogleResponse(systemMessage, userMessage, options);
-        case 'anthropic':
-          return await this.generateAnthropicResponse(systemMessage, userMessage, options);
-        default:
-          throw new Error(`Unsupported AI provider: ${provider}`);
-      }
+      const operation = async () => {
+        switch (provider) {
+          case 'mock':
+            if (!this.mockAI) {
+              throw new Error('Mock AI service not initialized');
+            }
+            return await this.mockAI.generateResponse(systemMessage, userMessage, options);
+          case 'openai':
+          case 'azure-openai':
+            return await this.generateOpenAIResponse(systemMessage, userMessage, options);
+          case 'deepseek':
+            return await this.generateDeepSeekResponse(systemMessage, userMessage, options);
+          case 'google':
+            return await this.generateGoogleResponse(systemMessage, userMessage, options);
+          case 'anthropic':
+            return await this.generateAnthropicResponse(systemMessage, userMessage, options);
+          default:
+            throw new Error(`Unsupported AI provider: ${provider}`);
+        }
+      };
+
+      // 添加超时和重试机制
+      return await retryNetworkOperation(() => 
+        withTimeout(operation(), this.DEFAULT_TIMEOUT, `AI ${provider} request timed out`)
+      );
     } catch (error) {
       logger.error(`AI response generation failed with ${provider}:`, error);
       throw error;
@@ -238,21 +249,28 @@ Please provide a compressed summary that captures the essential information whil
     await functionCallService.initialize();
 
     try {
-      switch (provider) {
-        case 'mock':
-          if (!this.mockAI) {
-            throw new Error('Mock AI service not initialized');
-          }
-          return await this.mockAI.generateResponseWithFunctionCalls(systemMessage, userMessage, options, userId);
-        case 'openai':
-        case 'azure-openai':
-          return await this.generateOpenAIResponseWithFunctions(systemMessage, userMessage, options, functionCallService, userId);
-        case 'deepseek':
-          return await this.generateDeepSeekResponseWithFunctions(systemMessage, userMessage, options, functionCallService, userId);
-        default:
-          // 其他提供商暂不支持Function Call，回退到普通响应
-          return await this.generateResponse(systemMessage, userMessage, options);
-      }
+      const operation = async () => {
+        switch (provider) {
+          case 'mock':
+            if (!this.mockAI) {
+              throw new Error('Mock AI service not initialized');
+            }
+            return await this.mockAI.generateResponseWithFunctionCalls(systemMessage, userMessage, options, userId);
+          case 'openai':
+          case 'azure-openai':
+            return await this.generateOpenAIResponseWithFunctions(systemMessage, userMessage, options, functionCallService, userId);
+          case 'deepseek':
+            return await this.generateDeepSeekResponseWithFunctions(systemMessage, userMessage, options, functionCallService, userId);
+          default:
+            // 其他提供商暂不支持Function Call，回退到普通响应
+            return await this.generateResponse(systemMessage, userMessage, options);
+        }
+      };
+
+      // 使用更长的超时时间处理函数调用
+      return await retryNetworkOperation(() => 
+        withTimeout(operation(), this.FUNCTION_CALL_TIMEOUT, `AI ${provider} function call timed out`)
+      );
     } catch (error) {
       if (error instanceof Error) {
         logger.error(`Function call failed (${provider}): ${error.message}`);
@@ -262,6 +280,7 @@ Please provide a compressed summary that captures the essential information whil
       } else {
         logger.error('Function call generation failed, falling back to normal response:', error);
       }
+      // 降级处理：如果函数调用失败，回退到普通响应
       return await this.generateResponse(systemMessage, userMessage, options);
     }
   }

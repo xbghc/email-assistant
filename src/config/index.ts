@@ -143,46 +143,47 @@ const config: Config = {
 export function validateConfig(): void {
   const errors: string[] = [];
   
-  // 测试模式跳过某些验证
-  const isTestMode = process.env.NODE_ENV === 'test' || config.ai.provider === 'mock';
+  // 动态读取当前环境变量而不是使用缓存的config对象
+  const currentEnv = process.env;
+  const isTestMode = currentEnv.NODE_ENV === 'test' || currentEnv.AI_PROVIDER === 'mock';
 
   // 验证邮件配置（测试模式下放宽要求）
   if (!isTestMode) {
-    if (!config.email.smtp.user || !config.email.smtp.pass) {
+    if (!currentEnv.SMTP_USER || !currentEnv.SMTP_PASS) {
       errors.push('SMTP credentials (SMTP_USER, SMTP_PASS) are required');
     }
     
-    if (!config.email.user.email) {
+    if (!currentEnv.USER_EMAIL) {
       errors.push('User email (USER_EMAIL) is required');
     }
   }
 
   // 验证AI配置
-  const provider = config.ai.provider;
+  const provider = currentEnv.AI_PROVIDER || 'openai';
   if (!isTestMode) {
     switch (provider) {
       case 'openai':
-        if (!config.ai.openai.apiKey) {
+        if (!currentEnv.OPENAI_API_KEY) {
           errors.push('OpenAI API key (OPENAI_API_KEY) is required');
         }
         break;
       case 'deepseek':
-        if (!config.ai.deepseek.apiKey) {
+        if (!currentEnv.DEEPSEEK_API_KEY) {
           errors.push('DeepSeek API key (DEEPSEEK_API_KEY) is required');
         }
         break;
       case 'google':
-        if (!config.ai.google.apiKey) {
+        if (!currentEnv.GOOGLE_API_KEY) {
           errors.push('Google API key (GOOGLE_API_KEY) is required');
         }
         break;
       case 'anthropic':
-        if (!config.ai.anthropic.apiKey) {
+        if (!currentEnv.ANTHROPIC_API_KEY) {
           errors.push('Anthropic API key (ANTHROPIC_API_KEY) is required');
         }
         break;
       case 'azure-openai':
-        if (!config.ai.azureOpenai.apiKey || !config.ai.azureOpenai.endpoint) {
+        if (!currentEnv.AZURE_OPENAI_API_KEY || !currentEnv.AZURE_OPENAI_ENDPOINT) {
           errors.push('Azure OpenAI credentials (AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT) are required');
         }
         break;
@@ -193,16 +194,16 @@ export function validateConfig(): void {
   }
 
   // 安全检查
-  if (config.email.imap.rejectUnauthorized === false) {
+  if (currentEnv.IMAP_REJECT_UNAUTHORIZED === 'false') {
     console.warn('⚠️ IMAP SSL verification is disabled - security risk detected');
   }
 
   if (errors.length > 0) {
     throw createConfigError(
-      'Configuration validation failed',
+      `Configuration validation failed: ${errors.join('; ')}`,
       { 
         errors,
-        provider: config.ai.provider,
+        provider,
         timestamp: new Date().toISOString()
       }
     );

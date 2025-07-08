@@ -12,7 +12,7 @@ class AdminCommandService {
   private emailService: EmailService;
   private weeklyReportService: WeeklyReportService;
   private personalizationService: PersonalizationService;
-  private schedulerService: SchedulerService;
+  private schedulerService?: SchedulerService | undefined;
   private commands: Map<string, AdminCommand>;
 
   constructor(userService: UserService, schedulerService?: SchedulerService) {
@@ -21,7 +21,7 @@ class AdminCommandService {
     this.weeklyReportService = new WeeklyReportService();
     this.personalizationService = new PersonalizationService();
     // 避免循环依赖：只有明确传入时才使用SchedulerService
-    this.schedulerService = schedulerService || null as any;
+    this.schedulerService = schedulerService || undefined;
     this.commands = new Map();
     this.initializeCommands();
   }
@@ -402,7 +402,7 @@ class AdminCommandService {
         await this.userService.updateUser(user.id, { name: value });
         return `用户 ${email} 的姓名已更新为: ${value}`;
 
-      case 'morningtime':
+      case 'morningtime': {
         if (!timeRegex.test(value)) {
           return '时间格式无效，请使用 HH:MM 格式';
         }
@@ -418,8 +418,9 @@ class AdminCommandService {
         };
         await this.userService.updateUser(user.id, { config: newMorningConfig });
         return `用户 ${email} 的早晨提醒时间已更新为: ${value}`;
+      }
 
-      case 'eveningtime':
+      case 'eveningtime': {
         if (!timeRegex.test(value)) {
           return '时间格式无效，请使用 HH:MM 格式';
         }
@@ -435,8 +436,9 @@ class AdminCommandService {
         };
         await this.userService.updateUser(user.id, { config: newEveningConfig });
         return `用户 ${email} 的晚间提醒时间已更新为: ${value}`;
+      }
 
-      case 'language':
+      case 'language': {
         if (value !== 'zh' && value !== 'en') {
           return '语言必须是 zh 或 en';
         }
@@ -451,6 +453,7 @@ class AdminCommandService {
         };
         await this.userService.updateUser(user.id, { config: newLangConfig });
         return `用户 ${email} 的语言已更新为: ${value}`;
+      }
 
       default:
         return `未知字段: ${field}。支持的字段: name, morningTime, eveningTime, language`;
@@ -592,20 +595,26 @@ class AdminCommandService {
         case 'morning':
         case '晨间':
           // 标记晨间提醒已发送，这样就不会再发送了
-          await this.schedulerService.markMorningReminderSent(finalUserId);
+          if (this.schedulerService) {
+            await this.schedulerService.markMorningReminderSent(finalUserId);
+          }
           return `✅ 已取消用户 ${userEmail} 今天的晨间提醒`;
 
         case 'evening':
         case '晚间':
           // 标记晚间提醒已发送，这样就不会再发送了
-          await this.schedulerService.markEveningReminderSent(finalUserId);
+          if (this.schedulerService) {
+            await this.schedulerService.markEveningReminderSent(finalUserId);
+          }
           return `✅ 已取消用户 ${userEmail} 今天的晚间提醒`;
 
         case 'all':
         case '全部':
           // 标记所有提醒已发送
-          await this.schedulerService.markMorningReminderSent(finalUserId);
-          await this.schedulerService.markEveningReminderSent(finalUserId);
+          if (this.schedulerService) {
+            await this.schedulerService.markMorningReminderSent(finalUserId);
+            await this.schedulerService.markEveningReminderSent(finalUserId);
+          }
           return `✅ 已取消用户 ${userEmail} 今天的所有提醒`;
 
         default:
@@ -723,6 +732,7 @@ class AdminCommandService {
         language: user.config?.language || 'zh' as const
       };
       // 删除resumeDate属性
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       delete (newConfig as any).resumeDate;
 
       await this.userService.updateUser(user.id, { config: newConfig });

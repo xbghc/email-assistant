@@ -8,7 +8,7 @@ import path from 'path';
 export interface FunctionCallResult {
   success: boolean;
   message: string;
-  data?: any;
+  data?: Record<string, unknown>;
 }
 
 export interface ScheduleUpdateParams {
@@ -88,7 +88,7 @@ class FunctionCallService {
       let envContent = '';
       try {
         envContent = await fs.readFile(this.configFile, 'utf-8');
-      } catch (error) {
+      } catch {
         envContent = '';
       }
 

@@ -1,6 +1,35 @@
 #!/bin/bash
 
-# 邮件助手服务器部署脚本
+# Email Assistant 增强型自动化部署脚本
+# 使用方法: ./scripts/deploy.sh [production|staging|development]
+
+set -e  # 遇到错误立即退出
+
+# 颜色输出
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m' # No Color
+
+# 日志函数
+log_info() {
+    echo -e "${BLUE}[INFO]${NC} $1"
+}
+
+log_success() {
+    echo -e "${GREEN}[SUCCESS]${NC} $1"
+}
+
+log_warning() {
+    echo -e "${YELLOW}[WARNING]${NC} $1"
+}
+
+log_error() {
+    echo -e "${RED}[ERROR]${NC} $1"
+}
+
+# 原有邮件助手服务器部署脚本逻辑
 
 # 检测当前目录或使用默认目录
 if [ -f "package.json" ] && [ -d "dist" ]; then

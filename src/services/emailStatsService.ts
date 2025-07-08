@@ -1,6 +1,7 @@
 import fs from 'fs/promises';
 import path from 'path';
 import logger from '../utils/logger';
+import { emailStatsCache } from './cacheService';
 
 export interface EmailRecord {
   id: string;
@@ -65,14 +66,14 @@ class EmailStatsService {
       const recordsData = JSON.parse(data);
       
       // 转换时间戳
-      this.records = recordsData.map((record: any) => ({
+      this.records = recordsData.map((record: { timestamp: string | Date; [key: string]: unknown }) => ({
         ...record,
         timestamp: new Date(record.timestamp)
       }));
       
       logger.debug(`Loaded ${this.records.length} email records`);
     } catch (error) {
-      if ((error as any).code === 'ENOENT') {
+      if ((error as { code?: string }).code === 'ENOENT') {
         // 文件不存在，创建空记录
         this.records = [];
         await this.saveRecords();
@@ -121,13 +122,25 @@ class EmailStatsService {
     }
 
     await this.saveRecords();
+    
+    // 清除统计缓存，因为有新记录添加
+    emailStatsCache.delete('email:stats:current');
+    
     logger.debug(`Email record added: ${record.id} - ${record.subject}`);
   }
 
   /**
-   * 获取邮件统计
+   * 获取邮件统计（带缓存）
    */
   getEmailStats(): EmailStats {
+    const cacheKey = 'email:stats:current';
+    
+    // 检查缓存（5分钟有效期）
+    const cached = emailStatsCache.get<EmailStats>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
     const now = new Date();
     const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const weekStart = new Date(todayStart);
@@ -164,12 +177,17 @@ class EmailStatsService {
       .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
       .slice(0, 10);
 
-    return {
+    const stats = {
       today: todayStats,
       thisWeek: weekStats,
       thisMonth: monthStats,
       recentRecords
     };
+
+    // 缓存统计结果（5分钟）
+    emailStatsCache.set(cacheKey, stats, 5 * 60 * 1000);
+    
+    return stats;
   }
 
   /**

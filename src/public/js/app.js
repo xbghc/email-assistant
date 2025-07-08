@@ -6,12 +6,78 @@ const app = {
         systemStats: {},
         logs: [],
         settings: {}
+    },
+    auth: {
+        token: null,
+        user: null
     }
 };
 
+// 认证相关函数
+function checkAuth() {
+    const token = localStorage.getItem('authToken');
+    if (!token) {
+        redirectToLogin();
+        return false;
+    }
+    
+    app.auth.token = token;
+    return true;
+}
+
+function redirectToLogin() {
+    window.location.href = '/login';
+}
+
+function logout() {
+    localStorage.removeItem('authToken');
+    app.auth.token = null;
+    app.auth.user = null;
+    redirectToLogin();
+}
+
+// API请求助手函数
+async function apiRequest(url, options = {}) {
+    const token = localStorage.getItem('authToken');
+    
+    const defaultHeaders = {
+        'Content-Type': 'application/json'
+    };
+    
+    if (token) {
+        defaultHeaders['Authorization'] = `Bearer ${token}`;
+    }
+    
+    const config = {
+        ...options,
+        headers: {
+            ...defaultHeaders,
+            ...options.headers
+        }
+    };
+    
+    try {
+        const response = await fetch(url, config);
+        
+        // 如果是401未授权，重定向到登录页
+        if (response.status === 401) {
+            logout();
+            return null;
+        }
+        
+        return response;
+    } catch (error) {
+        console.error('API request failed:', error);
+        throw error;
+    }
+}
+
 // DOM加载完成后初始化应用
 document.addEventListener('DOMContentLoaded', function() {
-    initializeApp();
+    // 检查认证状态
+    if (checkAuth()) {
+        initializeApp();
+    }
 });
 
 // 初始化应用
@@ -166,7 +232,9 @@ function updateHealthMetrics(data) {
 async function loadDashboardData() {
     try {
         // 从真实API获取统计数据
-        const response = await fetch('/api/dashboard/stats');
+        const response = await apiRequest('/api/dashboard/stats');
+        if (!response) return;
+        
         const result = await response.json();
         
         if (response.ok && result.success) {
@@ -290,7 +358,9 @@ async function resetReminderStatus() {
 async function loadUsersData() {
     try {
         // 从真实API获取用户数据
-        const response = await fetch('/api/users');
+        const response = await apiRequest('/api/users');
+        if (!response) return;
+        
         const result = await response.json();
         
         if (response.ok && result.success) {

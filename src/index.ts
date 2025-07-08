@@ -6,6 +6,7 @@ import { validateConfig } from './config';
 import SchedulerService from './services/schedulerService';
 import SystemStartupService from './services/systemStartupService';
 import SystemHealthService from './services/systemHealthService';
+import PerformanceMonitorService from './services/performanceMonitorService';
 import scheduleRoutes from './routes/schedule';
 import webRoutes from './routes/web';
 import authRoutes from './routes/auth';
@@ -66,6 +67,7 @@ if (pathPrefix) {
 let schedulerService: SchedulerService;
 let startupService: SystemStartupService;
 let healthService: SystemHealthService;
+let performanceMonitor: PerformanceMonitorService;
 
 // 导出服务实例供其他模块使用
 export function getSchedulerService(): SchedulerService {
@@ -82,6 +84,13 @@ export function getHealthService(): SystemHealthService {
   return healthService;
 }
 
+export function getPerformanceMonitor(): PerformanceMonitorService {
+  if (!performanceMonitor) {
+    throw new Error('PerformanceMonitorService not initialized');
+  }
+  return performanceMonitor;
+}
+
 async function startServer(): Promise<void> {
   try {
     // 初始化服务
@@ -92,9 +101,14 @@ async function startServer(): Promise<void> {
     schedulerService = new SchedulerService();
     startupService = new SystemStartupService();
     healthService = new SystemHealthService();
+    performanceMonitor = new PerformanceMonitorService();
     
     await schedulerService.initialize();
     await healthService.initialize();
+    await performanceMonitor.initialize();
+    
+    // 启动性能监控
+    await performanceMonitor.start(60000); // 每分钟收集一次指标
     
     // 发送系统启动通知
     await startupService.sendStartupNotification();
@@ -283,6 +297,9 @@ process.on('SIGINT', async () => {
   if (schedulerService) {
     schedulerService.destroy();
   }
+  if (performanceMonitor) {
+    performanceMonitor.stop();
+  }
   process.exit(0);
 });
 
@@ -297,6 +314,9 @@ process.on('SIGTERM', async () => {
   }
   if (schedulerService) {
     schedulerService.destroy();
+  }
+  if (performanceMonitor) {
+    performanceMonitor.stop();
   }
   process.exit(0);
 });

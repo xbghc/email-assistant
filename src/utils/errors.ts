@@ -42,13 +42,13 @@ export enum ErrorCode {
 
 export class EmailAssistantError extends Error {
   public readonly code: ErrorCode;
-  public readonly context: Record<string, any> | undefined;
+  public readonly context: Record<string, unknown> | undefined;
   public readonly timestamp: Date;
 
   constructor(
     code: ErrorCode, 
     message: string, 
-    context?: Record<string, any>,
+    context?: Record<string, unknown>,
     cause?: Error
   ) {
     super(message);
@@ -76,42 +76,42 @@ export class EmailAssistantError extends Error {
 
 // 具体的错误类型
 export class ConfigError extends EmailAssistantError {
-  constructor(message: string, context?: Record<string, any>) {
+  constructor(message: string, context?: Record<string, unknown>) {
     super(ErrorCode.CONFIG_VALIDATION_FAILED, message, context);
     this.name = 'ConfigError';
   }
 }
 
 export class EmailError extends EmailAssistantError {
-  constructor(code: ErrorCode, message: string, context?: Record<string, any>, cause?: Error) {
+  constructor(code: ErrorCode, message: string, context?: Record<string, unknown>, cause?: Error) {
     super(code, message, context, cause);
     this.name = 'EmailError';
   }
 }
 
 export class AIServiceError extends EmailAssistantError {
-  constructor(code: ErrorCode, message: string, context?: Record<string, any>, cause?: Error) {
+  constructor(code: ErrorCode, message: string, context?: Record<string, unknown>, cause?: Error) {
     super(code, message, context, cause);
     this.name = 'AIServiceError';
   }
 }
 
 export class UserError extends EmailAssistantError {
-  constructor(code: ErrorCode, message: string, context?: Record<string, any>) {
+  constructor(code: ErrorCode, message: string, context?: Record<string, unknown>) {
     super(code, message, context);
     this.name = 'UserError';
   }
 }
 
 export class DataError extends EmailAssistantError {
-  constructor(code: ErrorCode, message: string, context?: Record<string, any>, cause?: Error) {
+  constructor(code: ErrorCode, message: string, context?: Record<string, unknown>, cause?: Error) {
     super(code, message, context, cause);
     this.name = 'DataError';
   }
 }
 
 // 错误处理工具函数
-export function isEmailAssistantError(error: any): error is EmailAssistantError {
+export function isEmailAssistantError(error: unknown): error is EmailAssistantError {
   return error instanceof EmailAssistantError;
 }
 
@@ -123,14 +123,14 @@ export function formatError(error: Error): string {
   return error.message || 'Unknown error occurred';
 }
 
-export function createConfigError(message: string, context?: Record<string, any>): ConfigError {
+export function createConfigError(message: string, context?: Record<string, unknown>): ConfigError {
   return new ConfigError(message, context);
 }
 
 export function createEmailError(
   code: ErrorCode = ErrorCode.EMAIL_SEND_FAILED, 
   message: string, 
-  context?: Record<string, any>,
+  context?: Record<string, unknown>,
   cause?: Error
 ): EmailError {
   return new EmailError(code, message, context, cause);
@@ -139,7 +139,7 @@ export function createEmailError(
 export function createAIServiceError(
   code: ErrorCode = ErrorCode.AI_REQUEST_FAILED,
   message: string,
-  context?: Record<string, any>,
+  context?: Record<string, unknown>,
   cause?: Error
 ): AIServiceError {
   return new AIServiceError(code, message, context, cause);
@@ -148,7 +148,7 @@ export function createAIServiceError(
 export function createUserError(
   code: ErrorCode = ErrorCode.USER_NOT_FOUND,
   message: string,
-  context?: Record<string, any>
+  context?: Record<string, unknown>
 ): UserError {
   return new UserError(code, message, context);
 }
@@ -156,7 +156,7 @@ export function createUserError(
 export function createDataError(
   code: ErrorCode = ErrorCode.DATA_SAVE_FAILED,
   message: string,
-  context?: Record<string, any>,
+  context?: Record<string, unknown>,
   cause?: Error
 ): DataError {
   return new DataError(code, message, context, cause);

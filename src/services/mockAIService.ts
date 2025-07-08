@@ -11,7 +11,7 @@ export interface MockAIResponse {
 }
 
 class MockAIService {
-  async generateResponse(systemPrompt: string, userPrompt: string, options?: any): Promise<string> {
+  async generateResponse(systemPrompt: string, userPrompt: string, _options?: Record<string, unknown>): Promise<string> {
     logger.debug('Mock AI generating response for prompt:', userPrompt.substring(0, 100) + '...');
     
     // 根据提示内容返回相应的模拟响应
@@ -34,7 +34,7 @@ class MockAIService {
     return '这是一个模拟的AI响应。在测试模式下，所有AI请求都会返回预设的响应内容。';
   }
 
-  async generateMorningSuggestions(type: string, content: string, context: ContextEntry[]): Promise<string> {
+  async generateMorningSuggestions(_type: string, _content: string, _context: ContextEntry[]): Promise<string> {
     logger.debug('Mock AI generating morning suggestions');
     return `
 基于您的日程安排，这里有一些建议：
@@ -56,7 +56,7 @@ class MockAIService {
     `.trim();
   }
 
-  async summarizeWorkReport(report: string, context: ContextEntry[]): Promise<string> {
+  async summarizeWorkReport(_report: string, _context: ContextEntry[]): Promise<string> {
     logger.debug('Mock AI summarizing work report');
     return this.generateMockSummary();
   }
@@ -66,7 +66,7 @@ class MockAIService {
     return `压缩的上下文摘要（${context.length}条记录）：本周主要完成了多项重要工作任务，包括项目开发、会议沟通、文档整理等。工作进展顺利，团队协作良好。`;
   }
 
-  async generateResponseWithFunctionCalls(systemPrompt: string, userPrompt: string, options?: any, userId?: string): Promise<string> {
+  async generateResponseWithFunctionCalls(_systemPrompt: string, _userPrompt: string, _options?: Record<string, unknown>, _userId?: string): Promise<string> {
     logger.debug('Mock AI generating response with function calls');
     return '感谢您的询问！我已经处理了您的请求。这是一个模拟响应，在实际环境中将通过AI服务提供更智能的回复。';
   }

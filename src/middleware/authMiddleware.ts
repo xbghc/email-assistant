@@ -6,6 +6,7 @@ import logger from '../utils/logger';
 
 // 扩展Express Request接口以包含用户信息
 declare global {
+  /* eslint-disable @typescript-eslint/no-namespace */
   namespace Express {
     interface Request {
       user?: JWTPayload;
@@ -13,6 +14,7 @@ declare global {
       userRole?: UserRole;
     }
   }
+  /* eslint-enable @typescript-eslint/no-namespace */
 }
 
 export class AuthMiddleware {
@@ -26,24 +28,16 @@ export class AuthMiddleware {
   // 验证JWT token
   authenticate = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-      // 为Web管理界面提供临时访问（localhost）
-      if (this.isWebManagementRequest(req)) {
-        req.user = { 
-          userId: 'admin', 
-          role: UserRole.ADMIN, 
-          email: 'admin@localhost',
-          iat: Math.floor(Date.now() / 1000),
-          exp: Math.floor(Date.now() / 1000) + 3600
-        };
-        req.userId = 'admin';
-        req.userRole = UserRole.ADMIN;
-        next();
-        return;
-      }
-      
       const authHeader = req.headers.authorization;
       
       if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        // 如果是HTML页面请求，重定向到登录页面
+        if (req.accepts('html') && !req.xhr && !req.path.startsWith('/api/')) {
+          res.redirect('/login');
+          return;
+        }
+        
+        // API请求返回JSON错误
         res.status(401).json({
           success: false,
           error: 'No token provided'
@@ -55,6 +49,13 @@ export class AuthMiddleware {
       const payload = this.authService.verifyToken(token);
 
       if (!payload) {
+        // 如果是HTML页面请求，重定向到登录页面
+        if (req.accepts('html') && !req.xhr && !req.path.startsWith('/api/')) {
+          res.redirect('/login');
+          return;
+        }
+        
+        // API请求返回JSON错误
         res.status(401).json({
           success: false,
           error: 'Invalid or expired token'
@@ -174,11 +175,27 @@ export class AuthMiddleware {
     });
   };
 
-  // 速率限制（简单版本）
+  // 速率限制（带内存清理版本）
   rateLimit = (maxRequests: number, windowMs: number) => {
     const requests = new Map<string, { count: number; resetTime: number }>();
+    
+    // 定期清理过期记录，防止内存泄漏
+    const cleanupInterval = setInterval(() => {
+      const now = Date.now();
+      for (const [key, value] of requests.entries()) {
+        if (now > value.resetTime) {
+          requests.delete(key);
+        }
+      }
+    }, windowMs); // 每个窗口期清理一次
 
-    return (req: Request, res: Response, next: NextFunction): void => {
+    // 添加清理方法以便在服务关闭时调用
+    const cleanup = () => {
+      clearInterval(cleanupInterval);
+      requests.clear();
+    };
+
+    const middleware = (req: Request, res: Response, next: NextFunction): void => {
       const identifier = req.ip || 'unknown';
       const now = Date.now();
       
@@ -204,6 +221,11 @@ export class AuthMiddleware {
       userRequests.count++;
       next();
     };
+
+    // 将清理方法附加到中间件上
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (middleware as any).cleanup = cleanup;
+    return middleware;
   };
 
   // 验证API密钥（用于外部系统集成）
@@ -231,7 +253,6 @@ export class AuthMiddleware {
   // 检查是否是Web管理界面请求
   private isWebManagementRequest(req: Request): boolean {
     const userAgent = req.headers['user-agent'] || '';
-    const referer = req.headers.referer || '';
     const host = req.headers.host || '';
     
     // 检查是否来自本地访问且是浏览器请求

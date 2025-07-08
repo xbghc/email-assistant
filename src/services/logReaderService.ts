@@ -6,7 +6,7 @@ export interface LogEntry {
   timestamp: string;
   level: 'error' | 'warn' | 'info' | 'debug';
   message: string;
-  meta?: any;
+  meta?: Record<string, unknown>;
   source?: string;
 }
 

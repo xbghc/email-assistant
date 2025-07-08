@@ -1,14 +1,16 @@
 import { User, UserConfig, UserStorage, UserRole } from '../models/User';
-import fs from 'fs/promises';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import logger from '../utils/logger';
 import config from '../config';
+import { safeReadJsonFile, safeWriteJsonFile, withFileLock } from '../utils/fileUtils';
+import { userCache } from './cacheService';
 
 class UserService implements UserStorage {
   public users = new Map<string, User>();
+  private emailToIdMap = new Map<string, string>(); // 邮箱到ID的快速映射
   private dataFile: string;
 
   constructor() {
@@ -25,12 +27,39 @@ class UserService implements UserStorage {
   }
 
   getUserById(id: string): User | undefined {
-    return this.users.get(id);
+    // 先检查缓存
+    const cacheKey = `user:id:${id}`;
+    const cached = userCache.get<User>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    const user = this.users.get(id);
+    if (user) {
+      // 缓存用户数据10分钟
+      userCache.set(cacheKey, user, 10 * 60 * 1000);
+    }
+    return user;
   }
 
   getUserByEmail(email: string): User | undefined {
-    for (const user of this.users.values()) {
-      if (user.email.toLowerCase() === email.toLowerCase()) {
+    const normalizedEmail = email.toLowerCase();
+    
+    // 先检查缓存
+    const cacheKey = `user:email:${normalizedEmail}`;
+    const cached = userCache.get<User>(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    // 使用邮箱映射快速查找（O(1)而不是O(n)）
+    const userId = this.emailToIdMap.get(normalizedEmail);
+    if (userId) {
+      const user = this.users.get(userId);
+      if (user) {
+        // 缓存用户数据
+        userCache.set(cacheKey, user, 10 * 60 * 1000);
+        userCache.set(`user:id:${user.id}`, user, 10 * 60 * 1000);
         return user;
       }
     }
@@ -39,15 +68,33 @@ class UserService implements UserStorage {
 
   addUser(user: User): void {
     this.users.set(user.id, user);
-    this.saveToFile().catch(err => logger.error('Failed to save users:', err));
+    // 更新邮箱映射
+    this.emailToIdMap.set(user.email.toLowerCase(), user.id);
+    // 清除相关缓存
+    this.invalidateUserCache(user);
+    // 使用防抖写入，5秒内的多次操作会合并
+    this.saveToFileDebounced();
   }
 
   updateUser(id: string, updates: Partial<User>): void {
     const user = this.users.get(id);
     if (user) {
+      const oldEmail = user.email;
       Object.assign(user, updates);
       user.updatedAt = new Date();
-      this.saveToFile().catch(err => logger.error('Failed to save users:', err));
+      
+      // 如果邮箱发生变化，更新映射
+      if (oldEmail !== user.email) {
+        this.emailToIdMap.delete(oldEmail.toLowerCase());
+        this.emailToIdMap.set(user.email.toLowerCase(), user.id);
+        userCache.delete(`user:email:${oldEmail.toLowerCase()}`);
+      }
+      
+      // 清除旧的和新的缓存
+      this.invalidateUserCache(user);
+      
+      // 使用防抖写入，5秒内的多次操作会合并
+      this.saveToFileDebounced();
     }
   }
 
@@ -88,7 +135,15 @@ class UserService implements UserStorage {
   }
 
   deleteUser(id: string): void {
+    const user = this.users.get(id);
+    if (user) {
+      // 清除邮箱映射
+      this.emailToIdMap.delete(user.email.toLowerCase());
+      // 清除缓存
+      this.invalidateUserCache(user);
+    }
     this.users.delete(id);
+    // 删除操作立即保存，不使用防抖
     this.saveToFile().catch(err => logger.error('Failed to save users:', err));
   }
 
@@ -108,20 +163,41 @@ class UserService implements UserStorage {
         updatedAt: user.updatedAt.toISOString()
       }));
       
-      await fs.writeFile(this.dataFile, JSON.stringify(usersData, null, 2));
-      logger.debug('Users saved to file');
+      await withFileLock(this.dataFile, async () => {
+        await safeWriteJsonFile(this.dataFile, usersData, { backup: true });
+      });
+      
+      logger.debug('Users saved to file with atomic write');
     } catch (error) {
       logger.error('Failed to save users to file:', error);
       throw error;
     }
   }
 
+  // 防抖保存方法
+  private saveToFileDebounced(): void {
+    safeWriteJsonFile(this.dataFile, this.getSerializableUsers(), { 
+      backup: true, 
+      debounceMs: 5000 
+    }).catch(err => logger.error('Failed to save users (debounced):', err));
+  }
+
+  // 获取可序列化的用户数据
+  private getSerializableUsers(): any[] {
+    return Array.from(this.users.entries()).map(([, user]) => ({
+      ...user,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString()
+    }));
+  }
+
   async loadFromFile(): Promise<void> {
     try {
-      const data = await fs.readFile(this.dataFile, 'utf-8');
-      const usersData = JSON.parse(data);
+      const usersData = await safeReadJsonFile<any[]>(this.dataFile, []);
       
       this.users.clear();
+      this.emailToIdMap.clear();
+      
       for (const userData of usersData) {
         const user: User = {
           ...userData,
@@ -130,14 +206,14 @@ class UserService implements UserStorage {
           resetTokenExpiry: userData.resetTokenExpiry ? new Date(userData.resetTokenExpiry) : undefined
         };
         this.users.set(user.id, user);
+        // 重建邮箱映射
+        this.emailToIdMap.set(user.email.toLowerCase(), user.id);
       }
       
-      logger.debug('Users loaded from file');
+      logger.debug(`Users loaded from file: ${this.users.size} users`);
     } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
-        logger.error('Failed to load users from file:', error);
-        throw error;
-      }
+      logger.error('Failed to load users from file:', error);
+      throw error;
     }
   }
 
@@ -248,6 +324,17 @@ class UserService implements UserStorage {
     }
 
     return true;
+  }
+
+  // 缓存失效辅助方法
+  private invalidateUserCache(user: User): void {
+    userCache.delete(`user:id:${user.id}`);
+    userCache.delete(`user:email:${user.email.toLowerCase()}`);
+  }
+
+  // 获取缓存统计信息
+  getCacheStats(): { size: number; hits: number; misses: number; hitRate: number; memoryUsage: number } {
+    return userCache.getStats();
   }
 }
 

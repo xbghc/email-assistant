@@ -2,10 +2,13 @@ import EmailService from '../emailService';
 
 // Mock nodemailer
 jest.mock('nodemailer', () => ({
-  createTransporter: jest.fn(() => ({
-    sendMail: jest.fn(),
-    verify: jest.fn()
-  }))
+  __esModule: true,
+  default: {
+    createTransport: jest.fn(() => ({
+      sendMail: jest.fn(),
+      verify: jest.fn()
+    }))
+  }
 }));
 
 describe('EmailService', () => {

@@ -23,8 +23,10 @@ export interface ParsedEmail {
 class EmailReceiveService extends EventEmitter {
   private imap: Imap;
   private isConnected: boolean = false;
-  private checkInterval?: NodeJS.Timeout;
+  private checkInterval?: NodeJS.Timeout | undefined;
   private processedEmails: Set<string> = new Set();
+  private emailCleanupInterval?: NodeJS.Timeout | undefined;
+  private readonly MAX_PROCESSED_EMAILS = 10000; // 最大保持的已处理邮件数量
 
   constructor() {
     super();
@@ -43,6 +45,7 @@ class EmailReceiveService extends EventEmitter {
     });
 
     this.setupEventHandlers();
+    this.setupEmailCleanup();
   }
 
   private setupEventHandlers(): void {
@@ -87,13 +90,23 @@ class EmailReceiveService extends EventEmitter {
   stop(): void {
     if (this.checkInterval) {
       clearInterval(this.checkInterval);
+      this.checkInterval = undefined;
     }
     
+    if (this.emailCleanupInterval) {
+      clearInterval(this.emailCleanupInterval);
+      this.emailCleanupInterval = undefined;
+    }
+
     if (this.isConnected) {
       this.imap.end();
     }
     
-    logger.info('Email receive service stopped');
+    // 清理内存
+    this.processedEmails.clear();
+    this.removeAllListeners();
+    
+    logger.info('Email receive service stopped and cleaned up');
   }
 
   private openInbox(): void {
@@ -189,6 +202,7 @@ class EmailReceiveService extends EventEmitter {
       }
 
       this.processedEmails.add(parsed.messageId);
+      this.cleanupProcessedEmailsIfNeeded();
       logger.debug(`Processing new email: ${parsed.messageId}`);
 
       const fromText = Array.isArray(parsed.from) 
@@ -232,9 +246,9 @@ class EmailReceiveService extends EventEmitter {
     }
   }
 
-  private isReplyEmail(parsed: any): boolean {
+  private isReplyEmail(parsed: { inReplyTo?: string | undefined; references?: string | string[] | undefined; subject?: string | undefined }): boolean {
     return !!(parsed.inReplyTo || 
-             (parsed.references && parsed.references.length > 0) ||
+             (parsed.references && Array.isArray(parsed.references) && parsed.references.length > 0) ||
              (parsed.subject && (
                parsed.subject.startsWith('Re:') || 
                parsed.subject.startsWith('RE:') ||
@@ -242,7 +256,7 @@ class EmailReceiveService extends EventEmitter {
              )));
   }
 
-  private determineReplyType(parsed: any): 'work_report' | 'schedule_response' | 'general' | 'admin_command' {
+  private determineReplyType(parsed: { subject?: string | undefined; text?: string | undefined; from?: { text: string } | { text: string }[] | undefined }): 'work_report' | 'schedule_response' | 'general' | 'admin_command' {
     const subject = (parsed.subject || '').toLowerCase();
     const content = (parsed.text || '').toLowerCase();
     const fromText = Array.isArray(parsed.from) 
@@ -317,6 +331,30 @@ class EmailReceiveService extends EventEmitter {
     const emailMatch = fromText.match(/<([^>]+)>/) || fromText.match(/([^\s<>]+@[^\s<>]+)/);
     return emailMatch ? emailMatch[1] || '' : fromText;
   }
+
+  // 设置邮件清理机制
+  private setupEmailCleanup(): void {
+    // 每小时清理一次已处理邮件列表
+    this.emailCleanupInterval = setInterval(() => {
+      this.cleanupProcessedEmailsIfNeeded();
+    }, 60 * 60 * 1000); // 1小时
+  }
+
+  // 清理已处理邮件记录，防止内存泄漏
+  private cleanupProcessedEmailsIfNeeded(): void {
+    if (this.processedEmails.size > this.MAX_PROCESSED_EMAILS) {
+      // 保留最近一半的记录，删除较早的记录
+      const emailsArray = Array.from(this.processedEmails);
+      const keepCount = Math.floor(this.MAX_PROCESSED_EMAILS / 2);
+      const toKeep = emailsArray.slice(-keepCount);
+      
+      this.processedEmails.clear();
+      toKeep.forEach(email => this.processedEmails.add(email));
+      
+      logger.info(`Cleaned up processed emails cache, kept ${toKeep.length} recent entries`);
+    }
+  }
+
 }
 
 export default EmailReceiveService;

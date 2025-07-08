@@ -1,7 +1,6 @@
 import logger from '../utils/logger';
 import UserService from './userService';
 import EmailService from './emailService';
-import config from '../config';
 
 interface SecurityViolation {
   userId: string;

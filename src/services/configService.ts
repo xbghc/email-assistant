@@ -111,7 +111,7 @@ class ConfigService {
           }
         },
         ai: {
-          provider: (envVars.AI_PROVIDER as any) || 'mock',
+          provider: (envVars.AI_PROVIDER as AIConfig['provider']) || 'openai',
           model: envVars.AI_MODEL || 'gpt-3.5-turbo',
           apiKey: envVars.OPENAI_API_KEY || envVars.DEEPSEEK_API_KEY || envVars.GOOGLE_API_KEY || '',
           ...(envVars.AI_BASE_URL && { baseURL: envVars.AI_BASE_URL })
@@ -137,7 +137,10 @@ class ConfigService {
       };
 
       logger.debug('Configuration loaded successfully');
-      return this.config!;
+      if (!this.config) {
+        throw new Error('Failed to initialize configuration');
+      }
+      return this.config;
     } catch (error) {
       logger.error('Failed to load configuration:', error);
       throw error;
@@ -154,7 +157,10 @@ class ConfigService {
       }
 
       // 合并配置
-      const updatedConfig = this.mergeConfig(this.config!, newConfig);
+      if (!this.config) {
+        throw new Error('Configuration not initialized');
+      }
+      const updatedConfig = this.mergeConfig(this.config, newConfig);
       
       // 生成新的.env内容
       const envContent = this.generateEnvContent(updatedConfig);

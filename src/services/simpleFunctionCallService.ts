@@ -18,7 +18,7 @@ class SimpleFunctionCallService {
     await this.userService.initialize();
   }
 
-  async handleFunctionCall(functionName: string, args: any, userId?: string): Promise<SimpleFunctionResult> {
+  async handleFunctionCall(functionName: string, args: Record<string, unknown>, userId?: string): Promise<SimpleFunctionResult> {
     try {
       logger.debug(`Processing function call: ${functionName}`, { args, userId });
 
@@ -44,8 +44,9 @@ class SimpleFunctionCallService {
     }
   }
 
-  private async updateReminderTimes(args: any, userId?: string): Promise<SimpleFunctionResult> {
-    const { morningTime, eveningTime } = args;
+  private async updateReminderTimes(args: Record<string, unknown>, userId?: string): Promise<SimpleFunctionResult> {
+    const morningTime = args.morningTime as string | undefined;
+    const eveningTime = args.eveningTime as string | undefined;
     
     if (!userId) {
       return {
@@ -105,7 +106,7 @@ class SimpleFunctionCallService {
     }
   }
 
-  private async markEmailsRead(args: any): Promise<SimpleFunctionResult> {
+  private async markEmailsRead(args: Record<string, unknown>): Promise<SimpleFunctionResult> {
     const { markAll } = args;
     
     if (markAll) {

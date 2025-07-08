@@ -4,7 +4,6 @@ import crypto from 'crypto';
 import { User, UserRole, LoginRequest, RegisterRequest, AuthResponse, JWTPayload } from '../models/User';
 import UserService from './userService';
 import logger from '../utils/logger';
-import config from '../config';
 
 export class AuthService {
   private userService: UserService;
@@ -244,6 +243,7 @@ export class AuthService {
   }
 
   private sanitizeUser(user: User): Omit<User, 'password'> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { password, ...sanitizedUser } = user;
     return sanitizedUser;
   }

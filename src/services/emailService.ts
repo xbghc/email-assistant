@@ -6,7 +6,7 @@ import EmailStatsService from './emailStatsService';
 
 interface QueuedEmail {
   id: string;
-  mailOptions: any;
+  mailOptions: nodemailer.SendMailOptions;
   attempts: number;
   maxAttempts: number;
   nextRetryTime: Date;
@@ -112,7 +112,7 @@ class EmailService {
         
         logger.info(`✅ Queued email sent: ${queuedEmail.id}`);
         
-      } catch (error) {
+      } catch {
         queuedEmail.attempts++;
         
         if (queuedEmail.attempts < queuedEmail.maxAttempts) {

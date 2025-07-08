@@ -10,7 +10,7 @@ export interface ServiceHealth {
   message: string;
   lastChecked: Date;
   responseTime?: number;
-  details?: any;
+  details?: Record<string, unknown>;
 }
 
 export interface SystemHealth {
@@ -360,7 +360,7 @@ class SystemHealthService {
       for (const dir of directories) {
         try {
           await fs.access(dir);
-        } catch (error) {
+        } catch {
           return {
             name: 'Disk Storage',
             status: 'warning',
@@ -402,7 +402,7 @@ class SystemHealthService {
           status: 'critical',
           message: `High memory usage: ${heapUsedMB}/${heapTotalMB}MB (${heapUsagePercent.toFixed(1)}%)`,
           lastChecked: new Date(),
-          details: memUsage
+          details: memUsage as unknown as Record<string, unknown>
         };
       } else if (heapUsagePercent > 75) {
         return {
@@ -410,7 +410,7 @@ class SystemHealthService {
           status: 'warning',
           message: `Elevated memory usage: ${heapUsedMB}/${heapTotalMB}MB (${heapUsagePercent.toFixed(1)}%)`,
           lastChecked: new Date(),
-          details: memUsage
+          details: memUsage as unknown as Record<string, unknown>
         };
       } else {
         return {
@@ -418,7 +418,7 @@ class SystemHealthService {
           status: 'healthy',
           message: `Memory usage normal: ${heapUsedMB}/${heapTotalMB}MB (${heapUsagePercent.toFixed(1)}%)`,
           lastChecked: new Date(),
-          details: memUsage
+          details: memUsage as unknown as Record<string, unknown>
         };
       }
     } catch (error) {
