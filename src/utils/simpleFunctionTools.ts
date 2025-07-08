@@ -10,11 +10,11 @@ export const simpleFunctionTools = [
         properties: {
           morningTime: {
             type: "string",
-            description: "早晨提醒时间，例如：08:00"
+            description: "早晨提醒时间，格式为HH:MM，例如：08:00、09:30。支持自然语言如'9点半'转换为'09:30'"
           },
           eveningTime: {
-            type: "string",
-            description: "晚间提醒时间，例如：20:00"
+            type: "string", 
+            description: "晚间提醒时间，格式为HH:MM，例如：20:00、18:30。支持自然语言如'6点半'转换为'18:30'"
           }
         },
         required: []
@@ -64,11 +64,11 @@ export const simpleDeepSeekTools = [
         properties: {
           morningTime: {
             type: "string",
-            description: "早晨提醒时间，例如：08:00"
+            description: "早晨提醒时间，格式为HH:MM，例如：08:00、09:30。支持自然语言如'9点半'转换为'09:30'"
           },
           eveningTime: {
             type: "string", 
-            description: "晚间提醒时间，例如：20:00"
+            description: "晚间提醒时间，格式为HH:MM，例如：20:00、18:30。支持自然语言如'6点半'转换为'18:30'"
           }
         },
         required: []

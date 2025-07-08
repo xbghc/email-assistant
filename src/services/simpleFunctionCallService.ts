@@ -45,9 +45,6 @@ class SimpleFunctionCallService {
   }
 
   private async updateReminderTimes(args: Record<string, unknown>, userId?: string): Promise<SimpleFunctionResult> {
-    const morningTime = args.morningTime as string | undefined;
-    const eveningTime = args.eveningTime as string | undefined;
-    
     if (!userId) {
       return {
         success: false,
@@ -63,19 +60,33 @@ class SimpleFunctionCallService {
       };
     }
 
-    // 验证时间格式
-    const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
-    if (morningTime && !timeRegex.test(morningTime)) {
-      return {
-        success: false,
-        message: '早晨时间格式无效，请使用 HH:MM 格式'
-      };
+    // 解析和验证时间格式
+    const originalMorningTime = args.morningTime as string | undefined;
+    const originalEveningTime = args.eveningTime as string | undefined;
+    
+    let morningTime: string | undefined;
+    let eveningTime: string | undefined;
+    
+    // 解析早晨时间
+    if (originalMorningTime) {
+      morningTime = this.parseTimeString(originalMorningTime);
+      if (!morningTime) {
+        return {
+          success: false,
+          message: `早晨时间格式无效："${originalMorningTime}"，请使用 HH:MM 格式（如：09:30）或自然语言（如：9点半）`
+        };
+      }
     }
-    if (eveningTime && !timeRegex.test(eveningTime)) {
-      return {
-        success: false,
-        message: '晚间时间格式无效，请使用 HH:MM 格式'
-      };
+    
+    // 解析晚间时间
+    if (originalEveningTime) {
+      eveningTime = this.parseTimeString(originalEveningTime);
+      if (!eveningTime) {
+        return {
+          success: false,
+          message: `晚间时间格式无效："${originalEveningTime}"，请使用 HH:MM 格式（如：18:30）或自然语言（如：6点半）`
+        };
+      }
     }
 
     // 更新用户配置
@@ -156,6 +167,58 @@ class SimpleFunctionCallService {
       success: true,
       message: configInfo
     };
+  }
+
+  /**
+   * 解析时间字符串，支持自然语言格式
+   */
+  private parseTimeString(timeInput: string | undefined): string | undefined {
+    if (!timeInput) return undefined;
+    
+    const input = timeInput.trim();
+    
+    // 如果已经是HH:MM格式，直接返回
+    if (/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(input)) {
+      return input;
+    }
+    
+    // 解析自然语言时间
+    const patterns = [
+      // 9点半 -> 09:30
+      { pattern: /(\d{1,2})点半/, replacement: (match: string, hour: string) => {
+        const h = parseInt(hour);
+        return h < 10 ? `0${h}:30` : `${h}:30`;
+      }},
+      // 9点 -> 09:00
+      { pattern: /(\d{1,2})点/, replacement: (match: string, hour: string) => {
+        const h = parseInt(hour);
+        return h < 10 ? `0${h}:00` : `${h}:00`;
+      }},
+      // 9:30 -> 09:30
+      { pattern: /^(\d{1,2}):(\d{2})$/, replacement: (match: string, hour: string, minute: string) => {
+        const h = parseInt(hour);
+        return h < 10 ? `0${h}:${minute}` : `${h}:${minute}`;
+      }},
+      // 930 -> 09:30
+      { pattern: /^(\d{1,2})(\d{2})$/, replacement: (match: string, hour: string, minute: string) => {
+        const h = parseInt(hour);
+        return h < 10 ? `0${h}:${minute}` : `${h}:${minute}`;
+      }}
+    ];
+    
+    for (const { pattern, replacement } of patterns) {
+      const match = input.match(pattern);
+      if (match) {
+        const result = replacement(match[0], match[1] || '', match[2] || '');
+        // 验证结果格式
+        if (/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/.test(result)) {
+          return result;
+        }
+      }
+    }
+    
+    logger.warn(`Unable to parse time string: ${input}`);
+    return undefined;
   }
 }
 

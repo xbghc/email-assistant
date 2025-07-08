@@ -10,6 +10,7 @@ import UserService from './userService';
 import MockAIService from './mockAIService';
 import EmailContentManager from './emailContentManager';
 import { withTimeout, retryNetworkOperation, PromiseQueue } from '../utils/asyncUtils';
+import { simpleFunctionTools, simpleDeepSeekTools } from '../utils/simpleFunctionTools';
 
 class AIService {
   private openai?: OpenAI;
@@ -304,10 +305,15 @@ Please provide a compressed summary that captures the essential information whil
         if (error.message.includes('422')) {
           logger.error('422 error suggests invalid function call parameters');
         }
+        if (error.message.includes('400')) {
+          logger.error('400 error suggests malformed request');
+        }
       } else {
         logger.error('Function call generation failed, falling back to normal response:', error);
       }
+      
       // 降级处理：如果函数调用失败，回退到普通响应
+      logger.info('Falling back to normal response due to function call failure');
       return await this.generateResponse(systemMessage, userMessage, options);
     }
   }
@@ -353,9 +359,8 @@ Please provide a compressed summary that captures the essential information whil
       ],
       max_tokens: options.maxTokens,
       temperature: options.temperature,
-      // 暂时禁用Function Call直到修复422错误  
-      // tools: simpleFunctionTools,
-      // tool_choice: 'auto',
+      tools: simpleFunctionTools,
+      tool_choice: 'auto',
     });
 
     const message = response.choices[0]?.message;
@@ -433,9 +438,8 @@ Please provide a compressed summary that captures the essential information whil
         ],
         max_tokens: options.maxTokens,
         temperature: options.temperature,
-        // 暂时禁用Function Call直到修复422错误
-        // tools: simpleDeepSeekTools,
-        // tool_choice: 'auto',
+        tools: simpleDeepSeekTools,
+        tool_choice: 'auto',
       },
       {
         headers: {
