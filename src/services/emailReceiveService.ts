@@ -228,14 +228,21 @@ class EmailReceiveService extends EventEmitter {
         userId: undefined as string | undefined, // 将在后续通过用户服务设置
       };
 
-      // 处理来自用户的邮件（包括回复和直接发送的邮件）
-      if (email.from.includes(config.email.user.email)) {
-        logger.info(`Processing email from user: ${email.subject} (${email.replyType})`);
+      // 处理所有发送给助手的邮件
+      // 如果邮件是发送给助手的，就处理它（无论发件人是谁）
+      const assistantEmail = config.email.user.email;
+      const isToAssistant = email.to.some(to => 
+        this.extractEmailAddress(to).toLowerCase() === assistantEmail.toLowerCase()
+      );
+      
+      if (isToAssistant || email.isReply) {
+        // 这是发送给助手的邮件或回复，需要处理
+        logger.info(`Processing email: ${email.subject} from ${email.from} (${email.replyType})`);
         this.emit('emailReceived', email);
         // 处理完成后标记邮件为已读
         this.markEmailAsRead(uid);
       } else {
-        // 处理来自其他人的邮件 - 转发给用户
+        // 其他邮件（比如转发）
         logger.info(`Forwarding email from: ${email.from}, subject: ${email.subject}`);
         this.emit('emailForward', email);
         // 转发完成后标记邮件为已读
@@ -299,6 +306,9 @@ class EmailReceiveService extends EventEmitter {
     const emailMatch = fromText.match(/<([^>]+)>/) || fromText.match(/([^\s<>]+@[^\s<>]+)/);
     const email = emailMatch ? emailMatch[1] : fromText;
     
+    // 检查是否为管理员邮箱 - 这里应该检查系统中的管理员用户
+    // 暂时保留原有逻辑，但这需要与UserService集成来正确判断
+    // TODO: 集成UserService来检查用户角色
     return email?.toLowerCase().trim() === config.email.user.email.toLowerCase();
   }
 

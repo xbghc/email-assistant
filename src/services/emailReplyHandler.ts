@@ -96,9 +96,13 @@ class EmailReplyHandler {
     try {
       logger.info('Processing admin command');
       
-      if (!email.isFromAdmin) {
+      // 检查用户是否为管理员（基于用户数据库而不是邮件标志）
+      const fromEmail = this.extractEmailAddress(email.from);
+      const user = this.userService.getUserByEmail(fromEmail);
+      const isActualAdmin = user && user.role === 'admin';
+      
+      if (!isActualAdmin) {
         // 记录安全违规
-        const fromEmail = this.extractEmailAddress(email.from);
         const shouldDisable = await this.securityService.recordUnauthorizedAccess(fromEmail, email.subject);
         
         const warningMessage = shouldDisable 

@@ -1,0 +1,20 @@
+[
+  {
+    "id": "test-user-123",
+    "email": "test@example.com",
+    "name": "测试用户",
+    "role": "user",
+    "config": {
+      "schedule": {
+        "morningReminderTime": "08:00",
+        "eveningReminderTime": "20:00",
+        "timezone": "Asia/Shanghai"
+      },
+      "language": "zh"
+    },
+    "createdAt": "2025-07-08T15:05:53.357Z",
+    "updatedAt": "2025-07-08T15:05:53.357Z",
+    "isActive": true,
+    "emailVerified": true
+  }
+]
