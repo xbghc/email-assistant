@@ -40,7 +40,7 @@ export default [
     files: ['**/*.js', '**/*.mjs', 'scripts/**/*.js', 'examples/**/*.js'],
     languageOptions: {
       ecmaVersion: 2022,
-      sourceType: 'script',
+      sourceType: 'module',
       globals: {
         console: 'readonly',
         process: 'readonly',
