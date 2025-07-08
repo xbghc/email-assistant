@@ -25,13 +25,13 @@ export const simpleFunctionTools = [
     type: "function" as const,
     function: {
       name: "mark_emails_read",
-      description: "标记邮件为已读",
+      description: "标记助手收件箱中的邮件为已读（仅管理员可用）",
       parameters: {
         type: "object",
         properties: {
           markAll: {
             type: "boolean",
-            description: "是否标记所有邮件为已读"
+            description: "是否标记助手收件箱中的所有邮件为已读"
           }
         },
         required: ["markAll"]
@@ -151,13 +151,13 @@ export const simpleDeepSeekTools = [
     type: "function",
     function: {
       name: "mark_emails_read",
-      description: "标记邮件为已读",
+      description: "标记助手收件箱中的邮件为已读（仅管理员可用）",
       parameters: {
         type: "object",
         properties: {
           markAll: {
             type: "boolean",
-            description: "是否标记所有邮件为已读"
+            description: "是否标记助手收件箱中的所有邮件为已读"
           }
         },
         required: ["markAll"]

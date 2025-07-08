@@ -30,7 +30,7 @@ class SimpleFunctionCallService {
         case 'update_reminder_times':
           return await this.updateReminderTimes(args, userId);
         case 'mark_emails_read':
-          return await this.markEmailsRead(args);
+          return await this.markEmailsRead(args, userId);
         case 'get_user_config':
           return await this.getUserConfig(userId);
         case 'get_recent_activities':
@@ -129,7 +129,23 @@ class SimpleFunctionCallService {
     }
   }
 
-  private async markEmailsRead(args: Record<string, unknown>): Promise<SimpleFunctionResult> {
+  private async markEmailsRead(args: Record<string, unknown>, userId?: string): Promise<SimpleFunctionResult> {
+    // 检查用户权限 - 只有管理员可以操作助手的邮件收件箱
+    if (!userId) {
+      return {
+        success: false,
+        message: '需要用户身份验证才能标记邮件'
+      };
+    }
+
+    const user = this.userService.getUserById(userId);
+    if (!user || user.role !== UserRole.ADMIN) {
+      return {
+        success: false,
+        message: '⚠️ 抱歉，只有管理员可以管理助手的邮件收件箱。'
+      };
+    }
+
     const { markAll } = args;
     
     if (markAll) {
@@ -137,7 +153,7 @@ class SimpleFunctionCallService {
       // 暂时返回模拟结果
       return {
         success: true,
-        message: '已标记所有邮件为已读'
+        message: '✅ 已标记助手收件箱中的所有邮件为已读'
       };
     } else {
       return {
