@@ -49,6 +49,78 @@ export const simpleFunctionTools = [
         required: []
       }
     }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_recent_activities",
+      description: "获取用户最近的活动记录，包括工作报告和日程反馈",
+      parameters: {
+        type: "object",
+        properties: {
+          days: {
+            type: "number",
+            description: "查询最近多少天的记录，默认7天，最多30天"
+          },
+          type: {
+            type: "string",
+            description: "活动类型过滤：'work_summary', 'schedule', 'conversation' 或 'all'",
+            enum: ["work_summary", "schedule", "conversation", "all"]
+          }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_reminder_history",
+      description: "获取提醒发送历史记录",
+      parameters: {
+        type: "object",
+        properties: {
+          days: {
+            type: "number",
+            description: "查询最近多少天的提醒记录，默认7天"
+          }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "get_system_status",
+      description: "获取邮件助手系统的当前状态和统计信息",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: []
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "search_conversations",
+      description: "搜索历史对话记录",
+      parameters: {
+        type: "object",
+        properties: {
+          keyword: {
+            type: "string",
+            description: "搜索关键词"
+          },
+          days: {
+            type: "number",
+            description: "搜索范围（天数），默认30天"
+          }
+        },
+        required: ["keyword"]
+      }
+    }
   }
 ];
 
@@ -101,6 +173,77 @@ export const simpleDeepSeekTools = [
         type: "object",
         properties: {},
         required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_recent_activities",
+      description: "获取用户最近的活动记录，包括工作报告和日程反馈",
+      parameters: {
+        type: "object",
+        properties: {
+          days: {
+            type: "number",
+            description: "查询最近多少天的记录，默认7天，最多30天"
+          },
+          type: {
+            type: "string",
+            description: "活动类型过滤：'work_summary', 'schedule', 'conversation' 或 'all'"
+          }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_reminder_history",
+      description: "获取提醒发送历史记录",
+      parameters: {
+        type: "object",
+        properties: {
+          days: {
+            type: "number",
+            description: "查询最近多少天的提醒记录，默认7天"
+          }
+        },
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_system_status",
+      description: "获取邮件助手系统的当前状态和统计信息",
+      parameters: {
+        type: "object",
+        properties: {},
+        required: []
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "search_conversations",
+      description: "搜索历史对话记录",
+      parameters: {
+        type: "object",
+        properties: {
+          keyword: {
+            type: "string",
+            description: "搜索关键词"
+          },
+          days: {
+            type: "number",
+            description: "搜索范围（天数），默认30天"
+          }
+        },
+        required: ["keyword"]
       }
     }
   }

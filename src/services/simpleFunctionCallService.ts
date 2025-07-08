@@ -1,6 +1,7 @@
 import logger from '../utils/logger';
 import UserService from './userService';
 import { UserConfig } from '../models/User';
+import ContextService from './contextService';
 
 export interface SimpleFunctionResult {
   success: boolean;
@@ -9,13 +10,16 @@ export interface SimpleFunctionResult {
 
 class SimpleFunctionCallService {
   private userService: UserService;
+  private contextService: ContextService;
 
   constructor() {
     this.userService = new UserService();
+    this.contextService = new ContextService();
   }
 
   async initialize(): Promise<void> {
     await this.userService.initialize();
+    await this.contextService.initialize();
   }
 
   async handleFunctionCall(functionName: string, args: Record<string, unknown>, userId?: string): Promise<SimpleFunctionResult> {
@@ -29,6 +33,14 @@ class SimpleFunctionCallService {
           return await this.markEmailsRead(args);
         case 'get_user_config':
           return await this.getUserConfig(userId);
+        case 'get_recent_activities':
+          return await this.getRecentActivities(args, userId);
+        case 'get_reminder_history':
+          return await this.getReminderHistory(args, userId);
+        case 'get_system_status':
+          return await this.getSystemStatus(userId);
+        case 'search_conversations':
+          return await this.searchConversations(args, userId);
         default:
           return {
             success: false,
@@ -219,6 +231,284 @@ class SimpleFunctionCallService {
     
     logger.warn(`Unable to parse time string: ${input}`);
     return undefined;
+  }
+
+  /**
+   * 获取用户最近的活动记录
+   */
+  private async getRecentActivities(args: Record<string, unknown>, userId?: string): Promise<SimpleFunctionResult> {
+    if (!userId) {
+      return {
+        success: false,
+        message: '需要用户身份验证才能查看活动记录'
+      };
+    }
+
+    const days = Math.min((args.days as number) || 7, 30); // 最多30天
+    const type = (args.type as string) || 'all';
+    
+    try {
+      const activities = await this.contextService.getRecentContext(days, userId);
+      
+      // 根据类型过滤
+      const filteredActivities = type === 'all' 
+        ? activities 
+        : activities.filter(activity => activity.type === type);
+
+      if (filteredActivities.length === 0) {
+        return {
+          success: true,
+          message: `📝 最近${days}天没有找到相关活动记录。`
+        };
+      }
+
+      const activitySummary = filteredActivities
+        .slice(0, 10) // 最多显示10条
+        .map(activity => {
+          const date = activity.timestamp.toLocaleDateString();
+          const time = activity.timestamp.toLocaleTimeString('zh-CN', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          });
+          const typeMap: Record<string, string> = {
+            'work_summary': '📊 工作总结',
+            'schedule': '📅 日程反馈',
+            'conversation': '💬 对话记录'
+          };
+          const typeIcon = typeMap[activity.type] || '📋 记录';
+          const preview = activity.content.length > 100 
+            ? activity.content.substring(0, 100) + '...'
+            : activity.content;
+          
+          return `${typeIcon} [${date} ${time}]\n${preview}`;
+        })
+        .join('\n\n');
+
+      return {
+        success: true,
+        message: `📋 最近${days}天的活动记录 (共${filteredActivities.length}条):\n\n${activitySummary}`
+      };
+    } catch (error) {
+      logger.error('Failed to get recent activities:', error);
+      return {
+        success: false,
+        message: '获取活动记录失败，请稍后重试'
+      };
+    }
+  }
+
+  /**
+   * 获取提醒历史记录
+   */
+  private async getReminderHistory(args: Record<string, unknown>, userId?: string): Promise<SimpleFunctionResult> {
+    if (!userId) {
+      return {
+        success: false,
+        message: '需要用户身份验证才能查看提醒历史'
+      };
+    }
+
+    const days = Math.min((args.days as number) || 7, 30);
+    
+    try {
+      // 从提醒跟踪服务获取数据
+      const { readFileSync, existsSync } = await import('fs');
+      const path = await import('path');
+      
+      const reminderPath = path.join(process.cwd(), 'data', 'reminders.json');
+      
+      if (!existsSync(reminderPath)) {
+        return {
+          success: true,
+          message: '📨 暂无提醒历史记录。'
+        };
+      }
+
+      const reminderData = JSON.parse(readFileSync(reminderPath, 'utf-8'));
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - days);
+
+      // 过滤最近的提醒记录
+      const recentReminders = Object.entries(reminderData)
+        .filter(([dateKey]) => new Date(dateKey) >= cutoffDate)
+        .sort(([a], [b]) => new Date(b).getTime() - new Date(a).getTime())
+        .slice(0, 10);
+
+      if (recentReminders.length === 0) {
+        return {
+          success: true,
+          message: `📨 最近${days}天没有提醒记录。`
+        };
+      }
+
+      const reminderSummary = recentReminders
+        .map(([dateKey, status]) => {
+          const date = new Date(dateKey).toLocaleDateString();
+          const statusText = status as any;
+          const morningStatus = statusText.morning ? '✅ 已发送' : '❌ 未发送';
+          const eveningStatus = statusText.evening ? '✅ 已发送' : '❌ 未发送';
+          
+          return `📅 ${date}\n• 早晨提醒: ${morningStatus}\n• 晚间提醒: ${eveningStatus}`;
+        })
+        .join('\n\n');
+
+      return {
+        success: true,
+        message: `📨 最近${days}天的提醒历史:\n\n${reminderSummary}`
+      };
+    } catch (error) {
+      logger.error('Failed to get reminder history:', error);
+      return {
+        success: false,
+        message: '获取提醒历史失败，请稍后重试'
+      };
+    }
+  }
+
+  /**
+   * 获取系统状态
+   */
+  private async getSystemStatus(userId?: string): Promise<SimpleFunctionResult> {
+    if (!userId) {
+      return {
+        success: false,
+        message: '需要用户身份验证才能查看系统状态'
+      };
+    }
+
+    try {
+      // 获取系统健康状态
+      let healthStatus = '';
+      try {
+        // 避免循环依赖，直接使用process信息
+        const uptime = Math.floor(process.uptime() / 3600);
+        const memUsage = process.memoryUsage();
+        const heapUsedMB = Math.round(memUsage.heapUsed / 1024 / 1024);
+        healthStatus = `🟢 系统状态: 运行中\n📊 运行时间: ${uptime}小时\n💾 内存使用: ${heapUsedMB}MB`;
+      } catch (error) {
+        healthStatus = '⚠️ 无法获取系统健康状态';
+      }
+
+      // 获取用户统计
+      const allUsers = this.userService.getAllUsers();
+      const activeUsers = allUsers.filter(user => user.isActive);
+      
+      // 获取最近活动统计
+      const recentActivities = await this.contextService.getRecentContext(7, userId);
+      const activityCount = recentActivities.length;
+
+      const statusInfo = `
+🖥️ 系统状态报告:
+
+${healthStatus}
+
+👥 用户统计:
+• 总用户数: ${allUsers.length}
+• 活跃用户: ${activeUsers.length}
+
+📊 您的活动统计 (最近7天):
+• 记录条数: ${activityCount}
+
+⚙️ 当前配置:
+• AI服务商: ${process.env.AI_PROVIDER || 'openai'}
+• 邮件服务: ${process.env.SMTP_HOST ? '✅ 已配置' : '❌ 未配置'}
+• 提醒功能: ✅ 正常运行
+
+🕒 系统时间: ${new Date().toLocaleString('zh-CN')}
+      `.trim();
+
+      return {
+        success: true,
+        message: statusInfo
+      };
+    } catch (error) {
+      logger.error('Failed to get system status:', error);
+      return {
+        success: false,
+        message: '获取系统状态失败，请稍后重试'
+      };
+    }
+  }
+
+  /**
+   * 搜索对话记录
+   */
+  private async searchConversations(args: Record<string, unknown>, userId?: string): Promise<SimpleFunctionResult> {
+    if (!userId) {
+      return {
+        success: false,
+        message: '需要用户身份验证才能搜索对话'
+      };
+    }
+
+    const keyword = args.keyword as string;
+    const days = Math.min((args.days as number) || 30, 90); // 最多90天
+    
+    if (!keyword || keyword.trim().length === 0) {
+      return {
+        success: false,
+        message: '请提供搜索关键词'
+      };
+    }
+
+    try {
+      const activities = await this.contextService.getRecentContext(days, userId);
+      
+      // 搜索包含关键词的记录
+      const searchResults = activities.filter(activity => 
+        activity.content.toLowerCase().includes(keyword.toLowerCase()) ||
+        (activity.metadata && JSON.stringify(activity.metadata).toLowerCase().includes(keyword.toLowerCase()))
+      );
+
+      if (searchResults.length === 0) {
+        return {
+          success: true,
+          message: `🔍 在最近${days}天的记录中没有找到包含"${keyword}"的内容。`
+        };
+      }
+
+      const resultSummary = searchResults
+        .slice(0, 8) // 最多显示8条结果
+        .map(result => {
+          const date = result.timestamp.toLocaleDateString();
+          const time = result.timestamp.toLocaleTimeString('zh-CN', { 
+            hour: '2-digit', 
+            minute: '2-digit' 
+          });
+          
+          // 高亮关键词 (简单版本)
+          let content = result.content;
+          const keywordIndex = content.toLowerCase().indexOf(keyword.toLowerCase());
+          if (keywordIndex !== -1) {
+            const start = Math.max(0, keywordIndex - 50);
+            const end = Math.min(content.length, keywordIndex + keyword.length + 50);
+            content = '...' + content.substring(start, end) + '...';
+          } else if (content.length > 120) {
+            content = content.substring(0, 120) + '...';
+          }
+          
+          const typeMap: Record<string, string> = {
+            'work_summary': '📊',
+            'schedule': '📅',
+            'conversation': '💬'
+          };
+          const typeIcon = typeMap[result.type] || '📋';
+          
+          return `${typeIcon} [${date} ${time}]\n${content}`;
+        })
+        .join('\n\n');
+
+      return {
+        success: true,
+        message: `🔍 搜索"${keyword}"的结果 (共找到${searchResults.length}条，显示前${Math.min(searchResults.length, 8)}条):\n\n${resultSummary}`
+      };
+    } catch (error) {
+      logger.error('Failed to search conversations:', error);
+      return {
+        success: false,
+        message: '搜索对话记录失败，请稍后重试'
+      };
+    }
   }
 }
 
