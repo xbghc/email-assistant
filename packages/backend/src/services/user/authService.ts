@@ -2,7 +2,7 @@ import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
 import { User, UserRole, SendCodeRequest, VerifyCodeRequest, RegisterRequest, AuthResponse, JWTPayload } from '../../models/User';
 import UserService from './userService';
-import { EmailService } from '../emailService';
+import EmailService from '../email/emailService';
 import logger from '../../utils/logger';
 
 export class AuthService {
@@ -155,23 +155,25 @@ export class AuthService {
     }
 
     // 验证成功，清除验证码信息，更新登录时间
-    this.userService.updateUser(user.id, {
-      verificationCode: undefined,
-      verificationCodeExpiry: undefined,
-      verificationCodeAttempts: undefined,
-      lastVerificationCodeSent: undefined,
-      lastLoginAt: new Date(),
-      updatedAt: new Date()
-    });
+    const userToUpdate = this.userService.getUserById(user.id);
+    if (userToUpdate) {
+      delete userToUpdate.verificationCode;
+      delete userToUpdate.verificationCodeExpiry;
+      delete userToUpdate.verificationCodeAttempts;
+      delete userToUpdate.lastVerificationCodeSent;
+      userToUpdate.lastLoginAt = new Date();
+      userToUpdate.updatedAt = new Date();
+      this.userService.updateUser(user.id, userToUpdate);
+    }
 
     // 生成JWT token
     const token = this.generateToken(user);
 
     logger.info(`User logged in: ${email}`);
 
-    const updatedUser = this.userService.getUserById(user.id)!;
+    const finalUser = this.userService.getUserById(user.id)!;
     return {
-      user: updatedUser,
+      user: finalUser,
       token,
       expiresIn: this.getTokenExpiryTime()
     };

@@ -1,8 +1,6 @@
 import { User, UserConfig, UserStorage, UserRole } from '../../models/User';
 import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
-import bcrypt from 'bcrypt';
-import crypto from 'crypto';
 import logger from '../../utils/logger';
 import config from '../../config/index';
 import { safeReadJsonFile, safeWriteJsonFile, withFileLock } from '../../utils/fileUtils';
@@ -203,7 +201,7 @@ class UserService implements UserStorage {
           ...userData,
           createdAt: new Date(userData.createdAt),
           updatedAt: new Date(userData.updatedAt),
-          resetTokenExpiry: userData.resetTokenExpiry ? new Date(userData.resetTokenExpiry) : undefined
+          lastLoginAt: userData.lastLoginAt ? new Date(userData.lastLoginAt) : undefined
         };
         this.users.set(user.id, user);
         // 重建邮箱映射
@@ -260,71 +258,6 @@ class UserService implements UserStorage {
     };
   }
 
-  // 验证密码
-  async validatePassword(email: string, password: string): Promise<boolean> {
-    const user = this.getUserByEmail(email);
-    if (!user || !user.password) {
-      return false;
-    }
-    return await bcrypt.compare(password, user.password);
-  }
-
-  // 更新密码
-  async updatePassword(userId: string, newPassword: string): Promise<void> {
-    const hashedPassword = await bcrypt.hash(newPassword, 12);
-    this.updateUser(userId, { 
-      password: hashedPassword,
-      updatedAt: new Date()
-    });
-  }
-
-  // 生成密码重置令牌
-  async generateResetToken(email: string): Promise<string | null> {
-    const user = this.getUserByEmail(email);
-    if (!user) {
-      return null;
-    }
-
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1小时后过期
-
-    this.updateUser(user.id, {
-      resetToken,
-      resetTokenExpiry,
-      updatedAt: new Date()
-    });
-
-    return resetToken;
-  }
-
-  // 重置密码
-  async resetPassword(token: string, newPassword: string): Promise<boolean> {
-    const users = this.getAllUsers();
-    const user = users.find(u => u.resetToken === token);
-
-    if (!user) {
-      return false;
-    }
-
-    // 检查令牌是否过期
-    if (!user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
-      return false;
-    }
-
-    // 更新密码并清除重置令牌
-    await this.updatePassword(user.id, newPassword);
-    
-    // 清除重置令牌
-    const updatedUser = this.getUserById(user.id);
-    if (updatedUser) {
-      delete updatedUser.resetToken;
-      delete updatedUser.resetTokenExpiry;
-      updatedUser.updatedAt = new Date();
-      this.updateUser(user.id, updatedUser);
-    }
-
-    return true;
-  }
 
   // 缓存失效辅助方法
   private invalidateUserCache(user: User): void {

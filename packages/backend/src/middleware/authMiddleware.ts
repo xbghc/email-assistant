@@ -22,7 +22,8 @@ export class AuthMiddleware {
 
   constructor() {
     const userService = new UserService();
-    this.authService = new AuthService(userService);
+    const emailService = new (require('../services/email/emailService').default)();
+    this.authService = new AuthService(userService, emailService);
   }
 
   // 验证JWT token
