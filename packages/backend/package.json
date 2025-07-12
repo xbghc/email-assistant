@@ -7,8 +7,10 @@
   "private": true,
   "scripts": {
     "start": "node --max-old-space-size=2048 dist/index.js",
-    "dev": "nodemon",
-    "build": "tsc",
+    "dev": "pnpm build && node dist/index.js",
+    "dev:watch": "tsc --watch",
+    "build": "node esbuild.config.js",
+    "build:prod": "NODE_ENV=production node esbuild.config.js",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -17,7 +19,7 @@
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "prebuild": "npm run clean"
+    "prebuild": "pnpm run clean"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.56.0",
@@ -50,8 +52,8 @@
     "@types/node-cron": "^3.0.11",
     "@types/nodemailer": "^6.4.14",
     "@types/uuid": "^10.0.0",
+    "esbuild": "^0.25.6",
     "jest": "^30.0.4",
-    "nodemon": "^3.1.10",
     "ts-jest": "^29.4.0",
     "ts-node": "^10.9.2",
     "typescript": "^5.8.3"
