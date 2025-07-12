@@ -12,7 +12,7 @@
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "prebuild": "npm run clean"
+    "prebuild": "pnpm run clean"
   },
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^8.0.0",
