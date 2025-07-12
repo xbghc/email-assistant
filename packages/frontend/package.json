@@ -1,0 +1,32 @@
+{
+  "name": "@email-assistant/frontend",
+  "version": "1.0.0",
+  "description": "Modern frontend for email assistant",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "clean": "rm -rf dist"
+  },
+  "dependencies": {
+    "@email-assistant/shared": "workspace:*",
+    "@vitejs/plugin-vue": "^6.0.0",
+    "vue": "^3.5.17",
+    "vue-router": "^4.5.1"
+  },
+  "devDependencies": {
+    "@types/node": "^22.16.0",
+    "@typescript-eslint/eslint-plugin": "^8.0.0",
+    "@typescript-eslint/parser": "^8.0.0",
+    "autoprefixer": "^10.4.0",
+    "eslint": "^9.0.0",
+    "postcss": "^8.4.0",
+    "sass": "^1.69.0",
+    "typescript": "^5.2.0",
+    "vite": "^7.0.4"
+  }
+}
