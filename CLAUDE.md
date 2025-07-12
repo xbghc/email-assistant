@@ -2,137 +2,147 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Essential Development Commands
+## Development Commands
 
-### Building and Running
+### Setup and Installation
 ```bash
-npm run build          # Build TypeScript to dist/
-npm run dev            # Development mode with hot reload
-npm start              # Start production server
-npm run validate       # Run typecheck, lint, and tests together
+pnpm install                    # Install all dependencies
 ```
 
-### Testing and Quality Assurance
+### Development
 ```bash
-npm test               # Run all tests
-npm run test:watch     # Run tests in watch mode
-npm run test:coverage  # Run tests with coverage report
-npm run lint           # Run ESLint
-npm run lint:fix       # Fix ESLint issues automatically
-npm run typecheck      # TypeScript type checking without emit
+pnpm dev                       # Start both frontend and backend in development mode
+pnpm dev:backend              # Start only backend development server
+pnpm dev:frontend             # Start only frontend development server
 ```
 
-### Email Service Debugging
+### Building
 ```bash
-node debug-email-config.js  # Test SMTP/IMAP connections and diagnose issues
+pnpm build                    # Build all packages (shared → backend → frontend)
+pnpm build:shared             # Build shared types package
+pnpm build:backend            # Build backend only
+pnpm build:frontend           # Build frontend only
 ```
 
-## High-Level Architecture
+### Testing
+```bash
+pnpm test                     # Run all tests across packages
+pnpm test:watch               # Run backend tests in watch mode
+pnpm test:coverage            # Run backend tests with coverage report
+pnpm test:ci                  # Run tests in CI mode (no watch)
+```
 
-### Core Service Architecture
-The application follows a service-oriented architecture where **SchedulerService** acts as the central orchestrator:
+### Code Quality
+```bash
+pnpm lint                     # Lint all packages
+pnpm lint:fix                 # Auto-fix linting issues
+pnpm typecheck                # TypeScript type checking for all packages
+pnpm validate                 # Run typecheck + lint + test:ci
+```
 
-- **SchedulerService**: Main coordinator that manages all scheduled tasks (morning/evening reminders, weekly reports)
-- **EmailService**: Handles SMTP sending with circuit breaker pattern, connection pooling, and retry queue
-- **EmailReceiveService**: Manages IMAP connections for processing incoming email replies
-- **AIService**: Abstraction layer supporting multiple AI providers (OpenAI, DeepSeek, Google, Anthropic, Azure)
-- **ContextService**: Maintains conversation history with automatic compression when limits are reached
-- **UserService**: Manages user accounts with role-based access control
+### Production
+```bash
+pnpm start                    # Start production server
+pnpm clean                    # Clean all build artifacts
+```
 
-### Service Instance Management Pattern
-The application uses a **singleton pattern for service instances** to prevent initialization issues:
-- Global services are initialized in `src/index.ts` during startup
-- Services are exported via `getSchedulerService()` and `getHealthService()` functions
-- **Never create new service instances in routes** - always use the global instances via these getters
+## Architecture Overview
 
-### Email Processing Pipeline
-1. **Outbound**: SchedulerService → EmailService → SMTP (with circuit breaker and retry queue)
-2. **Inbound**: IMAP → EmailReceiveService → EmailReplyHandler → AIService → Response
-3. **Status Tracking**: ReminderTrackingService maintains state of all reminder deliveries
+This is a **PNPM monorepo** with three packages organized around modern TypeScript architecture:
+
+### Package Structure
+- **`@email-assistant/shared`** - Common types, interfaces, and utilities shared between frontend and backend
+- **`@email-assistant/backend`** - Express.js server with dependency injection architecture
+- **`@email-assistant/frontend`** - Vue 3 + Vite frontend with TypeScript
+
+### Backend Architecture (`packages/backend/`)
+
+The backend uses a **service-oriented architecture with dependency injection**:
+
+#### Core Services Layer
+- **`SchedulerService`** - Central task scheduling coordinator using node-cron
+- **`SystemHealthService`** - System monitoring and health checks
+- **`SystemStartupService`** - Application bootstrap and dependency resolution
+
+#### Business Logic Services
+- **`EmailService`** - SMTP/IMAP email handling with circuit breaker patterns
+- **`AIService`** - Multi-provider AI abstraction (OpenAI, DeepSeek, Google, Anthropic, Azure)
+- **`UserService`** - User management with JWT authentication and role-based access
+- **`ContextService`** - Conversation context management with automatic compression
+- **`ScheduleService`** - Reminder scheduling and execution logic
+
+#### Utility Services
+- **`ConfigService`** - Environment configuration management
+- **`SecurityService`** - Security utilities and validation
+- **`PerformanceMonitorService`** - Performance metrics collection
+- **`LogReaderService`** - Log file management and rotation
+
+#### Key Patterns
+- **Dependency Injection**: Services are injected via constructor parameters
+- **Circuit Breaker**: Email service includes failure handling and retry logic
+- **Health Monitoring**: Comprehensive system health endpoints at `/health` and `/api/system/status`
+- **JWT Authentication**: Role-based access control for admin vs user operations
+
+### Frontend Architecture (`packages/frontend/`)
+
+Modern Vue 3 application with:
+- **Vite** for build tooling and hot module replacement
+- **Vue Router** for client-side routing
+- **TypeScript** throughout for type safety
+- **Composables** pattern for reusable logic
+- **Centralized API client** with error handling
+
+#### Key Frontend Files
+- `src/utils/api.ts` - Centralized API client with type-safe requests
+- `src/utils/auth.ts` - Authentication state management
+- `src/utils/state.ts` - Application state management
+- `src/router/index.ts` - Route definitions with auth guards
+
+### Shared Package (`packages/shared/`)
+
+Common TypeScript definitions used across frontend and backend:
+- Interface definitions for API requests/responses
+- Shared data models and types
+- Common utility functions
+
+## Important Development Notes
+
+### Email Configuration
+- Uses SMTP for sending, IMAP for receiving
+- Supports multiple email providers (Gmail, etc.)
+- Circuit breaker pattern prevents email service failures from crashing the app
+- Debug email connectivity with: `node packages/backend/debug-email-config.js`
+
+### AI Provider Support
+The system supports multiple AI providers through a unified interface:
+- OpenAI (GPT models)
+- DeepSeek
+- Google Gemini
+- Anthropic Claude
+- Azure OpenAI
+
+Configure via `AI_PROVIDER` environment variable.
 
 ### Authentication & Security
-- JWT-based authentication with bcrypt password hashing
-- Role-based access control (Admin/User roles)
-- Rate limiting on authentication endpoints
-- Helmet.js security headers with CSP configuration
-- Environment-based CORS configuration
+- JWT-based authentication with configurable expiration
+- Role-based access (admin vs user)
+- Security middleware with Helmet.js
+- Admin operations restricted via `adminOnly` middleware
 
-### Data Flow for Reminders
-1. Cron triggers morning/evening reminder in SchedulerService
-2. SchedulerService checks ReminderTrackingService for today's status
-3. If not sent, generates content via AIService and sends via EmailService
-4. EmailService uses circuit breaker pattern - on failure, emails are queued for retry
-5. ReminderTrackingService updates status regardless of email success/failure
+### Database & Persistence
+- File-based persistence using JSON files in `packages/backend/data/`
+- Context management with automatic compression
+- Performance metrics tracking
+- Email records and reminder tracking
 
-## Critical Configuration Requirements
+### Development Workflow
+1. Always run `pnpm validate` before committing (typecheck + lint + test)
+2. Use `pnpm dev` for full-stack development
+3. The shared package must be built before backend/frontend when types change
+4. Frontend connects to backend on port 3000 by default
 
-### Production Environment Setup
-Always use real email credentials in production:
-```bash
-# Use .env.production.example as template
-SMTP_HOST=smtp.gmail.com  # NOT localhost
-SMTP_PORT=587
-SMTP_USER=real-email@gmail.com
-SMTP_PASS=app-password    # Gmail app password, not regular password
-```
-
-### Service Initialization Order
-Services must be initialized in this order:
-1. Configuration validation
-2. Core services (EmailService, AIService, etc.)
-3. SchedulerService (which depends on all others)
-4. Start cron jobs and web server
-
-### Email Service Circuit Breaker
-The EmailService implements a circuit breaker pattern:
-- Fails fast after 3 consecutive failures
-- Resets after 1 minute timeout
-- Queues failed emails for retry with exponential backoff
-- Status can be checked via `emailService.getServiceStatus()`
-
-## Common Debugging Patterns
-
-### "Checking Status" Issue
-When reminders show "checking" status instead of sending:
-1. Check if services are using global instances (`getSchedulerService()`)
-2. Verify email configuration with `debug-email-config.js`
-3. Check SchedulerService initialization in logs
-4. Verify ReminderTrackingService has been initialized
-
-### Email Configuration Problems
-Most email issues stem from:
-- Using localhost instead of real SMTP/IMAP hosts
-- Missing or incorrect Gmail app passwords
-- Firewall blocking SMTP/IMAP ports (587, 993)
-
-### Service Dependencies
-Key dependency chains to understand:
-- Web routes → Global service instances (via getters)
-- SchedulerService → EmailService → SMTP/Circuit Breaker
-- EmailReceiveService → EmailReplyHandler → AIService
-- All services → Configuration validation on startup
-
-## Multi-AI Provider Support
-
-The AIService supports multiple providers through a unified interface:
-- Provider switching via `AI_PROVIDER` environment variable
-- Each provider has specific configuration requirements
-- Mock provider available for testing (`AI_PROVIDER=mock`)
-- Function calling capabilities vary by provider
-
-## Data Storage Patterns
-
-The application uses JSON file-based storage:
-- `data/users.json`: User accounts and configurations
-- `data/context.json`: Conversation history with auto-compression
-- `data/schedule.json`: Schedule data
-- `data/reminders.json`: Reminder delivery tracking
-- `logs/`: Structured logging with rotation
-
-## Security Notes
-
-- JWT secrets must be 32+ characters in production
-- Default secrets trigger startup errors in production mode
-- All authentication endpoints have rate limiting
-- CORS origins must be explicitly configured for production
-- User passwords are hashed with bcrypt (12 rounds)
+### Debugging & Monitoring
+- Structured logging with Winston to `packages/backend/logs/`
+- Health check endpoints for monitoring
+- Performance metrics collection
+- System startup timing and dependency resolution tracking
