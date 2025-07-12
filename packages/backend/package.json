@@ -20,7 +20,12 @@
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
     "prebuild": "pnpm run clean",
-    "benchmark": "npx tsx scripts/benchmark.ts"
+    "benchmark": "npx tsx scripts/benchmark.ts",
+    "health-check": "tsx scripts/health-check.ts",
+    "check-env": "tsx scripts/check-environment.ts",
+    "check-prod": "tsx scripts/check-production-ready.ts",
+    "firewall": "tsx scripts/configure-firewall.ts",
+    "emergency-fix": "tsx scripts/emergency-firewall-fix.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.56.0",
