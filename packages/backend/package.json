@@ -19,7 +19,9 @@
     "lint:fix": "eslint . --fix",
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
-    "prebuild": "pnpm run clean"
+    "prebuild": "pnpm run clean",
+    "create-admin": "npx tsx scripts/create-admin.ts",
+    "benchmark": "npx tsx scripts/benchmark.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.56.0",
@@ -56,6 +58,7 @@
     "jest": "^30.0.4",
     "ts-jest": "^29.4.0",
     "ts-node": "^10.9.2",
+    "tsx": "^4.20.3",
     "typescript": "^5.8.3"
   }
 }

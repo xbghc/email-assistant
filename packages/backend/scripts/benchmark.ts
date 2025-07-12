@@ -1,47 +1,62 @@
-#!/usr/bin/env node
+#!/usr/bin/env tsx
 
 /**
  * 性能基准测试脚本
  * 
  * 使用方法：
- * node scripts/benchmark.js
+ * npx tsx scripts/benchmark.ts
  * 
  * 示例：
- * node scripts/benchmark.js --save --report
+ * npx tsx scripts/benchmark.ts --save --report
  */
 
-/* eslint-env node */
+import path from 'path';
+import fs from 'fs';
 
-const path = require('path');
+// 基准测试结果接口
+interface BenchmarkResult {
+  name: string;
+  iterations: number;
+  averageTime: number;
+  minTime: number;
+  maxTime: number;
+  memoryUsed: number;
+}
+
+interface BenchmarkSuite {
+  results: BenchmarkResult[];
+  totalDuration: number;
+  startTime: Date;
+  endTime: Date;
+}
 
 // 动态导入编译后的服务
-async function runBenchmarks() {
+async function runBenchmarks(): Promise<void> {
   try {
     console.log('🚀 启动性能基准测试...\n');
     
     // 检查是否已构建
     const distPath = path.join(process.cwd(), 'dist');
-    const fs = require('fs');
     
     if (!fs.existsSync(distPath)) {
-      console.error('❌ 项目尚未构建，请先运行: npm run build');
+      console.error('❌ 项目尚未构建，请先运行: pnpm build');
       process.exit(1);
     }
     
     // 动态导入基准测试服务
-    const BenchmarkService = require('../dist/services/benchmarkService.js').default;
+    const { default: BenchmarkService } = await import('../dist/services/system/benchmarkService.js');
     const benchmarkService = new BenchmarkService();
     
     console.log('📊 运行基准测试套件...\n');
     
     // 运行基准测试
-    const suite = await benchmarkService.runBenchmarkSuite();
+    const suite: BenchmarkSuite = await benchmarkService.runBenchmarkSuite();
     
     // 显示结果
     console.log('\n📈 基准测试结果:');
     console.log('================');
     
-    suite.results.forEach(result => {
+    suite.results.forEach((result: BenchmarkResult) => {
       console.log(`\n🔧 ${result.name}:`);
       console.log(`   迭代次数: ${result.iterations}`);
       console.log(`   平均时间: ${result.averageTime.toFixed(2)}ms`);
@@ -54,7 +69,7 @@ async function runBenchmarks() {
     // 生成报告
     if (process.argv.includes('--report')) {
       console.log('\n📄 生成基准测试报告...');
-      const report = benchmarkService.generateReport(suite);
+      const report: string = benchmarkService.generateReport(suite);
       console.log('\n' + report);
     }
     
@@ -94,18 +109,18 @@ async function runBenchmarks() {
       console.log('🚨 性能需要优化，建议检查系统配置');
     }
     
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ 基准测试失败:', error.message);
     console.error('\n🔍 故障排除:');
-    console.error('1. 确保项目已构建: npm run build');
-    console.error('2. 确保依赖已安装: npm install');
+    console.error('1. 确保项目已构建: pnpm build');
+    console.error('2. 确保依赖已安装: pnpm install');
     console.error('3. 检查Node.js版本 >= 18.0.0');
     process.exit(1);
   }
 }
 
 // 主函数
-async function main() {
+async function main(): Promise<void> {
   console.log('📋 Email Assistant 性能基准测试');
   console.log('================================');
   console.log(`Node.js 版本: ${process.version}`);
@@ -117,12 +132,12 @@ async function main() {
 }
 
 // 处理未捕获的异常
-process.on('unhandledRejection', (reason, _promise) => {
+process.on('unhandledRejection', (reason: any, _promise: Promise<any>) => {
   console.error('❌ 未处理的Promise拒绝:', reason);
   process.exit(1);
 });
 
-process.on('uncaughtException', (error) => {
+process.on('uncaughtException', (error: Error) => {
   console.error('❌ 未捕获的异常:', error);
   process.exit(1);
 });

@@ -1,28 +1,51 @@
-#!/usr/bin/env node
+#!/usr/bin/env tsx
 
 /**
  * 创建管理员账户脚本
  * 
  * 使用方法：
- * node scripts/create-admin.js <email> <password>
+ * npx tsx scripts/create-admin.ts <email> <password>
  * 
  * 示例：
- * node scripts/create-admin.js admin@example.com mypassword123
+ * npx tsx scripts/create-admin.ts admin@example.com mypassword123
  */
 
- 
+import path from 'path';
+import fs from 'fs/promises';
+import bcrypt from 'bcrypt';
+import { v4 as uuidv4 } from 'uuid';
+import { fileURLToPath } from 'url';
 
-const path = require('path');
-const fs = require('fs').promises;
-const bcrypt = require('bcrypt');
-const { v4: uuidv4 } = require('uuid');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// 用户接口定义
+interface User {
+    id: string;
+    email: string;
+    name: string;
+    role: 'admin' | 'user';
+    password: string;
+    isActive: boolean;
+    emailVerified: boolean;
+    config: {
+        schedule: {
+            morningReminderTime: string;
+            eveningReminderTime: string;
+            timezone: string;
+        };
+        language: string;
+    };
+    createdAt: string;
+    updatedAt: string;
+}
 
 // 获取命令行参数
-const [,, email, password] = process.argv;
+const [,, email, password]: string[] = process.argv;
 
 if (!email || !password) {
-    console.error('用法: node scripts/create-admin.js <email> <password>');
-    console.error('示例: node scripts/create-admin.js admin@example.com mypassword123');
+    console.error('用法: npx tsx scripts/create-admin.ts <email> <password>');
+    console.error('示例: npx tsx scripts/create-admin.ts admin@example.com mypassword123');
     process.exit(1);
 }
 
@@ -39,18 +62,18 @@ if (password.length < 6) {
     process.exit(1);
 }
 
-async function createAdmin() {
+async function createAdmin(): Promise<void> {
     try {
         console.log('🔐 正在创建管理员账户...');
         
         const usersFilePath = path.join(process.cwd(), 'users.json');
         
         // 检查是否已存在用户文件
-        let users = [];
+        let users: User[] = [];
         try {
             const data = await fs.readFile(usersFilePath, 'utf-8');
-            users = JSON.parse(data);
-        } catch (error) {
+            users = JSON.parse(data) as User[];
+        } catch (error: any) {
             if (error.code !== 'ENOENT') {
                 console.error('读取用户文件失败:', error.message);
                 process.exit(1);
@@ -71,7 +94,7 @@ async function createAdmin() {
         const hashedPassword = await bcrypt.hash(password, saltRounds);
         
         // 创建管理员用户
-        const adminUser = {
+        const adminUser: User = {
             id: uuidv4(),
             email: email,
             name: 'Administrator',
@@ -107,11 +130,11 @@ async function createAdmin() {
         console.log(`🛡️  角色: ${adminUser.role}`);
         console.log('');
         console.log('🌐 现在您可以使用这些凭据登录管理界面:');
-        console.log('   http://localhost:3000/login');
+        console.log('   http://localhost:3001/login');
         console.log('');
         console.log('⚠️  请妥善保管您的登录凭据，建议首次登录后修改密码');
         
-    } catch (error) {
+    } catch (error: any) {
         console.error('❌ 创建管理员账户失败:', error.message);
         process.exit(1);
     }
