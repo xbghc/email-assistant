@@ -37,7 +37,7 @@ export default [
     },
   },
   {
-    files: ['**/*.js', '**/*.mjs', 'scripts/**/*.js', 'examples/**/*.js'],
+    files: ['**/*.js', '**/*.mjs', 'scripts/**/*.js'],
     languageOptions: {
       ecmaVersion: 2022,
       sourceType: 'module',
