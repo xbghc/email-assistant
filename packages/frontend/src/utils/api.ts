@@ -1,4 +1,4 @@
-import type { ApiResponse, User, SystemHealth } from '@email-assistant/shared';
+import type { ApiResponse, User, SystemHealth, AuthResponse, SendCodeRequest, VerifyCodeRequest } from '@email-assistant/shared';
 
 class ApiClient {
   private baseURL: string;
@@ -43,10 +43,19 @@ class ApiClient {
   }
 
   // 认证相关
-  async login(email: string, password: string): Promise<ApiResponse<{ token: string; user: User }>> {
-    const response = await this.request<{ token: string; user: User }>('/api/auth/login', {
+  async sendCode(email: string): Promise<ApiResponse<void>> {
+    const request: SendCodeRequest = { email };
+    return this.request<void>('/api/auth/send-code', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(request),
+    });
+  }
+
+  async verifyCode(email: string, code: string): Promise<ApiResponse<AuthResponse>> {
+    const request: VerifyCodeRequest = { email, code };
+    const response = await this.request<AuthResponse>('/api/auth/verify-code', {
+      method: 'POST',
+      body: JSON.stringify(request),
     });
 
     if (response.success && response.data) {

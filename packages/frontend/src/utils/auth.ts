@@ -1,5 +1,5 @@
 import { apiClient } from './api';
-import type { User } from '@email-assistant/shared';
+import type { User, AuthResponse } from '@email-assistant/shared';
 
 class AuthManager {
   constructor() {
@@ -26,19 +26,37 @@ class AuthManager {
     return this.user;
   }
 
-  // 登录
-  async login(email: string, password: string): Promise<{ success: boolean; error?: string }> {
+  // 发送验证码
+  async sendCode(email: string): Promise<{ success: boolean; error?: string }> {
     try {
-      const response = await apiClient.login(email, password);
+      const response = await apiClient.sendCode(email);
       
-      if (response.success && response.data) {
-        this.user = response.data.user;
+      if (response.success) {
         return { success: true };
       } else {
-        return { success: false, error: response.error || 'Login failed' };
+        return { success: false, error: response.error || 'Failed to send verification code' };
       }
     } catch (error) {
-      console.error('Login error:', error);
+      console.error('Send code error:', error);
+      return { success: false, error: 'Network error' };
+    }
+  }
+
+  // 验证码登录
+  async verifyCode(email: string, code: string): Promise<{ success: boolean; error?: string }> {
+    try {
+      const response = await apiClient.verifyCode(email, code);
+      
+      if (response.success && response.data) {
+        const authData = response.data as AuthResponse;
+        this.user = authData.user;
+        localStorage.setItem('authToken', authData.token);
+        return { success: true };
+      } else {
+        return { success: false, error: response.error || 'Verification failed' };
+      }
+    } catch (error) {
+      console.error('Verify code error:', error);
       return { success: false, error: 'Network error' };
     }
   }
