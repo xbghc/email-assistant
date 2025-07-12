@@ -16,11 +16,8 @@ npm: command not found
 在运行部署脚本前，先检查环境：
 
 ```bash
-# 给环境检查脚本执行权限
-chmod +x scripts/check-environment.sh
-
 # 运行环境检查
-./scripts/check-environment.sh
+pnpm run check-env
 ```
 
 #### 2. 手动安装Node.js和npm
@@ -48,7 +45,7 @@ which npm
 
 #### 4. 重新运行部署
 ```bash
-./scripts/server-deploy.sh
+pnpm build && pnpm start
 ```
 
 ### 已修复的问题
@@ -82,7 +79,7 @@ sudo journalctl -u email-assistant -f
 sudo systemctl restart email-assistant
 
 # 更新部署
-git pull && ./scripts/server-deploy.sh
+git pull && pnpm build && pnpm start
 ```
 
 ### 需要帮助？

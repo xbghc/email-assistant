@@ -8,8 +8,7 @@
 git clone https://github.com/your-username/email-assistant.git
 cd email-assistant
 
-# 一键部署
-chmod +x scripts/server-deploy.sh && ./scripts/server-deploy.sh
+# 一键部署 (已移除，请使用手动部署)
 ```
 
 ### 方法2：手动步骤部署
@@ -29,8 +28,7 @@ cp .env.production .env
 nano .env  # 编辑配置文件
 
 # 5. 配置防火墙
-chmod +x scripts/configure-firewall.sh
-sudo ./scripts/configure-firewall.sh 3000
+pnpm run firewall 3000
 
 # 6. 启动服务
 npm start
