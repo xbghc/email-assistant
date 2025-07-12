@@ -1,27 +1,39 @@
-import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import crypto from 'crypto';
-import { User, UserRole, LoginRequest, RegisterRequest, AuthResponse, JWTPayload } from '../../models/User';
+import { User, UserRole, SendCodeRequest, VerifyCodeRequest, RegisterRequest, AuthResponse, JWTPayload } from '../../models/User';
 import UserService from './userService';
+import { EmailService } from '../emailService';
 import logger from '../../utils/logger';
 
 export class AuthService {
   private userService: UserService;
+  private emailService: EmailService;
   private jwtSecret: string;
   private jwtExpiresIn: string;
-  private saltRounds: number = 12;
+  private adminEmail: string;
+  private maxCodeAttempts: number = 3;
+  private codeValidityMinutes: number = 30;
+  private resendCooldownMinutes: number = 1;
 
-  constructor(userService: UserService) {
+  constructor(userService: UserService, emailService: EmailService) {
     this.userService = userService;
+    this.emailService = emailService;
     this.jwtSecret = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
-    this.jwtExpiresIn = process.env.JWT_EXPIRES_IN || '15m'; // 短期 token
+    this.jwtExpiresIn = process.env.JWT_EXPIRES_IN || '15m';
+    this.adminEmail = process.env.ADMIN_EMAIL || '';
     
-    // 生产环境下强制要求设置 JWT 密钥
-    if (this.jwtSecret === 'your-super-secret-jwt-key-change-in-production') {
-      if (process.env.NODE_ENV === 'production') {
+    // 生产环境下强制要求设置必要的环境变量
+    if (process.env.NODE_ENV === 'production') {
+      if (this.jwtSecret === 'your-super-secret-jwt-key-change-in-production') {
         throw new Error('⚠️ SECURITY ERROR: Default JWT secret detected in production! Set JWT_SECRET environment variable.');
       }
-      logger.warn('⚠️  Using default JWT secret. Please set JWT_SECRET environment variable in production');
+      if (!this.adminEmail) {
+        throw new Error('⚠️ SECURITY ERROR: ADMIN_EMAIL environment variable must be set in production.');
+      }
+    }
+    
+    if (!this.adminEmail) {
+      logger.warn('⚠️  ADMIN_EMAIL environment variable not set. Admin functionality will be disabled.');
     }
     
     // 验证 JWT 密钥强度
@@ -30,17 +42,14 @@ export class AuthService {
     }
   }
 
-  async register(registerData: RegisterRequest): Promise<AuthResponse> {
-    const { email, password, name, timezone } = registerData;
+  async register(registerData: RegisterRequest): Promise<User> {
+    const { email, name, timezone } = registerData;
 
     // 检查用户是否已存在
     const existingUser = this.userService.getUserByEmail(email);
     if (existingUser) {
       throw new Error('User already exists with this email');
     }
-
-    // 加密密码
-    const hashedPassword = await bcrypt.hash(password, this.saltRounds);
 
     // 创建用户
     const newUser = this.userService.createUser(email, name, {
@@ -53,33 +62,23 @@ export class AuthService {
     });
 
     // 设置用户属性
-    newUser.password = hashedPassword;
-    newUser.role = this.userService.isAdmin(email) ? UserRole.ADMIN : UserRole.USER;
-    newUser.emailVerified = true; // 简化起见，默认验证邮箱
-    newUser.lastLoginAt = new Date();
+    newUser.role = (email === this.adminEmail) ? UserRole.ADMIN : UserRole.USER;
+    newUser.emailVerified = true;
 
     // 保存用户
     this.userService.addUser(newUser);
 
-    // 生成JWT token
-    const token = this.generateToken(newUser);
-
     logger.info(`New user registered: ${email}`);
-
-    return {
-      user: this.sanitizeUser(newUser),
-      token,
-      expiresIn: this.getTokenExpiryTime()
-    };
+    return newUser;
   }
 
-  async login(loginData: LoginRequest): Promise<AuthResponse> {
-    const { email, password } = loginData;
+  async sendVerificationCode(sendCodeData: SendCodeRequest): Promise<void> {
+    const { email } = sendCodeData;
 
     // 查找用户
     const user = this.userService.getUserByEmail(email);
     if (!user) {
-      throw new Error('Invalid email or password');
+      throw new Error('User not found');
     }
 
     // 检查用户是否激活
@@ -87,114 +86,97 @@ export class AuthService {
       throw new Error('Account is deactivated');
     }
 
-    // 验证密码
-    if (!user.password) {
-      throw new Error('Account not set up properly. Please contact administrator.');
+    // 检查重发冷却时间
+    if (user.lastVerificationCodeSent) {
+      const timeSinceLastSent = Date.now() - user.lastVerificationCodeSent.getTime();
+      const cooldownMs = this.resendCooldownMinutes * 60 * 1000;
+      if (timeSinceLastSent < cooldownMs) {
+        const remainingSeconds = Math.ceil((cooldownMs - timeSinceLastSent) / 1000);
+        throw new Error(`Please wait ${remainingSeconds} seconds before requesting a new code`);
+      }
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      throw new Error('Invalid email or password');
+    // 生成6位数字验证码
+    const verificationCode = Math.floor(100000 + Math.random() * 900000).toString();
+    const expiryTime = new Date(Date.now() + this.codeValidityMinutes * 60 * 1000);
+
+    // 更新用户验证码信息
+    this.userService.updateUser(user.id, {
+      verificationCode,
+      verificationCodeExpiry: expiryTime,
+      verificationCodeAttempts: 0,
+      lastVerificationCodeSent: new Date(),
+      updatedAt: new Date()
+    });
+
+    // 发送验证码邮件
+    await this.emailService.sendVerificationCode(email, verificationCode);
+
+    logger.info(`Verification code sent to: ${email}`);
+  }
+
+  async verifyCodeAndLogin(verifyCodeData: VerifyCodeRequest): Promise<AuthResponse> {
+    const { email, code } = verifyCodeData;
+
+    // 查找用户
+    const user = this.userService.getUserByEmail(email);
+    if (!user) {
+      throw new Error('User not found');
     }
 
-    // 更新最后登录时间
-    user.lastLoginAt = new Date();
-    this.userService.updateUser(user.id, { lastLoginAt: user.lastLoginAt });
+    // 检查用户是否激活
+    if (!user.isActive) {
+      throw new Error('Account is deactivated');
+    }
+
+    // 检查验证码是否存在和是否过期
+    if (!user.verificationCode || !user.verificationCodeExpiry) {
+      throw new Error('No verification code found. Please request a new code.');
+    }
+
+    if (user.verificationCodeExpiry < new Date()) {
+      throw new Error('Verification code has expired. Please request a new code.');
+    }
+
+    // 检查尝试次数
+    const attempts = user.verificationCodeAttempts || 0;
+    if (attempts >= this.maxCodeAttempts) {
+      throw new Error('Too many verification attempts. Please request a new code.');
+    }
+
+    // 验证代码
+    if (user.verificationCode !== code) {
+      // 增加尝试次数
+      this.userService.updateUser(user.id, {
+        verificationCodeAttempts: attempts + 1,
+        updatedAt: new Date()
+      });
+      throw new Error('Invalid verification code');
+    }
+
+    // 验证成功，清除验证码信息，更新登录时间
+    this.userService.updateUser(user.id, {
+      verificationCode: undefined,
+      verificationCodeExpiry: undefined,
+      verificationCodeAttempts: undefined,
+      lastVerificationCodeSent: undefined,
+      lastLoginAt: new Date(),
+      updatedAt: new Date()
+    });
 
     // 生成JWT token
     const token = this.generateToken(user);
 
     logger.info(`User logged in: ${email}`);
 
+    const updatedUser = this.userService.getUserById(user.id)!;
     return {
-      user: this.sanitizeUser(user),
+      user: updatedUser,
       token,
       expiresIn: this.getTokenExpiryTime()
     };
   }
 
-  async changePassword(userId: string, currentPassword: string, newPassword: string): Promise<void> {
-    const user = this.userService.getUserById(userId);
-    if (!user) {
-      throw new Error('User not found');
-    }
-
-    if (!user.password) {
-      throw new Error('Account not set up properly');
-    }
-
-    // 验证当前密码
-    const isCurrentPasswordValid = await bcrypt.compare(currentPassword, user.password);
-    if (!isCurrentPasswordValid) {
-      throw new Error('Current password is incorrect');
-    }
-
-    // 加密新密码
-    const hashedNewPassword = await bcrypt.hash(newPassword, this.saltRounds);
-
-    // 更新密码
-    this.userService.updateUser(userId, { 
-      password: hashedNewPassword,
-      updatedAt: new Date()
-    });
-
-    logger.info(`Password changed for user: ${user.email}`);
-  }
-
-  async generatePasswordResetToken(email: string): Promise<string | null> {
-    const user = this.userService.getUserByEmail(email);
-    if (!user) {
-      // 为了安全，不透露用户是否存在
-      return null;
-    }
-
-    const resetToken = crypto.randomBytes(32).toString('hex');
-    const resetTokenExpiry = new Date(Date.now() + 3600000); // 1小时后过期
-
-    this.userService.updateUser(user.id, {
-      resetToken,
-      resetTokenExpiry,
-      updatedAt: new Date()
-    });
-
-    logger.info(`Password reset token generated for user: ${email}`);
-    return resetToken;
-  }
-
-  async resetPassword(token: string, newPassword: string): Promise<boolean> {
-    // 查找具有该重置令牌的用户
-    const users = this.userService.getAllUsers();
-    const user = users.find(u => u.resetToken === token);
-
-    if (!user) {
-      throw new Error('Invalid reset token');
-    }
-
-    // 检查令牌是否过期
-    if (!user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
-      throw new Error('Reset token has expired');
-    }
-
-    // 加密新密码
-    const hashedPassword = await bcrypt.hash(newPassword, this.saltRounds);
-
-    // 更新密码并清除重置令牌
-    this.userService.updateUser(user.id, {
-      password: hashedPassword,
-      updatedAt: new Date()
-    });
-    
-    // 单独清除重置令牌字段
-    const updatedUser = this.userService.getUserById(user.id);
-    if (updatedUser) {
-      delete updatedUser.resetToken;
-      delete updatedUser.resetTokenExpiry;
-      this.userService.updateUser(user.id, updatedUser);
-    }
-
-    logger.info(`Password reset completed for user: ${user.email}`);
-    return true;
-  }
 
   verifyToken(token: string): JWTPayload | null {
     try {
@@ -224,7 +206,7 @@ export class AuthService {
     const newToken = this.generateToken(user);
 
     return {
-      user: this.sanitizeUser(user),
+      user: user,
       token: newToken,
       expiresIn: this.getTokenExpiryTime()
     };
@@ -242,11 +224,6 @@ export class AuthService {
     } as jwt.SignOptions);
   }
 
-  private sanitizeUser(user: User): Omit<User, 'password'> {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password, ...sanitizedUser } = user;
-    return sanitizedUser;
-  }
 
   private getTokenExpiryTime(): number {
     // 简单解析过期时间（假设格式为 '24h', '7d' 等）
@@ -270,18 +247,12 @@ export class AuthService {
     return users.length > 0;
   }
 
-  async createAdminUser(email: string, password: string, name: string): Promise<User> {
-    const hashedPassword = await bcrypt.hash(password, this.saltRounds);
-    
-    const adminUser = this.userService.createUser(email, name);
-    adminUser.password = hashedPassword;
-    adminUser.role = UserRole.ADMIN;
-    adminUser.emailVerified = true;
-    
-    this.userService.addUser(adminUser);
-    
-    logger.info(`Admin user created: ${email}`);
-    return adminUser;
+  isAdminEmail(email: string): boolean {
+    return email === this.adminEmail;
+  }
+
+  getAdminEmail(): string {
+    return this.adminEmail;
   }
 }
 
