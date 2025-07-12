@@ -20,7 +20,6 @@
     "typecheck": "tsc --noEmit",
     "clean": "rm -rf dist",
     "prebuild": "pnpm run clean",
-    "create-admin": "npx tsx scripts/create-admin.ts",
     "benchmark": "npx tsx scripts/benchmark.ts"
   },
   "dependencies": {
