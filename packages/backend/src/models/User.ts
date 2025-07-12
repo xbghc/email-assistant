@@ -2,7 +2,6 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  password?: string; // hashed password
   role: UserRole;
   config: UserConfig;
   createdAt: Date;
@@ -10,8 +9,11 @@ export interface User {
   isActive: boolean;
   lastLoginAt?: Date;
   emailVerified: boolean;
-  resetToken?: string;
-  resetTokenExpiry?: Date;
+  // 邮箱验证码登录相关字段
+  verificationCode?: string;
+  verificationCodeExpiry?: Date;
+  verificationCodeAttempts?: number;
+  lastVerificationCodeSent?: Date;
 }
 
 export enum UserRole {
@@ -42,20 +44,23 @@ export interface AdminCommand {
   handler: (args: string[]) => Promise<string>;
 }
 
-export interface LoginRequest {
+export interface SendCodeRequest {
   email: string;
-  password: string;
+}
+
+export interface VerifyCodeRequest {
+  email: string;
+  code: string;
 }
 
 export interface RegisterRequest {
   email: string;
-  password: string;
   name: string;
   timezone?: string;
 }
 
 export interface AuthResponse {
-  user: Omit<User, 'password'>;
+  user: User;
   token: string;
   expiresIn: number;
 }
@@ -79,8 +84,4 @@ export interface UserStorage {
   getActiveUsers(): User[];
   saveToFile(): Promise<void>;
   loadFromFile(): Promise<void>;
-  validatePassword(email: string, password: string): Promise<boolean>;
-  updatePassword(userId: string, newPassword: string): Promise<void>;
-  generateResetToken(email: string): Promise<string | null>;
-  resetPassword(token: string, newPassword: string): Promise<boolean>;
 }
