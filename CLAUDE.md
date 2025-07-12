@@ -153,3 +153,14 @@ Configure via `AI_PROVIDER` environment variable.
 - Health check endpoints for monitoring
 - Performance metrics collection
 - System startup timing and dependency resolution tracking
+
+### Utility Scripts
+All scripts have been converted from bash (.sh) to TypeScript (.ts) for better maintainability:
+
+- **`pnpm run health-check`** - System health monitoring and status checks
+- **`pnpm run check-env`** - Environment prerequisite validation
+- **`pnpm run check-prod`** - Production readiness verification
+- **`pnpm run firewall [port]`** - Firewall configuration for port access
+- **`pnpm run emergency-fix`** - Emergency firewall recovery script
+
+All scripts support `--help` option for detailed usage information.
