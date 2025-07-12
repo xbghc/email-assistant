@@ -177,7 +177,7 @@ npm run typecheck:backend  # 后端类型检查
 
 ### 邮件服务调试
 ```bash
-node debug-email-config.js  # 测试SMTP/IMAP连接并诊断问题
+node packages/backend/debug-email-config.js  # 测试SMTP/IMAP连接并诊断问题
 ```
 
 ## 🏗️ 架构概览
@@ -307,7 +307,7 @@ DOMUtils.addEventListener(element, 'click', handler);
 
 ### 常见问题
 
-1. **邮件配置问题**: 运行 `node debug-email-config.js` 进行连接测试
+1. **邮件配置问题**: 运行 `node packages/backend/debug-email-config.js` 进行连接测试
 2. **前端构建问题**: 检查TypeScript编译错误 `npm run typecheck:frontend`
 3. **后端服务问题**: 查看服务日志和健康检查端点
 

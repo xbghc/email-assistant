@@ -12,8 +12,15 @@ pnpm install                    # Install all dependencies
 ### Development
 ```bash
 pnpm dev                       # Start both frontend and backend in development mode
-pnpm dev:backend              # Start only backend development server
-pnpm dev:frontend             # Start only frontend development server
+pnpm dev:backend              # Build and start backend once
+pnpm dev:frontend             # Start frontend development server
+```
+
+### Backend Development
+```bash
+cd packages/backend
+pnpm dev                      # Build and start backend once
+pnpm dev:watch                # Watch mode - rebuild on changes (manual restart needed)
 ```
 
 ### Building
