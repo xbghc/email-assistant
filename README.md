@@ -65,12 +65,12 @@ npm install
 
 ### 3. 环境配置
 ```bash
-cp .env.example .env
+cp packages/backend/.env.example packages/backend/.env
 ```
 
 ### 4. 配置环境变量
 
-编辑 `.env` 文件，配置你的设置：
+编辑 `packages/backend/.env` 文件，配置你的设置：
 
 ```env
 # 邮件配置 (SMTP发送)

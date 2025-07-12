@@ -1,13 +1,18 @@
 import express, { Router } from 'express';
 import path from 'path';
-import logger from '../utils/logger';
-import UserService from '../services/user/userService';
-import { UserRole } from '../models/User';
-import { authenticate, requireAdmin, requireOwnershipOrAdmin } from '../middleware/authMiddleware';
-import { LogQuery } from '../services/logging/logReaderService';
-import { SystemConfig } from '../services/system/configService';
-// import WeeklyReportService from '../services/reports/weeklyReportService';
-// import PersonalizationService from '../services/reports/personalizationService';
+import { fileURLToPath } from 'url';
+import logger from '../utils/logger.js';
+
+// ESM-compatible __dirname replacement
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+import UserService from '../services/user/userService.js';
+import { UserRole } from '../models/User.js';
+import { authenticate, requireAdmin, requireOwnershipOrAdmin } from '../middleware/authMiddleware.js';
+import { LogQuery } from '../services/logging/logReaderService.js';
+import { SystemConfig } from '../services/system/configService.js';
+// import WeeklyReportService from '../services/reports/weeklyReportService.js';
+// import PersonalizationService from '../services/reports/personalizationService.js';
 
 const router: Router = express.Router();
 
