@@ -1,4 +1,5 @@
 import type { ApiResponse, User, SystemHealth, AuthResponse, SendCodeRequest, VerifyCodeRequest } from '@email-assistant/shared';
+import type { SystemStatus, LogEntry, Report } from '../types';
 
 class ApiClient {
   private baseURL: string;
@@ -101,8 +102,8 @@ class ApiClient {
     return this.request<SystemHealth>('/api/health');
   }
 
-  async getDashboardStats(): Promise<ApiResponse<any>> {
-    return this.request<any>('/api/dashboard/stats');
+  async getDashboardStats(): Promise<ApiResponse<SystemStatus>> {
+    return this.request<SystemStatus>('/api/dashboard/stats');
   }
 
   // 日志管理
@@ -112,7 +113,7 @@ class ApiClient {
     search?: string;
     startDate?: string;
     endDate?: string;
-  }): Promise<ApiResponse<any[]>> {
+  }): Promise<ApiResponse<LogEntry[]>> {
     const searchParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -123,11 +124,11 @@ class ApiClient {
     }
 
     const endpoint = `/api/logs${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
-    return this.request<any[]>(endpoint);
+    return this.request<LogEntry[]>(endpoint);
   }
 
-  async getLogStats(hours: number = 24): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/logs/stats?hours=${hours}`);
+  async getLogStats(hours: number = 24): Promise<ApiResponse<Record<string, number>>> {
+    return this.request<Record<string, number>>(`/api/logs/stats?hours=${hours}`);
   }
 
   // 报告管理
@@ -135,7 +136,7 @@ class ApiClient {
     type?: string;
     userId?: string;
     limit?: number;
-  }): Promise<ApiResponse<any[]>> {
+  }): Promise<ApiResponse<Report[]>> {
     const searchParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {

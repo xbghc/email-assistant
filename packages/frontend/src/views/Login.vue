@@ -118,7 +118,7 @@ const isLoading = ref(false);
 const errorMessage = ref('');
 const resendCooldown = ref(0);
 
-let cooldownTimer: NodeJS.Timeout | null = null;
+let cooldownTimer: ReturnType<typeof setTimeout> | null = null;
 
 const handleSendCode = async () => {
   if (!loginForm.email) {

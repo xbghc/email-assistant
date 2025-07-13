@@ -9,7 +9,20 @@ class StateManager {
       currentPage: 'dashboard',
       data: {
         users: [],
-        systemStats: {},
+        systemStats: {
+          services: [],
+          metrics: {
+            memoryUsage: { heapUsed: 0, heapTotal: 0 },
+            cpuUsage: { user: 0, system: 0 },
+            uptime: 0,
+            version: '',
+            emailsToday: 0,
+            errorsLastHour: 0,
+            warningsLastHour: 0
+          },
+          timestamp: '',
+          overall: 'unknown'
+        },
         logs: [],
         settings: {}
       },
@@ -114,7 +127,20 @@ class StateManager {
     this.updateState({
       data: {
         users: [],
-        systemStats: {},
+        systemStats: {
+          services: [],
+          metrics: {
+            memoryUsage: { heapUsed: 0, heapTotal: 0 },
+            cpuUsage: { user: 0, system: 0 },
+            uptime: 0,
+            version: '',
+            emailsToday: 0,
+            errorsLastHour: 0,
+            warningsLastHour: 0
+          },
+          timestamp: '',
+          overall: 'unknown'
+        },
         logs: [],
         settings: {}
       },
