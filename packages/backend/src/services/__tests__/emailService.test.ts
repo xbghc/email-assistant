@@ -35,7 +35,8 @@ jest.mock('../../config/index', () => ({
     name: 'Test User',
     smtp: {
       host: 'test.smtp.com',
-      port: 587
+      port: 587,
+      secure: false
     },
     imap: {
       host: 'test.imap.com',

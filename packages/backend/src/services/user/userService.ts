@@ -38,6 +38,9 @@ class UserService implements UserStorage {
     } catch {
       logger.info('No existing user data found, starting with empty user list');
     }
+    
+    // 确保管理员用户存在
+    await this.ensureAdminUserExists();
   }
 
   getUserById(id: string): User | undefined {
@@ -264,6 +267,29 @@ class UserService implements UserStorage {
   // 检查是否为管理员
   isAdmin(email: string): boolean {
     return email.toLowerCase() === config.email.admin.email.toLowerCase();
+  }
+
+  // 确保管理员用户存在
+  private async ensureAdminUserExists(): Promise<void> {
+    const adminEmail = config.email.admin.email;
+    if (!adminEmail) {
+      logger.warn('ADMIN_EMAIL not configured, skipping admin user creation');
+      return;
+    }
+
+    // 检查管理员用户是否已存在
+    const existingAdmin = this.getUserByEmail(adminEmail);
+    if (existingAdmin) {
+      logger.debug(`Admin user already exists: ${adminEmail}`);
+      return;
+    }
+
+    // 创建管理员用户
+    const adminName = process.env.ADMIN_NAME || 'Administrator';
+    const adminUser = this.createUser(adminEmail, adminName);
+    this.addUser(adminUser);
+    
+    logger.info(`✅ Created default admin user: ${adminEmail}`);
   }
 
   // 获取用户统计信息

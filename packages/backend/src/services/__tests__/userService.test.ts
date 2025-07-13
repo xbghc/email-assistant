@@ -60,13 +60,15 @@ describe('UserService', () => {
   });
 
   describe('initialization', () => {
-    it('should initialize with empty user list when file does not exist', async () => {
+    it('should initialize with admin user when file does not exist', async () => {
       mockFileUtils.safeReadJsonFile.mockResolvedValue([]);
 
       await userService.initialize();
 
       expect(mockFileUtils.safeReadJsonFile).toHaveBeenCalledWith('/tmp/test-users.json', []);
-      expect(userService.getAllUsers()).toHaveLength(0);
+      expect(userService.getAllUsers()).toHaveLength(1);
+      expect(userService.getAllUsers()[0]!.email).toBe('admin@test.com');
+      expect(userService.getAllUsers()[0]!.role).toBe('admin');
     });
 
     it('should load existing users from file', async () => {
@@ -96,9 +98,10 @@ describe('UserService', () => {
       await userService.initialize();
 
       const users = userService.getAllUsers();
-      expect(users).toHaveLength(1);
-      expect(users[0]!.email).toBe('test@example.com');
-      expect(users[0]!.createdAt).toBeInstanceOf(Date);
+      expect(users).toHaveLength(2); // Loaded user + admin user
+      const testUser = users.find(u => u.email === 'test@example.com');
+      expect(testUser).toBeDefined();
+      expect(testUser!.createdAt).toBeInstanceOf(Date);
     });
   });
 
@@ -149,7 +152,7 @@ describe('UserService', () => {
       const user = userService.createUser('test@example.com', 'Test User');
       userService.addUser(user);
 
-      expect(userService.getAllUsers()).toHaveLength(1);
+      expect(userService.getAllUsers()).toHaveLength(2); // Admin user + new user
       expect(userService.getUserById('test@example.com')).toBe(user);
       expect(mockCache.delete).toHaveBeenCalledWith('user:id:test@example.com');
       expect(mockCache.delete).toHaveBeenCalledWith('user:email:test@example.com');
@@ -212,7 +215,7 @@ describe('UserService', () => {
       userService.deleteUser('test@example.com');
 
       expect(userService.getUserById('test@example.com')).toBeUndefined();
-      expect(userService.getAllUsers()).toHaveLength(0);
+      expect(userService.getAllUsers()).toHaveLength(1); // Admin user remains
     });
 
     it('should update user config', async () => {
@@ -258,20 +261,22 @@ describe('UserService', () => {
 
     it('should get all users', () => {
       const users = userService.getAllUsers();
-      expect(users).toHaveLength(2);
+      expect(users).toHaveLength(3); // Admin user + 2 test users
     });
 
     it('should get only active users', () => {
       const activeUsers = userService.getActiveUsers();
-      expect(activeUsers).toHaveLength(1);
-      expect(activeUsers[0]!.email).toBe('active@example.com');
+      expect(activeUsers).toHaveLength(2); // Admin user + active test user
+      const activeEmails = activeUsers.map(u => u.email);
+      expect(activeEmails).toContain('active@example.com');
+      expect(activeEmails).toContain('admin@test.com');
     });
 
     it('should get user stats', () => {
       const stats = userService.getStats();
-      expect(stats.total).toBe(2);
-      expect(stats.active).toBe(1);
-      expect(stats.inactive).toBe(1);
+      expect(stats.total).toBe(3); // Admin user + 2 test users
+      expect(stats.active).toBe(2); // Admin user + active test user
+      expect(stats.inactive).toBe(1); // Inactive test user
     });
 
     it('should get cache stats', () => {
@@ -298,7 +303,7 @@ describe('UserService', () => {
 
       expect(user.email).toBe('test@example.com');
       expect(user.name).toBe('Test User');
-      expect(userService.getAllUsers()).toHaveLength(1);
+      expect(userService.getAllUsers()).toHaveLength(2); // Admin user + new user
     });
 
     it('should remove user by identifier', async () => {
@@ -308,7 +313,7 @@ describe('UserService', () => {
       const success = await userService.removeUser('test@example.com');
 
       expect(success).toBe(true);
-      expect(userService.getAllUsers()).toHaveLength(0);
+      expect(userService.getAllUsers()).toHaveLength(1); // Admin user remains
     });
 
     it('should return false when removing non-existent user', async () => {

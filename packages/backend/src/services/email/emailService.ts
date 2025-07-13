@@ -64,7 +64,7 @@ class EmailService {
     this.transporter = nodemailer.createTransport({
       host: config.email.smtp.host,
       port: config.email.smtp.port,
-      secure: config.email.smtp.port === 465,
+      secure: config.email.smtp.secure,
       pool: true, // 启用连接池
       maxConnections: 3,
       maxMessages: 10,

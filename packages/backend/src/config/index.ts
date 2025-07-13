@@ -13,6 +13,7 @@ interface Config {
     smtp: {
       host: string;
       port: number;
+      secure: boolean;
     };
     imap: {
       host: string;
@@ -78,6 +79,7 @@ const config: Config = {
     smtp: {
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: process.env.SMTP_SECURE === 'true',
     },
     imap: {
       host: process.env.IMAP_HOST || 'imap.gmail.com',
