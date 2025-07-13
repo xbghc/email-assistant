@@ -66,7 +66,8 @@ function checkNodeJS(): boolean {
   console.log(`   路径: ${process.execPath}`);
   
   // 检查版本是否符合要求
-  const majorVersion = parseInt(currentNodeVersion.substring(1).split('.')[0]);
+  const versionParts = currentNodeVersion.substring(1).split('.');
+  const majorVersion = parseInt(versionParts[0] || '0');
   if (majorVersion >= 18) {
     console.log(`   ✅ Node.js 版本符合要求 (>= 18)`);
   } else {
