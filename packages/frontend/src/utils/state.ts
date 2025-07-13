@@ -102,21 +102,21 @@ class StateManager {
   }
 
   // 设置系统统计
-  setSystemStats(systemStats: any): void {
+  setSystemStats(systemStats: SystemStatus): void {
     this.updateState({
       data: { ...this.state.data, systemStats }
     });
   }
 
   // 设置日志
-  setLogs(logs: any[]): void {
+  setLogs(logs: LogEntry[]): void {
     this.updateState({
       data: { ...this.state.data, logs }
     });
   }
 
   // 设置设置
-  setSettings(settings: any): void {
+  setSettings(settings: Settings): void {
     this.updateState({
       data: { ...this.state.data, settings }
     });
@@ -142,7 +142,7 @@ class StateManager {
           overall: 'unknown'
         },
         logs: [],
-        settings: {}
+        settings: {} as Settings
       },
       auth: {
         token: null,

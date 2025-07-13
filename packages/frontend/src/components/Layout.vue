@@ -65,32 +65,18 @@
     </main>
   </div>
 
-  <!-- 通知容器 -->
-  <div class="notifications-container">
-    <div
-      v-for="notification in notifications"
-      :key="notification.id"
-      class="notification"
-      :class="notification.type"
-    >
-      {{ notification.message }}
-    </div>
-  </div>
+  <!-- 通知组件 -->
+  <Notification />
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import { authManager } from '@/utils/auth';
+import Notification from './Notification.vue';
 
 const route = useRoute();
 const router = useRouter();
-
-const notifications = ref<Array<{
-  id: number;
-  type: string;
-  message: string;
-}>>([]);
 
 const systemStatus = ref('checking');
 const statusText = ref('检查中...');
@@ -284,34 +270,5 @@ const checkSystemStatus = async () => {
 .content {
   flex: 1;
   padding: 2rem;
-}
-
-.notifications-container {
-  position: fixed;
-  top: 1rem;
-  right: 1rem;
-  z-index: 1000;
-  pointer-events: none;
-}
-
-.notification {
-  background: white;
-  border-radius: 8px;
-  padding: 1rem;
-  margin-bottom: 0.5rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-  border-left: 4px solid #667eea;
-  animation: slideIn 0.3s ease-out;
-}
-
-@keyframes slideIn {
-  from {
-    transform: translateX(100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
 }
 </style>

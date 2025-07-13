@@ -30,14 +30,13 @@ class AuthManager {
   async sendCode(email: string): Promise<{ success: boolean; error?: string }> {
     try {
       const response = await apiClient.sendCode(email);
-      
+
       if (response.success) {
         return { success: true };
       } else {
         return { success: false, error: response.error || 'Failed to send verification code' };
       }
-    } catch (error) {
-      console.error('Send code error:', error);
+    } catch {
       return { success: false, error: 'Network error' };
     }
   }
@@ -46,7 +45,7 @@ class AuthManager {
   async verifyCode(email: string, code: string): Promise<{ success: boolean; error?: string }> {
     try {
       const response = await apiClient.verifyCode(email, code);
-      
+
       if (response.success && response.data) {
         const authData = response.data as AuthResponse;
         this.user = authData.user;
@@ -55,8 +54,7 @@ class AuthManager {
       } else {
         return { success: false, error: response.error || 'Verification failed' };
       }
-    } catch (error) {
-      console.error('Verify code error:', error);
+    } catch {
       return { success: false, error: 'Network error' };
     }
   }
@@ -93,8 +91,7 @@ class AuthManager {
       // 通过调用需要认证的API来验证token
       const response = await apiClient.getDashboardStats();
       return response.success;
-    } catch (error) {
-      console.error('Token validation failed:', error);
+    } catch {
       this.logout();
       return false;
     }

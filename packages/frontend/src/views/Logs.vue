@@ -65,7 +65,7 @@ interface LogEntry {
   level: 'error' | 'warn' | 'info' | 'debug';
   message: string;
   timestamp: string;
-  meta?: any;
+  meta?: unknown;
 }
 
 const logs = ref<LogEntry[]>([]);

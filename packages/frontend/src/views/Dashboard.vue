@@ -175,7 +175,9 @@
 import { ref, reactive, onMounted, nextTick } from 'vue';
 import Layout from '@/components/Layout.vue';
 import { apiClient } from '@/utils/api';
+import { useNotifications } from '@/composables/useNotifications';
 
+const { addNotification } = useNotifications();
 const isLoading = ref(false);
 
 const stats = reactive({
@@ -226,13 +228,12 @@ const testMorningReminder = async () => {
   try {
     const response = await apiClient.testMorningReminder();
     if (response.success) {
-      showNotification('晨间提醒测试成功', 'success');
+      addNotification('晨间提醒测试成功', 'success');
     } else {
-      showNotification('晨间提醒测试失败', 'error');
+      addNotification('晨间提醒测试失败', 'error');
     }
-  } catch (error) {
-    console.error('晨间提醒测试失败:', error);
-    showNotification('网络错误', 'error');
+  } catch {
+    addNotification('网络错误', 'error');
   } finally {
     isLoading.value = false;
   }
@@ -245,13 +246,12 @@ const testEveningReminder = async () => {
   try {
     const response = await apiClient.testEveningReminder();
     if (response.success) {
-      showNotification('晚间提醒测试成功', 'success');
+      addNotification('晚间提醒测试成功', 'success');
     } else {
-      showNotification('晚间提醒测试失败', 'error');
+      addNotification('晚间提醒测试失败', 'error');
     }
-  } catch (error) {
-    console.error('晚间提醒测试失败:', error);
-    showNotification('网络错误', 'error');
+  } catch {
+    addNotification('网络错误', 'error');
   } finally {
     isLoading.value = false;
   }
@@ -264,13 +264,12 @@ const generateWeeklyReport = async () => {
   try {
     const response = await apiClient.generateWeeklyReport();
     if (response.success) {
-      showNotification('周报生成成功', 'success');
+      addNotification('周报生成成功', 'success');
     } else {
-      showNotification('周报生成失败', 'error');
+      addNotification('周报生成失败', 'error');
     }
-  } catch (error) {
-    console.error('周报生成失败:', error);
-    showNotification('网络错误', 'error');
+  } catch {
+    addNotification('网络错误', 'error');
   } finally {
     isLoading.value = false;
   }
@@ -283,13 +282,12 @@ const generateSuggestions = async () => {
   try {
     const response = await apiClient.generateSuggestions();
     if (response.success) {
-      showNotification('建议生成成功', 'success');
+      addNotification('建议生成成功', 'success');
     } else {
-      showNotification('建议生成失败', 'error');
+      addNotification('建议生成失败', 'error');
     }
-  } catch (error) {
-    console.error('建议生成失败:', error);
-    showNotification('网络错误', 'error');
+  } catch {
+    addNotification('网络错误', 'error');
   } finally {
     isLoading.value = false;
   }
@@ -304,8 +302,7 @@ const refreshReminderStatus = async () => {
     if (response.success && response.data) {
       Object.assign(reminderStatus, response.data);
     }
-  } catch (error) {
-    console.error('Failed to refresh reminder status:', error);
+  } catch {
   } finally {
     isLoading.value = false;
   }
@@ -322,22 +319,16 @@ const resetReminderStatus = async () => {
   try {
     const response = await apiClient.resetReminderStatus();
     if (response.success) {
-      showNotification('提醒状态重置成功', 'success');
+      addNotification('提醒状态重置成功', 'success');
       await refreshReminderStatus();
     } else {
-      showNotification('提醒状态重置失败', 'error');
+      addNotification('提醒状态重置失败', 'error');
     }
-  } catch (error) {
-    console.error('提醒状态重置失败:', error);
-    showNotification('网络错误', 'error');
+  } catch {
+    addNotification('网络错误', 'error');
   } finally {
     isLoading.value = false;
   }
-};
-
-const showNotification = (message: string, type: 'success' | 'error' | 'info' = 'info') => {
-  // TODO: 实现通知系统
-  console.log(`[${type}] ${message}`);
 };
 
 const loadDashboardData = async () => {
