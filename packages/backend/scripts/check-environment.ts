@@ -346,7 +346,7 @@ function parseArgs(): void {
 }
 
 // 运行环境检查
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   parseArgs();
   main().catch(error => {
     console.error('环境检查执行失败:', error);

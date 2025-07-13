@@ -44,26 +44,42 @@ async function checkProcess(): Promise<boolean> {
   log.info('检查进程状态...');
   
   try {
-    execSync('pgrep -f "node.*email-assistant"', { stdio: 'pipe' });
-    log.success('应用进程正在运行');
-    return true;
+    const result = execSync('pgrep -f "node.*dist/index.js|tsx.*src/index.ts"', { stdio: 'pipe' });
+    if (result.length > 0) {
+      log.success('应用进程正在运行');
+      return true;
+    }
   } catch {
-    log.error('应用进程未运行');
-    return false;
+    // pgrep failed or no match found
   }
+  
+  log.error('应用进程未运行');
+  return false;
 }
 
 async function checkPort(port: number = 3000): Promise<boolean> {
   log.info(`检查端口 ${port}...`);
   
   try {
-    const result = execSync(`netstat -ln | grep ":${port} "`, { stdio: 'pipe' });
-    if (result.length > 0) {
+    const result = execSync(`netstat -ln 2>/dev/null | grep ":${port} " || lsof -i :${port} 2>/dev/null || true`, { stdio: 'pipe' });
+    const output = result.toString().trim();
+    if (output && output.length > 0) {
       log.success(`端口 ${port} 正在监听`);
       return true;
     }
   } catch {
-    // netstat command failed or no match found
+    // Command failed, try alternative check
+    try {
+      // Try using ss command as fallback
+      const result = execSync(`ss -ln | grep ":${port} " || true`, { stdio: 'pipe' });
+      const output = result.toString().trim();
+      if (output && output.length > 0) {
+        log.success(`端口 ${port} 正在监听`);
+        return true;
+      }
+    } catch {
+      // All methods failed
+    }
   }
   
   log.error(`端口 ${port} 未监听`);
@@ -312,7 +328,10 @@ function parseArgs(): void {
       case '-u':
       case '--url':
         if (i + 1 < args.length) {
-          config.apiBaseUrl = args[++i];
+          const url = args[++i];
+          if (url) {
+            config.apiBaseUrl = url;
+          }
         } else {
           console.error('错误: --url 需要提供URL参数');
           process.exit(1);
@@ -321,7 +340,10 @@ function parseArgs(): void {
       case '-t':
       case '--timeout':
         if (i + 1 < args.length) {
-          config.timeout = parseInt(args[++i]);
+          const timeoutStr = args[++i];
+          if (timeoutStr) {
+            config.timeout = parseInt(timeoutStr);
+          }
         } else {
           console.error('错误: --timeout 需要提供数字参数');
           process.exit(1);
@@ -330,7 +352,10 @@ function parseArgs(): void {
       case '-r':
       case '--retries':
         if (i + 1 < args.length) {
-          config.maxRetries = parseInt(args[++i]);
+          const retriesStr = args[++i];
+          if (retriesStr) {
+            config.maxRetries = parseInt(retriesStr);
+          }
         } else {
           console.error('错误: --retries 需要提供数字参数');
           process.exit(1);
@@ -345,7 +370,7 @@ function parseArgs(): void {
 }
 
 // 运行健康检查
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   parseArgs();
   main().catch(error => {
     console.error('健康检查执行失败:', error);

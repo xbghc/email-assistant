@@ -228,7 +228,7 @@ function parseArgs(): void {
 }
 
 // 运行脚本
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   parseArgs();
   main().catch(error => {
     console.error('紧急防火墙修复执行失败:', error);

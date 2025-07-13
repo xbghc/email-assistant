@@ -226,7 +226,7 @@ function parseArgs(): void {
 }
 
 // 运行脚本
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   parseArgs();
   main().catch(error => {
     console.error('防火墙配置执行失败:', error);

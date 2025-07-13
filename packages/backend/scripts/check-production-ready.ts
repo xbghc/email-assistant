@@ -357,7 +357,7 @@ function parseArgs(): void {
 }
 
 // 运行检查
-if (require.main === module) {
+if (import.meta.url === `file://${process.argv[1]}`) {
   parseArgs();
   main().catch(error => {
     console.error('生产环境检查执行失败:', error);
