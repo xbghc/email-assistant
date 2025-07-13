@@ -9,11 +9,6 @@ import { ParsedEmail } from './emailReceiveService';
 import { ContextEntry } from '../../models';
 
 // 前向声明避免循环依赖
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-interface ISchedulerService {
-  // 定义需要的方法接口
-  testMorningReminder?(): Promise<void>;
-}
 
 export interface ProcessedReply {
   type: 'work_report' | 'schedule_response' | 'general' | 'admin_command';
@@ -267,10 +262,20 @@ ${response}
         .join('\n\n');
 
       // 使用Function Call功能处理用户请求
+      // AI现在需要智能识别邮件类型并调用相应的功能
+      const systemPrompt = `你是一个智能邮件助手，能够处理各种类型的邮件：
+
+1. 工作报告/总结：如果用户描述了工作内容、完成的任务、今日成果等，请生成专业的工作总结
+2. 日程安排：如果用户询问或要求安排日程、设置提醒、时间管理等，请提供相应的日程建议
+3. 提醒设置：如果用户要求修改提醒时间、通知设置等，请使用相应的功能
+4. 一般咨询：回答用户的问题并提供帮助
+
+请根据邮件内容自动判断类型并提供最合适的回复。始终用中文回复，语气友好专业。`;
+
       const aiResponse = await this.aiService.generateResponseWithFunctionCalls(
-        '你是一个贴心的邮件助手，可以帮助用户管理日程安排、标记邮件已读和配置提醒时间。如果用户要求修改时间或标记邮件，请使用相应的功能。请始终用中文回复。',
-        `用户消息：${content}\n\n最近记录：${contextText}`,
-        { maxTokens: 500, temperature: 0.7 },
+        systemPrompt,
+        `用户邮件主题：${email.subject}\n用户消息：${content}\n\n最近记录：${contextText}`,
+        { maxTokens: 800, temperature: 0.7 },
         email.userId
       );
 

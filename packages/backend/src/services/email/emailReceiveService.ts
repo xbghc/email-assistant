@@ -3,6 +3,7 @@ import { simpleParser } from 'mailparser';
 import config from '../../config/index';
 import logger from '../../utils/logger';
 import { EventEmitter } from 'events';
+import UserService from '../user/userService';
 
 export interface ParsedEmail {
   messageId: string;
@@ -27,9 +28,11 @@ class EmailReceiveService extends EventEmitter {
   private processedEmails: Set<string> = new Set();
   private emailCleanupInterval?: NodeJS.Timeout | undefined;
   private readonly MAX_PROCESSED_EMAILS = 10000; // 最大保持的已处理邮件数量
+  private userService: UserService;
 
   constructor() {
     super();
+    this.userService = new UserService();
     this.imap = new Imap({
       user: config.email.user,
       password: config.email.pass,
@@ -229,16 +232,36 @@ class EmailReceiveService extends EventEmitter {
       };
 
       // 处理所有发送给助手的邮件
-      // 如果邮件是发送给助手的，就处理它（无论发件人是谁）
+      // 但要排除助手自己发送的邮件，避免无限循环
       const assistantEmail = config.email.user;
+      const fromEmail = this.extractEmailAddress(email.from);
+      const isFromAssistant = fromEmail.toLowerCase() === assistantEmail.toLowerCase();
+      
+      // 跳过助手自己发送的邮件
+      if (isFromAssistant) {
+        logger.debug(`Skipping email from assistant itself: ${email.subject}`);
+        this.markEmailAsRead(uid);
+        return;
+      }
+      
       const isToAssistant = email.to.some(to => 
         this.extractEmailAddress(to).toLowerCase() === assistantEmail.toLowerCase()
       );
       
       if (isToAssistant || email.isReply) {
-        // 这是发送给助手的邮件或回复，需要处理
-        logger.info(`Processing email: ${email.subject} from ${email.from} (${email.replyType})`);
-        this.emit('emailReceived', email);
+        // 检查发件人是否为系统用户
+        const user = this.userService.getUserByEmail(fromEmail);
+        
+        if (user) {
+          // 这是系统用户发送的邮件，进行回复处理
+          logger.info(`Processing email from user: ${email.subject} from ${email.from} (${email.replyType})`);
+          this.emit('emailReceived', email);
+        } else {
+          // 这是非系统用户发送的邮件，转发给管理员
+          logger.info(`Forwarding email from non-user to admin: ${email.subject} from ${email.from}`);
+          this.emit('emailForward', email);
+        }
+        
         // 处理完成后标记邮件为已读
         this.markEmailAsRead(uid);
       } else {
@@ -264,8 +287,6 @@ class EmailReceiveService extends EventEmitter {
   }
 
   private determineReplyType(parsed: { subject?: string | undefined; text?: string | undefined; from?: { text: string } | { text: string }[] | undefined }): 'work_report' | 'schedule_response' | 'general' | 'admin_command' {
-    const subject = (parsed.subject || '').toLowerCase();
-    const content = (parsed.text || '').toLowerCase();
     const fromText = Array.isArray(parsed.from) 
       ? parsed.from[0]?.text || '' 
       : parsed.from?.text || '';
@@ -275,29 +296,8 @@ class EmailReceiveService extends EventEmitter {
       return 'admin_command';
     }
 
-    if (subject.includes('work summary') || 
-        subject.includes('daily work') ||
-        subject.includes('工作总结') ||
-        subject.includes('工作报告')) {
-      return 'work_report';
-    }
-
-    if (subject.includes('schedule') || 
-        subject.includes('reminder') ||
-        subject.includes('日程') ||
-        subject.includes('提醒')) {
-      return 'schedule_response';
-    }
-
-    if (content.includes('完成') || 
-        content.includes('任务') ||
-        content.includes('工作') ||
-        content.includes('accomplished') ||
-        content.includes('completed') ||
-        content.includes('tasks')) {
-      return 'work_report';
-    }
-
+    // 除了管理员命令外，所有邮件都交给AI处理
+    // AI将通过function calls智能识别和处理工作总结、日程安排、提醒设置等不同类型的任务
     return 'general';
   }
 

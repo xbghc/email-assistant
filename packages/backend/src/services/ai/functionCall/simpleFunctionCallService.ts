@@ -41,6 +41,12 @@ class SimpleFunctionCallService {
           return await this.getSystemStatus(userId);
         case 'search_conversations':
           return await this.searchConversations(args, userId);
+        case 'process_work_report':
+          return await this.processWorkReport(args, userId);
+        case 'create_schedule_reminder':
+          return await this.createScheduleReminder(args, userId);
+        case 'generate_work_summary':
+          return await this.generateWorkSummary(args, userId);
         default:
           return {
             success: false,
@@ -541,6 +547,139 @@ ${healthStatus}
       return {
         success: false,
         message: '搜索对话记录失败，请稍后重试'
+      };
+    }
+  }
+
+  /**
+   * 处理工作报告
+   */
+  private async processWorkReport(args: Record<string, unknown>, userId?: string): Promise<SimpleFunctionResult> {
+    try {
+      const content = args.content as string;
+      if (!content) {
+        return {
+          success: false,
+          message: '请提供工作报告内容'
+        };
+      }
+
+      // 添加工作报告到上下文
+      await this.contextService.addEntry(
+        'work_summary',
+        `工作报告已处理: ${content}`,
+        { 
+          processedAt: new Date().toISOString(),
+          userId,
+          type: 'work_report'
+        }
+      );
+
+      return {
+        success: true,
+        message: `📊 工作报告已成功记录和处理。内容概要：${content.substring(0, 100)}${content.length > 100 ? '...' : ''}`
+      };
+    } catch (error) {
+      logger.error('Failed to process work report:', error);
+      return {
+        success: false,
+        message: '处理工作报告失败，请稍后重试'
+      };
+    }
+  }
+
+  /**
+   * 创建日程提醒
+   */
+  private async createScheduleReminder(args: Record<string, unknown>, userId?: string): Promise<SimpleFunctionResult> {
+    try {
+      const content = args.content as string;
+      const time = args.time as string;
+      
+      if (!content) {
+        return {
+          success: false,
+          message: '请提供提醒内容'
+        };
+      }
+
+      // 添加日程提醒到上下文
+      await this.contextService.addEntry(
+        'schedule',
+        `日程提醒已创建: ${content}${time ? ` 时间: ${time}` : ''}`,
+        { 
+          reminderContent: content,
+          reminderTime: time,
+          createdAt: new Date().toISOString(),
+          userId,
+          type: 'schedule_reminder'
+        }
+      );
+
+      return {
+        success: true,
+        message: `📅 日程提醒已创建: ${content}${time ? ` (时间: ${time})` : ''}`
+      };
+    } catch (error) {
+      logger.error('Failed to create schedule reminder:', error);
+      return {
+        success: false,
+        message: '创建日程提醒失败，请稍后重试'
+      };
+    }
+  }
+
+  /**
+   * 生成工作总结
+   */
+  private async generateWorkSummary(args: Record<string, unknown>, userId?: string): Promise<SimpleFunctionResult> {
+    try {
+      const period = args.period as string || 'today';
+      const days = period === 'week' ? 7 : period === 'month' ? 30 : 1;
+      
+      // 获取指定时间段的工作相关记录
+      const recentActivities = await this.contextService.getRecentContext(days * 5, userId); // 多获取一些记录
+      const workActivities = recentActivities.filter(activity => 
+        activity.type === 'work_summary' || 
+        (activity.content && activity.content.includes('工作'))
+      );
+
+      if (workActivities.length === 0) {
+        return {
+          success: true,
+          message: `📊 ${period === 'week' ? '本周' : period === 'month' ? '本月' : '今日'}暂无工作记录`
+        };
+      }
+
+      const summaryContent = workActivities
+        .slice(0, 10) // 最多总结10条记录
+        .map(activity => {
+          const date = activity.timestamp.toLocaleDateString();
+          return `${date}: ${activity.content}`;
+        })
+        .join('\n');
+
+      // 添加总结到上下文
+      await this.contextService.addEntry(
+        'work_summary',
+        `工作总结已生成 (${period}): ${summaryContent.substring(0, 200)}...`,
+        { 
+          period,
+          generatedAt: new Date().toISOString(),
+          userId,
+          type: 'generated_summary'
+        }
+      );
+
+      return {
+        success: true,
+        message: `📊 ${period === 'week' ? '本周' : period === 'month' ? '本月' : '今日'}工作总结:\n\n${summaryContent}`
+      };
+    } catch (error) {
+      logger.error('Failed to generate work summary:', error);
+      return {
+        success: false,
+        message: '生成工作总结失败，请稍后重试'
       };
     }
   }

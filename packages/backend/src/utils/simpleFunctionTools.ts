@@ -121,6 +121,62 @@ export const simpleFunctionTools = [
         required: ["keyword"]
       }
     }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "process_work_report",
+      description: "处理和记录工作报告内容，用于工作总结、成果记录等",
+      parameters: {
+        type: "object",
+        properties: {
+          content: {
+            type: "string",
+            description: "工作报告的详细内容，包括完成的任务、进展、成果等"
+          }
+        },
+        required: ["content"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "create_schedule_reminder",
+      description: "创建日程安排和提醒事项",
+      parameters: {
+        type: "object",
+        properties: {
+          content: {
+            type: "string",
+            description: "提醒或日程的具体内容"
+          },
+          time: {
+            type: "string",
+            description: "提醒时间（可选），格式如：2024-01-15 09:00 或 明天早上9点"
+          }
+        },
+        required: ["content"]
+      }
+    }
+  },
+  {
+    type: "function" as const,
+    function: {
+      name: "generate_work_summary",
+      description: "生成指定时间段的工作总结",
+      parameters: {
+        type: "object",
+        properties: {
+          period: {
+            type: "string",
+            description: "总结时间段：'today'（今日）、'week'（本周）、'month'（本月）",
+            enum: ["today", "week", "month"]
+          }
+        },
+        required: []
+      }
+    }
   }
 ];
 
@@ -244,6 +300,61 @@ export const simpleDeepSeekTools = [
           }
         },
         required: ["keyword"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "process_work_report",
+      description: "处理和记录工作报告内容，用于工作总结、成果记录等",
+      parameters: {
+        type: "object",
+        properties: {
+          content: {
+            type: "string",
+            description: "工作报告的详细内容，包括完成的任务、进展、成果等"
+          }
+        },
+        required: ["content"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "create_schedule_reminder",
+      description: "创建日程安排和提醒事项",
+      parameters: {
+        type: "object",
+        properties: {
+          content: {
+            type: "string",
+            description: "提醒或日程的具体内容"
+          },
+          time: {
+            type: "string",
+            description: "提醒时间（可选），格式如：2024-01-15 09:00 或 明天早上9点"
+          }
+        },
+        required: ["content"]
+      }
+    }
+  },
+  {
+    type: "function",
+    function: {
+      name: "generate_work_summary",
+      description: "生成指定时间段的工作总结",
+      parameters: {
+        type: "object",
+        properties: {
+          period: {
+            type: "string",
+            description: "总结时间段：'today'（今日）、'week'（本周）、'month'（本月）"
+          }
+        },
+        required: []
       }
     }
   }
