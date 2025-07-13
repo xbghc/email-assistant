@@ -30,21 +30,26 @@ jest.mock('../email/emailStatsService', () => {
 });
 jest.mock('../../config/index', () => ({
   email: {
+    user: 'test@example.com',
+    pass: 'testpass',
+    name: 'Test User',
     smtp: {
       host: 'test.smtp.com',
-      port: 587,
-      user: 'test@example.com',
-      pass: 'testpass'
+      port: 587
     },
     imap: {
       host: 'test.imap.com',
       port: 993,
-      user: 'test@example.com',
-      pass: 'testpass'
+      tls: true,
+      rejectUnauthorized: true,
+      checkIntervalMs: 30000
     },
-    user: {
-      email: 'user@example.com',
-      name: 'Test User'
+    forwarding: {
+      enabled: true,
+      markAsRead: true
+    },
+    admin: {
+      email: 'admin@example.com'
     }
   },
   ai: {
@@ -124,7 +129,7 @@ describe('EmailService', () => {
       
       expect(mockTransporter.sendMail).toHaveBeenCalledWith({
         from: 'test@example.com',
-        to: 'user@example.com',
+        to: 'test@example.com',
         subject: 'Test Subject',
         text: 'Test Content'
       });
@@ -135,7 +140,7 @@ describe('EmailService', () => {
       
       expect(mockTransporter.sendMail).toHaveBeenCalledWith({
         from: 'test@example.com',
-        to: 'user@example.com',
+        to: 'test@example.com',
         subject: 'Test Subject',
         html: '<h1>Test Content</h1>'
       });

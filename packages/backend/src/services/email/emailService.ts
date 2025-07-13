@@ -71,8 +71,8 @@ class EmailService {
       connectionTimeout: 30000,
       socketTimeout: 30000,
       auth: {
-        user: config.email.smtp.user,
-        pass: config.email.smtp.pass,
+        user: config.email.user,
+        pass: config.email.pass,
       },
     });
   }
@@ -142,8 +142,8 @@ class EmailService {
     }
 
     const mailOptions = {
-      from: config.email.smtp.user,
-      to: toEmail || config.email.user.email,
+      from: config.email.user,
+      to: toEmail || config.email.user,
       subject,
       [isHtml ? 'html' : 'text']: optimizedContent,
     };
@@ -179,7 +179,7 @@ class EmailService {
       
       // 记录初始失败，但不抛出错误
       await this.statsService.recordEmailSent({
-        to: toEmail || config.email.user.email,
+        to: toEmail || config.email.user,
         subject,
         type: this.getEmailType(subject, contentType),
         status: 'failed',
@@ -193,7 +193,7 @@ class EmailService {
     const optimizedContent = this.contentManager.optimizeEmailContent(content, 'notification');
     
     const mailOptions = {
-      from: config.email.smtp.user,
+      from: config.email.user,
       to: userEmail,
       subject,
       [isHtml ? 'html' : 'text']: optimizedContent,
@@ -239,7 +239,7 @@ class EmailService {
   async sendMorningReminder(scheduleContent: string, suggestions: string): Promise<void> {
     const subject = `📅 每日日程提醒 - ${new Date().toLocaleDateString()}`;
     const content = `
-早上好，${config.email.user.name}！
+早上好，${config.email.name}！
 
 这是您今天的日程安排：
 
@@ -261,7 +261,7 @@ ${suggestions}
   async sendEveningReminder(): Promise<void> {
     const subject = `📝 每日工作总结请求 - ${new Date().toLocaleDateString()}`;
     const content = `
-晚上好，${config.email.user.name}！
+晚上好，${config.email.name}！
 
 现在是时候回顾您的一天了。请回复此邮件并告诉我：
 
@@ -282,7 +282,7 @@ ${suggestions}
   async sendWorkSummary(summary: string): Promise<void> {
     const subject = `📊 每日工作总结 - ${new Date().toLocaleDateString()}`;
     const content = `
-您好 ${config.email.user.name}，
+您好 ${config.email.name}，
 
 这是您今天的工作总结报告：
 
@@ -473,12 +473,12 @@ ${code}
       config: {
         smtpHost: config.email.smtp.host,
         smtpPort: config.email.smtp.port,
-        smtpUserConfigured: !!config.email.smtp.user,
-        smtpPassConfigured: !!config.email.smtp.pass,
+        smtpUserConfigured: !!config.email.user,
+        smtpPassConfigured: !!config.email.pass,
         imapHost: config.email.imap.host,
         imapPort: config.email.imap.port,
-        imapUserConfigured: !!config.email.imap.user,
-        imapPassConfigured: !!config.email.imap.pass
+        imapUserConfigured: !!config.email.user,
+        imapPassConfigured: !!config.email.pass
       },
       lastConnection: {
         timestamp: new Date(),

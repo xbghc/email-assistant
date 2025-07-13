@@ -7,17 +7,16 @@ export type AIProvider = 'openai' | 'deepseek' | 'google' | 'anthropic' | 'azure
 
 interface Config {
   email: {
+    user: string;
+    pass: string;
+    name: string;
     smtp: {
       host: string;
       port: number;
-      user: string;
-      pass: string;
     };
     imap: {
       host: string;
       port: number;
-      user: string;
-      pass: string;
       tls: boolean;
       rejectUnauthorized: boolean;
       checkIntervalMs: number;
@@ -26,9 +25,8 @@ interface Config {
       enabled: boolean;
       markAsRead: boolean;
     };
-    user: {
+    admin: {
       email: string;
-      name: string;
     };
   };
   ai: {
@@ -74,17 +72,16 @@ interface Config {
 
 const config: Config = {
   email: {
+    user: process.env.EMAIL_USER || process.env.SMTP_USER || '',
+    pass: process.env.EMAIL_PASS || process.env.SMTP_PASS || '',
+    name: process.env.USER_NAME || '',
     smtp: {
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: parseInt(process.env.SMTP_PORT || '587'),
-      user: process.env.SMTP_USER || '',
-      pass: process.env.SMTP_PASS || '',
     },
     imap: {
       host: process.env.IMAP_HOST || 'imap.gmail.com',
       port: parseInt(process.env.IMAP_PORT || '993'),
-      user: process.env.IMAP_USER || process.env.SMTP_USER || '',
-      pass: process.env.IMAP_PASS || process.env.SMTP_PASS || '',
       tls: process.env.IMAP_TLS === 'false' ? false : true,
       rejectUnauthorized: process.env.IMAP_REJECT_UNAUTHORIZED === 'false' ? false : true,
       checkIntervalMs: parseInt(process.env.EMAIL_CHECK_INTERVAL_MS || '30000'),
@@ -93,9 +90,8 @@ const config: Config = {
       enabled: process.env.EMAIL_FORWARDING_ENABLED === 'false' ? false : true,
       markAsRead: process.env.EMAIL_FORWARDING_MARK_READ === 'false' ? false : true,
     },
-    user: {
-      email: process.env.USER_EMAIL || '',
-      name: process.env.USER_NAME || '',
+    admin: {
+      email: process.env.ADMIN_EMAIL || '',
     },
   },
   ai: {
@@ -149,12 +145,12 @@ export function validateConfig(): void {
 
   // 验证邮件配置（测试模式下放宽要求）
   if (!isTestMode) {
-    if (!currentEnv.SMTP_USER || !currentEnv.SMTP_PASS) {
-      errors.push('SMTP credentials (SMTP_USER, SMTP_PASS) are required');
+    if (!(currentEnv.EMAIL_USER || currentEnv.SMTP_USER) || !(currentEnv.EMAIL_PASS || currentEnv.SMTP_PASS)) {
+      errors.push('Email credentials (EMAIL_USER/SMTP_USER, EMAIL_PASS/SMTP_PASS) are required');
     }
     
-    if (!currentEnv.USER_EMAIL) {
-      errors.push('User email (USER_EMAIL) is required');
+    if (!currentEnv.ADMIN_EMAIL) {
+      errors.push('Admin email (ADMIN_EMAIL) is required');
     }
   }
 

@@ -108,10 +108,16 @@ class EmailStatsService {
     errorMessage?: string;
     userId?: string;
   }): Promise<void> {
+    // Clean error message from non-printable characters that can break JSON parsing
+    const cleanedData = { ...emailData };
+    if (emailData.errorMessage) {
+      cleanedData.errorMessage = this.sanitizeString(emailData.errorMessage);
+    }
+    
     const record: EmailRecord = {
       id: this.generateId(),
       timestamp: new Date(),
-      ...emailData
+      ...cleanedData
     };
 
     this.records.push(record);
@@ -277,6 +283,17 @@ class EmailStatsService {
     }
 
     return trends;
+  }
+
+  /**
+   * 清理字符串中的非法字符，防止JSON解析错误
+   */
+  private sanitizeString(str: string): string {
+    // 移除有害的控制字符，但保留换行符(\n)、回车符(\r)和制表符(\t)
+    return str.replace(/\p{Cc}/gu, (match) => {
+      // 保留常用的空白字符
+      return ['\n', '\r', '\t'].includes(match) ? match : '';
+    });
   }
 }
 

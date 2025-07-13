@@ -263,7 +263,7 @@ class UserService implements UserStorage {
 
   // 检查是否为管理员
   isAdmin(email: string): boolean {
-    return email.toLowerCase() === config.email.user.email.toLowerCase();
+    return email.toLowerCase() === config.email.admin.email.toLowerCase();
   }
 
   // 获取用户统计信息

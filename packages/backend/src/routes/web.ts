@@ -449,9 +449,9 @@ router.get('/api/settings', authenticate, requireAdmin, async (req, res) => {
       email: {
         smtpHost: config.email.smtp.host,
         smtpPort: config.email.smtp.port,
-        emailUser: config.email.smtp.user,
-        userEmail: config.email.user.email,
-        userName: config.email.user.name
+        emailUser: config.email.user,
+        adminEmail: config.email.admin.email,
+        userName: config.email.name
       },
       ai: {
         provider: config.ai.provider,
@@ -498,17 +498,21 @@ router.put('/api/settings', authenticate, requireAdmin, async (req, res) => {
       }
       
       updates.email = {
+        user: currentConfig.email.user,
+        pass: currentConfig.email.pass,
+        name: currentConfig.email.name,
         smtp: { ...currentConfig.email.smtp },
         imap: { ...currentConfig.email.imap },
-        user: { ...currentConfig.email.user }
+        forwarding: { ...currentConfig.email.forwarding },
+        admin: { ...currentConfig.email.admin }
       };
       
       if (email.smtpHost) updates.email.smtp.host = email.smtpHost;
       if (email.smtpPort) updates.email.smtp.port = parseInt(email.smtpPort);
-      if (email.emailUser) updates.email.smtp.user = email.emailUser;
-      if (email.emailPass) updates.email.smtp.pass = email.emailPass;
-      if (email.userEmail) updates.email.user.email = email.userEmail;
-      if (email.userName) updates.email.user.name = email.userName;
+      if (email.emailUser) updates.email.user = email.emailUser;
+      if (email.emailPass) updates.email.pass = email.emailPass;
+      if (email.adminEmail) updates.email.admin.email = email.adminEmail;
+      if (email.userName) updates.email.name = email.userName;
     }
     
     if (ai) {

@@ -31,8 +31,8 @@ class EmailReceiveService extends EventEmitter {
   constructor() {
     super();
     this.imap = new Imap({
-      user: config.email.imap.user,
-      password: config.email.imap.pass,
+      user: config.email.user,
+      password: config.email.pass,
       host: config.email.imap.host,
       port: config.email.imap.port,
       tls: config.email.imap.tls,
@@ -68,7 +68,7 @@ class EmailReceiveService extends EventEmitter {
 
   async start(): Promise<void> {
     try {
-      if (!config.email.imap.user || !config.email.imap.pass) {
+      if (!config.email.user || !config.email.pass) {
         throw new Error('IMAP credentials not configured');
       }
 
@@ -128,7 +128,7 @@ class EmailReceiveService extends EventEmitter {
       this.imap.search([
         'UNSEEN',
         ['SINCE', yesterday],
-        ['TO', config.email.user.email]
+        ['TO', config.email.user]
       ], (err, results) => {
         if (err) {
           logger.error('Email search error:', err);
@@ -230,7 +230,7 @@ class EmailReceiveService extends EventEmitter {
 
       // 处理所有发送给助手的邮件
       // 如果邮件是发送给助手的，就处理它（无论发件人是谁）
-      const assistantEmail = config.email.user.email;
+      const assistantEmail = config.email.user;
       const isToAssistant = email.to.some(to => 
         this.extractEmailAddress(to).toLowerCase() === assistantEmail.toLowerCase()
       );
@@ -309,7 +309,7 @@ class EmailReceiveService extends EventEmitter {
     // 检查是否为管理员邮箱 - 这里应该检查系统中的管理员用户
     // 暂时保留原有逻辑，但这需要与UserService集成来正确判断
     // TODO: 集成UserService来检查用户角色
-    return email?.toLowerCase().trim() === config.email.user.email.toLowerCase();
+    return email?.toLowerCase().trim() === config.email.admin.email.toLowerCase();
   }
 
   isConnectedToImap(): boolean {

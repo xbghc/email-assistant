@@ -221,7 +221,7 @@ class AdminCommandService {
       
       // 发送通知邮件给管理员
       await this.emailService.sendUserAddedNotification(
-        config.email.user.name,
+        config.email.name,
         name,
         email
       );

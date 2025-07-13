@@ -12,7 +12,7 @@ jest.mock('../../utils/fileUtils', () => ({
 
 jest.mock('../../config/index', () => ({
   email: {
-    user: {
+    admin: {
       email: 'admin@test.com'
     }
   }
