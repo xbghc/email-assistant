@@ -43,64 +43,67 @@ describe('ContextService', () => {
       expect(mockFileUtils.safeReadJsonFile).toHaveBeenCalledWith(testContextFile, {});
     });
 
-    it.skip('should load existing context from file', async () => {
+    it('should load existing context from file', async () => {
+      // Test by adding data directly and verifying it loads correctly
+      const testDate = new Date();
+      
+      // First add some data to the service
+      await contextService.addEntry('conversation', 'Test content', { test: true }, 'user1');
+      
+      // Create a new service instance to test loading
+      const newContextService = new ContextService();
+      // @ts-expect-error - Override the private contextFile for testing  
+      newContextService.contextFile = testContextFile;
+      
+      // Mock the file read to return the data we expect
       const mockData = {
         'user1': [
           {
             id: '1',
-            timestamp: new Date().toISOString(), // Use current date
+            timestamp: testDate.toISOString(),
             type: 'conversation',
             content: 'Test content',
             metadata: { test: true }
           }
         ]
       };
-
-      // Setup all mocks for this test
-      mockFs.access.mockResolvedValue(undefined);
-      mockFs.mkdir.mockResolvedValue(undefined);
-      mockFileUtils.safeReadJsonFile.mockResolvedValue(mockData);
-      mockFileUtils.safeWriteJsonFile.mockResolvedValue(undefined);
       
-      // Create a new service instance with mock data
-      const newContextService = new ContextService();
-      // @ts-expect-error - Override the private contextFile for testing
-      newContextService.contextFile = testContextFile;
-
+      mockFileUtils.safeReadJsonFile.mockResolvedValue(mockData);
+      
       await newContextService.initialize();
-
-      const context = await newContextService.getRecentContext(365, 'user1'); // Use larger date range
+      
+      const context = await newContextService.getRecentContext(365, 'user1');
       expect(context).toHaveLength(1);
       expect(context[0]?.content).toBe('Test content');
       expect(context[0]?.timestamp).toBeInstanceOf(Date);
     });
 
-    it.skip('should handle legacy format (array instead of object)', async () => {
+    it('should handle legacy format (array instead of object)', async () => {
+      const testDate = new Date();
       const mockData = [
         {
           id: '1',
-          timestamp: new Date().toISOString(), // Use current date  
+          timestamp: testDate.toISOString(),
           type: 'conversation',
           content: 'Legacy content'
         }
       ];
 
-      // Setup all mocks for this test
-      mockFs.access.mockResolvedValue(undefined);
-      mockFs.mkdir.mockResolvedValue(undefined);
-      mockFileUtils.safeReadJsonFile.mockResolvedValue(mockData);
-      mockFileUtils.safeWriteJsonFile.mockResolvedValue(undefined);
-      
-      // Create a new service instance with mock data
+      // Create new service instance
       const newContextService = new ContextService();
       // @ts-expect-error - Override the private contextFile for testing
       newContextService.contextFile = testContextFile;
-
+      
+      // Mock file read to return legacy format (array)
+      mockFileUtils.safeReadJsonFile.mockResolvedValue(mockData);
+      
       await newContextService.initialize();
 
-      const context = await newContextService.getRecentContext(365, 'admin'); // Use larger date range
+      // Legacy format should be loaded as 'admin' user context
+      const context = await newContextService.getRecentContext(365, 'admin');
       expect(context).toHaveLength(1);
       expect(context[0]?.content).toBe('Legacy content');
+      expect(context[0]?.timestamp).toBeInstanceOf(Date);
     });
   });
 
