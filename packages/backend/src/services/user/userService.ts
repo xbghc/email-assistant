@@ -17,13 +17,18 @@ class UserService implements UserStorage {
   private dataFile: string;
   private cache: CacheService;
 
-  constructor(cache: CacheService = userCache) {
-    // 基于脚本文件位置确定后端根目录
-    const scriptPath = process.argv[1] || process.cwd();
-    const scriptDir = path.dirname(scriptPath);
-    const backendRoot = path.resolve(scriptDir, '../../../'); // 从 src/services/user 到 packages/backend
-    this.dataFile = path.join(backendRoot, 'data/users.json');
+  constructor(cache: CacheService = userCache, dataFile?: string) {
     this.cache = cache;
+    
+    if (dataFile) {
+      this.dataFile = dataFile;
+    } else {
+      // 基于脚本文件位置确定后端根目录
+      const scriptPath = process.argv[1] || process.cwd();
+      const scriptDir = path.dirname(scriptPath);
+      const backendRoot = path.resolve(scriptDir, '../../../'); // 从 src/services/user 到 packages/backend
+      this.dataFile = path.join(backendRoot, 'data/users.json');
+    }
   }
 
   async initialize(): Promise<void> {

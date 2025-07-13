@@ -12,9 +12,9 @@ class SimpleFunctionCallService {
   private userService: UserService;
   private contextService: ContextService;
 
-  constructor() {
-    this.userService = new UserService();
-    this.contextService = new ContextService();
+  constructor(userService?: UserService, contextService?: ContextService) {
+    this.userService = userService || new UserService();
+    this.contextService = contextService || new ContextService();
   }
 
   async initialize(): Promise<void> {
@@ -213,22 +213,22 @@ class SimpleFunctionCallService {
     // 解析自然语言时间
     const patterns = [
       // 9点半 -> 09:30
-      { pattern: /(\d{1,2})点半/, replacement: (match: string, hour: string) => {
+      { pattern: /(\d{1,2})点半/, replacement: (_match: string, hour: string) => {
         const h = parseInt(hour);
         return h < 10 ? `0${h}:30` : `${h}:30`;
       }},
       // 9点 -> 09:00
-      { pattern: /(\d{1,2})点/, replacement: (match: string, hour: string) => {
+      { pattern: /(\d{1,2})点/, replacement: (_match: string, hour: string) => {
         const h = parseInt(hour);
         return h < 10 ? `0${h}:00` : `${h}:00`;
       }},
       // 9:30 -> 09:30
-      { pattern: /^(\d{1,2}):(\d{2})$/, replacement: (match: string, hour: string, minute: string) => {
+      { pattern: /^(\d{1,2}):(\d{2})$/, replacement: (_match: string, hour: string, minute: string) => {
         const h = parseInt(hour);
         return h < 10 ? `0${h}:${minute}` : `${h}:${minute}`;
       }},
       // 930 -> 09:30
-      { pattern: /^(\d{1,2})(\d{2})$/, replacement: (match: string, hour: string, minute: string) => {
+      { pattern: /^(\d{1,2})(\d{2})$/, replacement: (_match: string, hour: string, minute: string) => {
         const h = parseInt(hour);
         return h < 10 ? `0${h}:${minute}` : `${h}:${minute}`;
       }}

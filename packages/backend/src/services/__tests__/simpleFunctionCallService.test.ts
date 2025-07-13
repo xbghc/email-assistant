@@ -1,15 +1,14 @@
 import SimpleFunctionCallService from '../ai/functionCall/simpleFunctionCallService';
 import UserService from '../user/userService';
+import ContextService from '../reports/contextService';
 import { User, UserRole } from '../../models/User';
 
-// Mock UserService
-jest.mock('../user/userService');
-
-const MockedUserService = UserService as jest.MockedClass<typeof UserService>;
+// No need to mock services - we'll use dependency injection
 
 describe('SimpleFunctionCallService', () => {
   let service: SimpleFunctionCallService;
   let mockUserServiceInstance: jest.Mocked<UserService>;
+  let mockContextServiceInstance: jest.Mocked<ContextService>;
 
   const mockUser: User = {
     id: 'user123',
@@ -44,10 +43,18 @@ describe('SimpleFunctionCallService', () => {
       updateUserConfig: jest.fn(),
       getUserByEmail: jest.fn(),
       getUserById: jest.fn().mockReturnValue(mockUser),
+      getAllUsers: jest.fn().mockReturnValue([mockUser, mockAdminUser]),
     } as unknown as jest.Mocked<UserService>;
 
-    MockedUserService.mockImplementation(() => mockUserServiceInstance);
-    service = new SimpleFunctionCallService();
+    // Create a partial mock of the ContextService instance
+    mockContextServiceInstance = {
+      initialize: jest.fn(),
+      getRecentContext: jest.fn().mockResolvedValue([]),
+      addEntry: jest.fn(),
+    } as unknown as jest.Mocked<ContextService>;
+
+    // Use dependency injection instead of mocking constructors
+    service = new SimpleFunctionCallService(mockUserServiceInstance, mockContextServiceInstance);
   });
 
   afterEach(() => {
@@ -55,9 +62,10 @@ describe('SimpleFunctionCallService', () => {
   });
 
   describe('initialization', () => {
-    it('should initialize user service', async () => {
+    it('should initialize user service and context service', async () => {
       await service.initialize();
       expect(mockUserServiceInstance.initialize).toHaveBeenCalledTimes(1);
+      expect(mockContextServiceInstance.initialize).toHaveBeenCalledTimes(1);
     });
   });
 

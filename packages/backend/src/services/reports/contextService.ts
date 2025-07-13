@@ -12,12 +12,16 @@ class ContextService {
   private aiService: AIService;
   private saveTimer: NodeJS.Timeout | null = null;
 
-  constructor() {
-    // 基于脚本文件位置确定后端根目录
-    const scriptPath = process.argv[1] || process.cwd();
-    const scriptDir = path.dirname(scriptPath);
-    const backendRoot = path.resolve(scriptDir, '../../../'); // 从 src/services/reports 到 packages/backend
-    this.contextFile = path.join(backendRoot, 'data/context.json');
+  constructor(contextFile?: string) {
+    if (contextFile) {
+      this.contextFile = contextFile;
+    } else {
+      // 基于脚本文件位置确定后端根目录
+      const scriptPath = process.argv[1] || process.cwd();
+      const scriptDir = path.dirname(scriptPath);
+      const backendRoot = path.resolve(scriptDir, '../../../'); // 从 src/services/reports 到 packages/backend
+      this.contextFile = path.join(backendRoot, 'data/context.json');
+    }
     this.aiService = new AIService();
   }
 
