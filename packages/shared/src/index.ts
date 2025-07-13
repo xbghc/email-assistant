@@ -2,17 +2,24 @@
 
 export interface User {
   id: string;
-  username: string;
   email: string;
-  password: string;
-  role: 'Admin' | 'User';
-  created_at: string;
-  preferences: {
-    morning_reminder: boolean;
-    evening_reminder: boolean;
-    weekly_report: boolean;
-    timezone: string;
+  name: string;
+  role: 'admin' | 'user';
+  config: {
+    schedule: {
+      morningReminderTime: string;
+      eveningReminderTime: string;
+      timezone: string;
+    };
+    language: 'zh' | 'en';
+    reminderPaused?: boolean;
+    resumeDate?: string;
   };
+  createdAt: string;
+  updatedAt: string;
+  isActive: boolean;
+  lastLoginAt?: string;
+  emailVerified: boolean;
 }
 
 export interface EmailRecord {
@@ -45,7 +52,7 @@ export interface ScheduleConfig {
   };
 }
 
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -78,9 +85,12 @@ export interface SystemHealth {
 
 export const API_ENDPOINTS = {
   AUTH: {
-    LOGIN: '/api/auth/login',
+    SEND_CODE: '/api/auth/send-code',
+    VERIFY_CODE: '/api/auth/verify-code',
     LOGOUT: '/api/auth/logout',
-    VERIFY: '/api/auth/verify'
+    ME: '/api/auth/me',
+    REFRESH_TOKEN: '/api/auth/refresh-token',
+    REGISTER: '/api/auth/register'
   },
   SCHEDULE: {
     GET: '/api/schedule',
@@ -91,8 +101,30 @@ export const API_ENDPOINTS = {
 } as const;
 
 export const USER_ROLES = {
-  ADMIN: 'Admin',
-  USER: 'User'
+  ADMIN: 'admin',
+  USER: 'user'
 } as const;
 
 export type UserRole = typeof USER_ROLES[keyof typeof USER_ROLES];
+
+// Auth request/response types
+export interface SendCodeRequest {
+  email: string;
+}
+
+export interface VerifyCodeRequest {
+  email: string;
+  code: string;
+}
+
+export interface RegisterRequest {
+  email: string;
+  name: string;
+  timezone?: string;
+}
+
+export interface AuthResponse {
+  user: User;
+  token: string;
+  expiresIn: number;
+}

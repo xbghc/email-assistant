@@ -32,15 +32,18 @@
                 </tr>
                 <tr v-else v-for="user in users" :key="user.id">
                   <td>{{ user.id }}</td>
-                  <td>{{ user.username }}</td>
+                  <td>{{ user.name }}</td>
                   <td>{{ user.email }}</td>
                   <td>
-                    <span class="status-badge" :class="user.status">
-                      {{ getStatusText(user.status) }}
+                    <span 
+                      class="status-badge" 
+                      :class="getActiveStatusInfo(user.isActive).class"
+                    >
+                      {{ getActiveStatusInfo(user.isActive).text }}
                     </span>
                   </td>
                   <td>{{ user.role }}</td>
-                  <td>{{ formatDate(user.created_at) }}</td>
+                  <td>{{ formatDate(user.createdAt) }}</td>
                   <td>
                     <div class="action-buttons">
                       <button class="btn btn-small btn-outline" @click="editUser(user)">
@@ -65,7 +68,7 @@
         <div class="form-group">
           <label for="user-name">用户姓名</label>
           <input 
-            v-model="newUser.username"
+            v-model="newUser.name"
             type="text" 
             id="user-name" 
             class="form-input" 
@@ -91,7 +94,7 @@
         </div>
         <div class="form-group">
           <label for="user-timezone">时区</label>
-          <select v-model="newUser.timezone" id="user-timezone" class="form-select">
+          <select v-if="newUser.config" v-model="newUser.config.schedule.timezone" id="user-timezone" class="form-select">
             <option value="Asia/Shanghai">亚洲/上海</option>
             <option value="America/New_York">美国/纽约</option>
             <option value="Europe/London">欧洲/伦敦</option>
@@ -116,26 +119,35 @@ import Layout from '@/components/Layout.vue';
 import Modal from '@/components/Modal.vue';
 import { apiClient } from '@/utils/api';
 import type { User } from '@email-assistant/shared';
+import { useNotifications } from '@/composables/useNotifications';
 
+const { addNotification } = useNotifications();
 const users = ref<User[]>([]);
 const isLoading = ref(false);
 const isSubmitting = ref(false);
 const showAddUserModal = ref(false);
 
-const newUser = reactive({
-  username: '',
+const createInitialNewUser = (): Partial<User> => ({
+  name: '',
   email: '',
-  role: 'User' as 'User' | 'Admin',
-  timezone: 'Asia/Shanghai'
+  role: 'user',
+  config: {
+    schedule: {
+      morningReminderTime: '09:00',
+      eveningReminderTime: '18:00',
+      timezone: 'Asia/Shanghai'
+    },
+    language: 'zh'
+  }
 });
 
-const getStatusText = (status: string) => {
-  const statusMap: Record<string, string> = {
-    active: '活跃',
-    inactive: '非活跃',
-    suspended: '已暂停'
-  };
-  return statusMap[status] || status;
+const newUser = reactive<Partial<User>>(createInitialNewUser());
+
+const getActiveStatusInfo = (isActive: boolean) => {
+  if (isActive) {
+    return { text: '活跃', class: 'active' };
+  }
+  return { text: '非活跃', class: 'inactive' };
 };
 
 const formatDate = (dateString: string) => {
@@ -148,9 +160,11 @@ const loadUsers = async () => {
     const response = await apiClient.getUsers();
     if (response.success && response.data) {
       users.value = response.data;
+    } else {
+      addNotification(response.error || '加载用户列表失败', 'error');
     }
-  } catch (error) {
-    console.error('Failed to load users:', error);
+  } catch {
+    addNotification('网络错��，无法加载用户', 'error');
   } finally {
     isLoading.value = false;
   }
@@ -163,17 +177,15 @@ const addUser = async () => {
   try {
     const response = await apiClient.createUser(newUser);
     if (response.success) {
+      addNotification('用户添加成功', 'success');
       showAddUserModal.value = false;
-      Object.assign(newUser, {
-        username: '',
-        email: '',
-        role: 'User' as 'User' | 'Admin',
-        timezone: 'Asia/Shanghai'
-      });
+      Object.assign(newUser, createInitialNewUser());
       await loadUsers();
+    } else {
+      addNotification(response.error || '添加用户失败', 'error');
     }
-  } catch (error) {
-    console.error('Failed to add user:', error);
+  } catch {
+    addNotification('网络错误，无法添加用户', 'error');
   } finally {
     isSubmitting.value = false;
   }
@@ -181,21 +193,24 @@ const addUser = async () => {
 
 const editUser = (user: User) => {
   // TODO: 实现编辑用户功能
-  console.log('Edit user:', user);
+  addNotification(`编辑功能待实现: ${user.name}`, 'info');
 };
 
 const deleteUser = async (user: User) => {
-  if (!confirm(`确定要删除用户 ${user.username} 吗？`)) {
+  if (!confirm(`确定要删除用户 ${user.name} (${user.email}) 吗？`)) {
     return;
   }
   
   try {
     const response = await apiClient.deleteUser(user.id);
     if (response.success) {
+      addNotification('用户删除成功', 'success');
       await loadUsers();
+    } else {
+      addNotification(response.error || '删除用户失败', 'error');
     }
-  } catch (error) {
-    console.error('Failed to delete user:', error);
+  } catch {
+    addNotification('网络错误，无法删除用户', 'error');
   }
 };
 

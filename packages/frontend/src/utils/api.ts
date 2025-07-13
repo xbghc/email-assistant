@@ -1,4 +1,5 @@
-import type { ApiResponse, User, SystemHealth } from '@email-assistant/shared';
+import type { ApiResponse, User, SystemHealth, AuthResponse, SendCodeRequest, VerifyCodeRequest } from '@email-assistant/shared';
+import type { SystemStatus, LogEntry, Report } from '../types';
 
 class ApiClient {
   private baseURL: string;
@@ -24,29 +25,33 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${this.token}`;
     }
 
-    try {
-      const response = await fetch(url, {
-        ...options,
-        headers,
-      });
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('API request failed:', error);
-      throw error;
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
     }
+
+    const data = await response.json();
+    return data;
   }
 
   // 认证相关
-  async login(email: string, password: string): Promise<ApiResponse<{ token: string; user: User }>> {
-    const response = await this.request<{ token: string; user: User }>('/api/auth/login', {
+  async sendCode(email: string): Promise<ApiResponse<void>> {
+    const request: SendCodeRequest = { email };
+    return this.request<void>('/api/auth/send-code', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify(request),
+    });
+  }
+
+  async verifyCode(email: string, code: string): Promise<ApiResponse<AuthResponse>> {
+    const request: VerifyCodeRequest = { email, code };
+    const response = await this.request<AuthResponse>('/api/auth/verify-code', {
+      method: 'POST',
+      body: JSON.stringify(request),
     });
 
     if (response.success && response.data) {
@@ -92,8 +97,8 @@ class ApiClient {
     return this.request<SystemHealth>('/api/health');
   }
 
-  async getDashboardStats(): Promise<ApiResponse<any>> {
-    return this.request<any>('/api/dashboard/stats');
+  async getDashboardStats(): Promise<ApiResponse<SystemStatus>> {
+    return this.request<SystemStatus>('/api/dashboard/stats');
   }
 
   // 日志管理
@@ -103,7 +108,7 @@ class ApiClient {
     search?: string;
     startDate?: string;
     endDate?: string;
-  }): Promise<ApiResponse<any[]>> {
+  }): Promise<ApiResponse<LogEntry[]>> {
     const searchParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -114,11 +119,11 @@ class ApiClient {
     }
 
     const endpoint = `/api/logs${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
-    return this.request<any[]>(endpoint);
+    return this.request<LogEntry[]>(endpoint);
   }
 
-  async getLogStats(hours: number = 24): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/logs/stats?hours=${hours}`);
+  async getLogStats(hours: number = 24): Promise<ApiResponse<Record<string, number>>> {
+    return this.request<Record<string, number>>(`/api/logs/stats?hours=${hours}`);
   }
 
   // 报告管理
@@ -126,7 +131,7 @@ class ApiClient {
     type?: string;
     userId?: string;
     limit?: number;
-  }): Promise<ApiResponse<any[]>> {
+  }): Promise<ApiResponse<Report[]>> {
     const searchParams = new URLSearchParams();
     if (params) {
       Object.entries(params).forEach(([key, value]) => {
@@ -137,19 +142,19 @@ class ApiClient {
     }
 
     const endpoint = `/api/reports${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
-    return this.request<any[]>(endpoint);
+    return this.request<Report[]>(endpoint);
   }
 
-  async getReport(reportId: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/reports/${reportId}`);
+  async getReport(reportId: string): Promise<ApiResponse<Report>> {
+    return this.request<Report>(`/api/reports/${reportId}`);
   }
 
   // 设置管理
-  async getSettings(): Promise<ApiResponse<any>> {
-    return this.request<any>('/api/settings');
+  async getSettings(): Promise<ApiResponse<Record<string, unknown>>> {
+    return this.request<Record<string, unknown>>('/api/settings');
   }
 
-  async updateSettings(settings: any): Promise<ApiResponse<void>> {
+  async updateSettings(settings: Record<string, unknown>): Promise<ApiResponse<void>> {
     return this.request<void>('/api/settings', {
       method: 'PUT',
       body: JSON.stringify(settings),
@@ -157,9 +162,9 @@ class ApiClient {
   }
 
   // 提醒状态
-  async getReminderStatus(userId?: string): Promise<ApiResponse<any>> {
+  async getReminderStatus(userId?: string): Promise<ApiResponse<Record<string, unknown>>> {
     const endpoint = userId ? `/api/reminder-status?userId=${userId}` : '/api/reminder-status';
-    return this.request<any>(endpoint);
+    return this.request<Record<string, unknown>>(endpoint);
   }
 
   async resetReminderStatus(userId?: string): Promise<ApiResponse<void>> {
@@ -170,17 +175,17 @@ class ApiClient {
   }
 
   // 邮件趋势
-  async getEmailTrends(days: number = 7): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/email-trends?days=${days}`);
+  async getEmailTrends(days: number = 7): Promise<ApiResponse<Record<string, unknown>>> {
+    return this.request<Record<string, unknown>>(`/api/email-trends?days=${days}`);
   }
 
   // 性能监控
-  async getPerformanceMetrics(): Promise<ApiResponse<any>> {
-    return this.request<any>('/api/performance/metrics');
+  async getPerformanceMetrics(): Promise<ApiResponse<Record<string, unknown>>> {
+    return this.request<Record<string, unknown>>('/api/performance/metrics');
   }
 
-  async getPerformanceAlerts(): Promise<ApiResponse<any>> {
-    return this.request<any>('/api/performance/alerts');
+  async getPerformanceAlerts(): Promise<ApiResponse<Record<string, unknown>>> {
+    return this.request<Record<string, unknown>>('/api/performance/alerts');
   }
 
   async resolveAlert(alertId: string): Promise<ApiResponse<void>> {

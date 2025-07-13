@@ -4,7 +4,7 @@
       <div class="page-header">
         <h2>系统日志</h2>
         <div class="header-controls">
-          <select v-model="selectedLogLevel" @change="filterLogs" class="form-select">
+          <select v-model="selectedLogLevel" class="form-select">
             <option value="all">所有级别</option>
             <option value="error">错误</option>
             <option value="warn">警告</option>
@@ -16,7 +16,7 @@
           </button>
         </div>
       </div>
-      
+
       <div class="card">
         <div class="card-content">
           <div class="logs-viewer">
@@ -27,12 +27,7 @@
               暂无日志数据
             </div>
             <div v-else class="logs-list">
-              <div 
-                v-for="log in filteredLogs" 
-                :key="log.id"
-                class="log-entry"
-                :class="log.level"
-              >
+              <div v-for="log in filteredLogs" :key="log.id" class="log-entry" :class="log.level">
                 <div class="log-header">
                   <span class="log-level" :class="log.level">
                     {{ getLevelText(log.level) }}
@@ -65,7 +60,7 @@ interface LogEntry {
   level: 'error' | 'warn' | 'info' | 'debug';
   message: string;
   timestamp: string;
-  meta?: any;
+  meta?: unknown;
 }
 
 const logs = ref<LogEntry[]>([]);
@@ -100,11 +95,6 @@ const formatTimestamp = (timestamp: string) => {
   });
 };
 
-const filterLogs = () => {
-  // 过滤逻辑已经在computed中实现
-  console.log('Filter logs by level:', selectedLogLevel.value);
-};
-
 const refreshLogs = async () => {
   await loadLogs();
 };
@@ -114,7 +104,7 @@ const loadLogs = async () => {
   try {
     // 模拟API调用
     await new Promise(resolve => setTimeout(resolve, 1000));
-    
+
     // 模拟日志数据
     logs.value = [
       {
@@ -135,10 +125,10 @@ const loadLogs = async () => {
         level: 'error',
         message: 'SMTP连接失败',
         timestamp: new Date(Date.now() - 180000).toISOString(),
-        meta: { 
+        meta: {
           error: 'Connection refused',
           host: 'smtp.gmail.com',
-          port: 587 
+          port: 587
         }
       },
       {
@@ -156,8 +146,8 @@ const loadLogs = async () => {
         meta: { recipients: 5, template: 'morning_reminder' }
       }
     ];
-  } catch (error) {
-    console.error('Failed to load logs:', error);
+  } catch {
+    // 在这里可以添加用户友好的错误通知
   } finally {
     isLoading.value = false;
   }
@@ -165,7 +155,7 @@ const loadLogs = async () => {
 
 onMounted(async () => {
   await loadLogs();
-  
+
   // 初始化 Feather icons
   await nextTick();
   if (typeof window !== 'undefined' && window.feather) {

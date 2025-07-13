@@ -1,8 +1,9 @@
 import express, { Router } from 'express';
 import { AuthService } from '../services/user/authService';
 import UserService from '../services/user/userService';
+import EmailService from '../services/email/emailService';
 import { authenticate, rateLimit } from '../middleware/authMiddleware';
-import { LoginRequest, RegisterRequest } from '../models/User';
+import { SendCodeRequest, VerifyCodeRequest, RegisterRequest } from '../models/User';
 import logger from '../utils/logger';
 
 const router: Router = express.Router();
@@ -10,14 +11,19 @@ const router: Router = express.Router();
 // 初始化服务
 let authService: AuthService;
 let userService: UserService;
+let emailService: EmailService;
 
 const initServices = async () => {
   if (!userService) {
     userService = new UserService();
     await userService.initialize();
   }
+  if (!emailService) {
+    emailService = new EmailService();
+    await emailService.initialize();
+  }
   if (!authService) {
-    authService = new AuthService(userService);
+    authService = new AuthService(userService, emailService);
   }
 };
 
@@ -29,36 +35,13 @@ router.post('/register', rateLimit(3, 60 * 60 * 1000), async (req, res) => {
   try {
     await initServices();
     
-    const { email, password, name, timezone }: RegisterRequest = req.body;
+    const { email, name, timezone }: RegisterRequest = req.body;
 
     // 验证输入
-    if (!email || !password || !name) {
+    if (!email || !name) {
       res.status(400).json({
         success: false,
-        error: 'Email, password, and name are required'
-      });
-      return;
-    }
-
-    // 强化密码策略
-    if (password.length < 12) {
-      res.status(400).json({
-        success: false,
-        error: 'Password must be at least 12 characters long'
-      });
-      return;
-    }
-    
-    // 检查密码复杂性
-    const hasUpperCase = /[A-Z]/.test(password);
-    const hasLowerCase = /[a-z]/.test(password);
-    const hasNumbers = /\d/.test(password);
-    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-    
-    if (!hasUpperCase || !hasLowerCase || !hasNumbers || !hasSpecialChar) {
-      res.status(400).json({
-        success: false,
-        error: 'Password must contain uppercase, lowercase, numbers, and special characters'
+        error: 'Email and name are required'
       });
       return;
     }
@@ -73,9 +56,8 @@ router.post('/register', rateLimit(3, 60 * 60 * 1000), async (req, res) => {
       return;
     }
 
-    const authResponse = await authService.register({
+    const user = await authService.register({
       email,
-      password,
       name,
       timezone: timezone || 'Asia/Shanghai'
     });
@@ -85,7 +67,12 @@ router.post('/register', rateLimit(3, 60 * 60 * 1000), async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'User registered successfully',
-      data: authResponse
+      data: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role
+      }
     });
   } catch (error) {
     logger.error('Registration error:', error);
@@ -107,38 +94,48 @@ router.post('/register', rateLimit(3, 60 * 60 * 1000), async (req, res) => {
   }
 });
 
-// 用户登录（严格限制）
-router.post('/login', rateLimit(5, 15 * 60 * 1000), async (req, res) => {
+// 发送验证码（严格限制）
+router.post('/send-code', rateLimit(5, 15 * 60 * 1000), async (req, res) => {
   try {
     await initServices();
     
-    const { email, password }: LoginRequest = req.body;
+    const { email }: SendCodeRequest = req.body;
 
     // 验证输入
-    if (!email || !password) {
+    if (!email) {
       res.status(400).json({
         success: false,
-        error: 'Email and password are required'
+        error: 'Email is required'
       });
       return;
     }
 
-    const authResponse = await authService.login({ email, password });
+    // 检查邮箱格式
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      res.status(400).json({
+        success: false,
+        error: 'Invalid email format'
+      });
+      return;
+    }
 
-    logger.info(`User logged in successfully: ${email}`);
+    await authService.sendVerificationCode({ email });
+
+    logger.info(`Verification code requested for: ${email}`);
 
     res.json({
       success: true,
-      message: 'Login successful',
-      data: authResponse
+      message: 'Verification code sent successfully'
     });
   } catch (error) {
-    logger.error('Login error:', error);
+    logger.error('Send code error:', error);
     
     if (error instanceof Error) {
-      if (error.message.includes('Invalid email or password') || 
-          error.message.includes('Account is deactivated')) {
-        res.status(401).json({
+      if (error.message.includes('User not found') || 
+          error.message.includes('Account is deactivated') ||
+          error.message.includes('Please wait')) {
+        res.status(400).json({
           success: false,
           error: error.message
         });
@@ -148,7 +145,57 @@ router.post('/login', rateLimit(5, 15 * 60 * 1000), async (req, res) => {
 
     res.status(500).json({
       success: false,
-      error: 'Login failed'
+      error: 'Failed to send verification code'
+    });
+  }
+});
+
+// 验证码登录（严格限制）
+router.post('/verify-code', rateLimit(5, 15 * 60 * 1000), async (req, res) => {
+  try {
+    await initServices();
+    
+    const { email, code }: VerifyCodeRequest = req.body;
+
+    // 验证输入
+    if (!email || !code) {
+      res.status(400).json({
+        success: false,
+        error: 'Email and verification code are required'
+      });
+      return;
+    }
+
+    const authResponse = await authService.verifyCodeAndLogin({ email, code });
+
+    logger.info(`User logged in successfully with code: ${email}`);
+
+    res.json({
+      success: true,
+      message: 'Login successful',
+      data: authResponse
+    });
+  } catch (error) {
+    logger.error('Verify code error:', error);
+    
+    if (error instanceof Error) {
+      if (error.message.includes('User not found') || 
+          error.message.includes('Account is deactivated') ||
+          error.message.includes('verification code') ||
+          error.message.includes('expired') ||
+          error.message.includes('Invalid') ||
+          error.message.includes('Too many')) {
+        res.status(400).json({
+          success: false,
+          error: error.message
+        });
+        return;
+      }
+    }
+
+    res.status(500).json({
+      success: false,
+      error: 'Verification failed'
     });
   }
 });
@@ -192,188 +239,6 @@ router.post('/refresh-token', async (req, res) => {
   }
 });
 
-// 修改密码（需要认证）
-router.post('/change-password', authenticate, async (req, res) => {
-  try {
-    await initServices();
-    
-    const { currentPassword, newPassword } = req.body;
-    const userId = req.userId;
-    if (!userId) {
-      res.status(401).json({ error: 'User not authenticated' });
-      return;
-    }
-
-    // 验证输入
-    if (!currentPassword || !newPassword) {
-      res.status(400).json({
-        success: false,
-        error: 'Current password and new password are required'
-      });
-      return;
-    }
-
-    // 强化密码策略
-    if (newPassword.length < 12) {
-      res.status(400).json({
-        success: false,
-        error: 'New password must be at least 12 characters long'
-      });
-      return;
-    }
-    
-    // 检查密码复杂性
-    const hasUpperCase = /[A-Z]/.test(newPassword);
-    const hasLowerCase = /[a-z]/.test(newPassword);
-    const hasNumbers = /\d/.test(newPassword);
-    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
-    
-    if (!hasUpperCase || !hasLowerCase || !hasNumbers || !hasSpecialChar) {
-      res.status(400).json({
-        success: false,
-        error: 'New password must contain uppercase, lowercase, numbers, and special characters'
-      });
-      return;
-    }
-
-    await authService.changePassword(userId, currentPassword, newPassword);
-
-    logger.info(`Password changed for user: ${req.user?.email || 'unknown'}`);
-
-    res.json({
-      success: true,
-      message: 'Password changed successfully'
-    });
-  } catch (error) {
-    logger.error('Change password error:', error);
-    
-    if (error instanceof Error) {
-      if (error.message === 'Current password is incorrect') {
-        res.status(400).json({
-          success: false,
-          error: error.message
-        });
-        return;
-      }
-    }
-
-    res.status(500).json({
-      success: false,
-      error: 'Password change failed'
-    });
-  }
-});
-
-// 忘记密码 - 生成重置令牌（严格限制）
-router.post('/forgot-password', rateLimit(3, 60 * 60 * 1000), async (req, res) => {
-  try {
-    await initServices();
-    
-    const { email } = req.body;
-
-    if (!email) {
-      res.status(400).json({
-        success: false,
-        error: 'Email is required'
-      });
-      return;
-    }
-
-    const resetToken = await authService.generatePasswordResetToken(email);
-
-    // 为了安全，总是返回成功消息
-    res.json({
-      success: true,
-      message: 'If the email exists, a password reset link has been sent',
-      // 出于安全考虑，不再暴露重置令牌
-    });
-
-    if (resetToken) {
-      logger.info(`Password reset token generated for email: ${email}`);
-    }
-  } catch (error) {
-    logger.error('Forgot password error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Password reset request failed'
-    });
-  }
-});
-
-// 重置密码
-router.post('/reset-password', async (req, res) => {
-  try {
-    await initServices();
-    
-    const { token, newPassword } = req.body;
-
-    if (!token || !newPassword) {
-      res.status(400).json({
-        success: false,
-        error: 'Reset token and new password are required'
-      });
-      return;
-    }
-
-    // 强化密码策略
-    if (newPassword.length < 12) {
-      res.status(400).json({
-        success: false,
-        error: 'New password must be at least 12 characters long'
-      });
-      return;
-    }
-    
-    // 检查密码复杂性
-    const hasUpperCase = /[A-Z]/.test(newPassword);
-    const hasLowerCase = /[a-z]/.test(newPassword);
-    const hasNumbers = /\d/.test(newPassword);
-    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(newPassword);
-    
-    if (!hasUpperCase || !hasLowerCase || !hasNumbers || !hasSpecialChar) {
-      res.status(400).json({
-        success: false,
-        error: 'New password must contain uppercase, lowercase, numbers, and special characters'
-      });
-      return;
-    }
-
-    const success = await authService.resetPassword(token, newPassword);
-
-    if (!success) {
-      res.status(400).json({
-        success: false,
-        error: 'Invalid or expired reset token'
-      });
-      return;
-    }
-
-    logger.info('Password reset completed successfully');
-
-    res.json({
-      success: true,
-      message: 'Password reset successfully'
-    });
-  } catch (error) {
-    logger.error('Reset password error:', error);
-    
-    if (error instanceof Error) {
-      if (error.message.includes('Invalid reset token') || 
-          error.message.includes('Reset token has expired')) {
-        res.status(400).json({
-          success: false,
-          error: error.message
-        });
-        return;
-      }
-    }
-
-    res.status(500).json({
-      success: false,
-      error: 'Password reset failed'
-    });
-  }
-});
 
 // 获取当前用户信息（需要认证）
 router.get('/me', authenticate, async (req, res) => {
@@ -395,13 +260,11 @@ router.get('/me', authenticate, async (req, res) => {
       return;
     }
 
-    // 返回用户信息（不包含密码）
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    const { password: _, ...safeUser } = user;
+    // 返回用户信息
 
     res.json({
       success: true,
-      data: safeUser
+      data: user
     });
   } catch (error) {
     logger.error('Get user info error:', error);
@@ -446,75 +309,5 @@ router.get('/validate-token', authenticate, async (req, res) => {
   });
 });
 
-// 初始化系统（创建第一个管理员用户）
-router.post('/init', async (req, res) => {
-  try {
-    await initServices();
-    
-    // 检查是否已有用户
-    const hasUsers = await authService.hasUsers();
-    if (hasUsers) {
-      res.status(400).json({
-        success: false,
-        error: 'System is already initialized'
-      });
-      return;
-    }
-
-    const { email, password, name } = req.body;
-
-    if (!email || !password || !name) {
-      res.status(400).json({
-        success: false,
-        error: 'Email, password, and name are required'
-      });
-      return;
-    }
-
-    // 强化密码策略
-    if (password.length < 12) {
-      res.status(400).json({
-        success: false,
-        error: 'Password must be at least 12 characters long'
-      });
-      return;
-    }
-    
-    // 检查密码复杂性
-    const hasUpperCase = /[A-Z]/.test(password);
-    const hasLowerCase = /[a-z]/.test(password);
-    const hasNumbers = /\d/.test(password);
-    const hasSpecialChar = /[!@#$%^&*(),.?":{}|<>]/.test(password);
-    
-    if (!hasUpperCase || !hasLowerCase || !hasNumbers || !hasSpecialChar) {
-      res.status(400).json({
-        success: false,
-        error: 'Password must contain uppercase, lowercase, numbers, and special characters'
-      });
-      return;
-    }
-
-    const adminUser = await authService.createAdminUser(email, password, name);
-
-    logger.info(`System initialized with admin user: ${email}`);
-
-    res.status(201).json({
-      success: true,
-      message: 'System initialized successfully',
-      data: {
-        id: adminUser.id,
-        email: adminUser.email,
-        name: adminUser.name,
-        role: adminUser.role
-      }
-    });
-  } catch (error) {
-    logger.error('System initialization error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'System initialization failed'
-    });
-  }
-});
 
 export default router;

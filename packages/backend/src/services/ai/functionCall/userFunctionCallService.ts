@@ -5,6 +5,83 @@ import ContextService from '../../reports/contextService';
 import { FunctionCallResult } from './functionCallService';
 import { User } from '../../../models/User';
 
+//<editor-fold desc="Type Definitions">
+// Type guards to check for specific argument shapes
+interface UpdateScheduleArgs {
+  morningTime?: string;
+  eveningTime?: string;
+}
+
+function isUpdateScheduleArgs(args: unknown): args is UpdateScheduleArgs {
+  const a = args as UpdateScheduleArgs;
+  return typeof a === 'object' && a !== null && (typeof a.morningTime === 'string' || typeof a.eveningTime === 'string');
+}
+
+interface MarkEmailsReadArgs {
+  markAll?: boolean;
+  messageIds?: string[];
+  fromSender?: string;
+}
+
+function isMarkEmailsReadArgs(args: unknown): args is MarkEmailsReadArgs {
+    const a = args as MarkEmailsReadArgs;
+    return typeof a === 'object' && a !== null && (typeof a.markAll === 'boolean' || Array.isArray(a.messageIds) || typeof a.fromSender === 'string');
+}
+
+interface StopServiceArgs {
+  confirmStop: boolean;
+  reason?: string;
+}
+
+function isStopServiceArgs(args: unknown): args is StopServiceArgs {
+    const a = args as StopServiceArgs;
+    return typeof a === 'object' && a !== null && typeof a.confirmStop === 'boolean';
+}
+
+interface RemoveAccountArgs {
+  confirmRemoval: boolean;
+  finalConfirmation: string;
+  reason?: string;
+}
+
+function isRemoveAccountArgs(args: unknown): args is RemoveAccountArgs {
+    const a = args as RemoveAccountArgs;
+    return typeof a === 'object' && a !== null && typeof a.confirmRemoval === 'boolean' && typeof a.finalConfirmation === 'string';
+}
+
+interface GetHelpArgs {
+  topic?: string;
+}
+
+function isGetHelpArgs(args: unknown): args is GetHelpArgs {
+    const a = args as GetHelpArgs;
+    return typeof a === 'object' && a !== null && (typeof a.topic === 'string' || typeof a.topic === 'undefined');
+}
+
+interface AdminAddUserArgs {
+    email: string;
+    name: string;
+    morningTime?: string;
+    eveningTime?: string;
+}
+
+function isAdminAddUserArgs(args: unknown): args is AdminAddUserArgs {
+    const a = args as AdminAddUserArgs;
+    return typeof a === 'object' && a !== null && typeof a.email === 'string' && typeof a.name === 'string';
+}
+
+interface AdminUpdateUserArgs {
+    email: string;
+    field: string;
+    value: string;
+}
+
+function isAdminUpdateUserArgs(args: unknown): args is AdminUpdateUserArgs {
+    const a = args as AdminUpdateUserArgs;
+    return typeof a === 'object' && a !== null && typeof a.email === 'string' && typeof a.field === 'string' && typeof a.value === 'string';
+}
+//</editor-fold>
+
 /**
  * 用户专属的Function Call服务
  * 确保每个用户只能操作自己的数据，提供最高级别的数据安全
@@ -28,29 +105,29 @@ export class UserFunctionCallService {
    */
   async handleUserFunction(
     functionName: string, 
-    functionArgs: any, 
+    functionArgs: unknown,
     user: User
   ): Promise<FunctionCallResult> {
     logger.info(`User ${user.email} calling function: ${functionName}`, functionArgs);
 
     switch (functionName) {
       case 'update_my_schedule_times':
-        return await this.updateMyScheduleTimes(functionArgs, user);
+        return isUpdateScheduleArgs(functionArgs) ? this.updateMyScheduleTimes(functionArgs, user) : this.invalidArgs(functionName);
       
       case 'mark_my_emails_as_read':
-        return await this.markMyEmailsAsRead(functionArgs, user);
+        return isMarkEmailsReadArgs(functionArgs) ? this.markMyEmailsAsRead(functionArgs, user) : this.invalidArgs(functionName);
       
       case 'get_my_config':
-        return await this.getMyConfig(user);
+        return this.getMyConfig(user);
       
       case 'stop_my_service':
-        return await this.stopMyService(functionArgs, user);
+        return isStopServiceArgs(functionArgs) ? this.stopMyService(functionArgs, user) : this.invalidArgs(functionName);
       
       case 'remove_my_account':
-        return await this.removeMyAccount(functionArgs, user);
+        return isRemoveAccountArgs(functionArgs) ? this.removeMyAccount(functionArgs, user) : this.invalidArgs(functionName);
       
       case 'get_help':
-        return await this.getHelp(functionArgs);
+        return isGetHelpArgs(functionArgs) ? this.getHelp(functionArgs) : this.invalidArgs(functionName);
       
       default:
         logger.warn(`Unknown function called by user ${user.email}: ${functionName}`);
@@ -61,11 +138,18 @@ export class UserFunctionCallService {
     }
   }
 
+  private invalidArgs(functionName: string): Promise<FunctionCallResult> {
+      return Promise.resolve({
+          success: false,
+          message: `调用功能 ${functionName} 时提供了无效的参数。`
+      });
+  }
+
   /**
    * 用户修改自己的提醒时间
    */
   private async updateMyScheduleTimes(
-    args: { morningTime?: string; eveningTime?: string }, 
+    args: UpdateScheduleArgs,
     user: User
   ): Promise<FunctionCallResult> {
     try {
@@ -128,7 +212,7 @@ export class UserFunctionCallService {
    * 用户标记自己的邮件为已读
    */
   private async markMyEmailsAsRead(
-    args: { markAll?: boolean; messageIds?: string[]; fromSender?: string }, 
+    args: MarkEmailsReadArgs,
     user: User
   ): Promise<FunctionCallResult> {
     try {
@@ -221,7 +305,7 @@ export class UserFunctionCallService {
    * 用户停止自己的服务
    */
   private async stopMyService(
-    args: { confirmStop: boolean; reason?: string }, 
+    args: StopServiceArgs,
     user: User
   ): Promise<FunctionCallResult> {
     try {
@@ -306,7 +390,7 @@ export class UserFunctionCallService {
    * 用户移除自己的账户（完全删除）
    */
   private async removeMyAccount(
-    args: { confirmRemoval: boolean; finalConfirmation: string; reason?: string }, 
+    args: RemoveAccountArgs,
     user: User
   ): Promise<FunctionCallResult> {
     try {
@@ -496,7 +580,7 @@ ${reason ? `"${reason}"` : '用户未提供移除原因'}
   /**
    * 获取帮助信息
    */
-  private async getHelp(args: { topic?: string }): Promise<FunctionCallResult> {
+  private async getHelp(args: GetHelpArgs): Promise<FunctionCallResult> {
     try {
       const topic = args.topic || 'all';
       
@@ -691,19 +775,19 @@ export class AdminFunctionCallService {
 
   async handleAdminFunction(
     functionName: string, 
-    functionArgs: any
+    functionArgs: unknown
   ): Promise<FunctionCallResult> {
     logger.info(`Admin calling function: ${functionName}`, functionArgs);
 
     switch (functionName) {
       case 'admin_add_user':
-        return await this.addUser(functionArgs);
+        return isAdminAddUserArgs(functionArgs) ? this.addUser(functionArgs) : this.invalidArgs(functionName);
       
       case 'admin_list_users':
-        return await this.listUsers();
+        return this.listUsers();
       
       case 'admin_update_user':
-        return await this.updateUser(functionArgs);
+        return isAdminUpdateUserArgs(functionArgs) ? this.updateUser(functionArgs) : this.invalidArgs(functionName);
       
       default:
         return {
@@ -713,12 +797,14 @@ export class AdminFunctionCallService {
     }
   }
 
-  private async addUser(args: { 
-    email: string; 
-    name: string; 
-    morningTime?: string; 
-    eveningTime?: string 
-  }): Promise<FunctionCallResult> {
+  private invalidArgs(functionName: string): Promise<FunctionCallResult> {
+      return Promise.resolve({
+          success: false,
+          message: `调用功能 ${functionName} 时提供了无效的参数。`
+      });
+  }
+
+  private async addUser(args: AdminAddUserArgs): Promise<FunctionCallResult> {
     // 检查用户是否已存在
     if (this.userService.getUserByEmail(args.email)) {
       return {
@@ -770,11 +856,7 @@ export class AdminFunctionCallService {
     };
   }
 
-  private async updateUser(args: { 
-    email: string; 
-    field: string; 
-    value: string 
-  }): Promise<FunctionCallResult> {
+  private async updateUser(args: AdminUpdateUserArgs): Promise<FunctionCallResult> {
     const user = this.userService.getUserByEmail(args.email);
     if (!user) {
       return {

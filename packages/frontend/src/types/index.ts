@@ -1,5 +1,5 @@
 // API响应类型
-export interface ApiResponse<T = any> {
+export interface ApiResponse<T = unknown> {
   success: boolean;
   data?: T;
   error?: string;
@@ -38,7 +38,10 @@ export interface SystemStatus {
       heapUsed: number;
       heapTotal: number;
     };
-    cpuUsage: any;
+    cpuUsage: {
+      user: number;
+      system: number;
+    };
     uptime: number;
     version: string;
     emailsToday: number;
@@ -54,9 +57,9 @@ export interface AppState {
   currentPage: string;
   data: {
     users: User[];
-    systemStats: any;
-    logs: any[];
-    settings: any;
+    systemStats: SystemStatus;
+    logs: LogEntry[];
+    settings: Settings;
   };
   auth: {
     token: string | null;
@@ -69,7 +72,7 @@ export interface LogEntry {
   level: 'info' | 'error' | 'warn' | 'debug';
   timestamp: string;
   message: string;
-  meta?: any;
+  meta?: Record<string, unknown>;
 }
 
 // 报告类型
@@ -110,5 +113,5 @@ export interface Settings {
     host: string;
     logLevel: string;
   };
-  features: any;
+  features: Record<string, boolean>;
 }

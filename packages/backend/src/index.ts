@@ -321,7 +321,7 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
-startServer().catch((error: any) => {
+startServer().catch((error: unknown) => {
   logger.error('Failed to start application:', error);
   process.exit(1);
 });

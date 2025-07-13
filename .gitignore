@@ -79,4 +79,7 @@ Thumbs.db
 # Temporary test files
 test-*.js
 debug-*.js
-final-*.js
+final-*.
+
+# TypeScript build info
+*.tsbuildinfo

@@ -3,6 +3,11 @@ import path from 'path';
 import { DailySchedule, ScheduleEvent } from '../../models/index';
 import logger from '../../utils/logger';
 
+// Helper to check for Node.js filesystem errors
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && 'code' in error;
+}
+
 class ScheduleService {
   private scheduleFile: string;
 
@@ -34,8 +39,8 @@ class ScheduleService {
       const schedules: DailySchedule[] = JSON.parse(data);
       
       return schedules.find(schedule => schedule.date === date) || null;
-    } catch (error) {
-      if ((error as any).code === 'ENOENT') {
+    } catch (error: unknown) {
+      if (isNodeError(error) && error.code === 'ENOENT') {
         return null;
       }
       logger.error('Failed to load schedule:', error);
@@ -50,8 +55,8 @@ class ScheduleService {
       try {
         const data = await fs.readFile(this.scheduleFile, 'utf-8');
         schedules = JSON.parse(data);
-      } catch (error) {
-        if ((error as any).code !== 'ENOENT') {
+      } catch (error: unknown) {
+        if (!(isNodeError(error) && error.code === 'ENOENT')) {
           throw error;
         }
       }
@@ -118,8 +123,8 @@ class ScheduleService {
       return schedules
         .filter(schedule => schedule.date >= today && schedule.date <= endDate)
         .sort((a, b) => a.date.localeCompare(b.date));
-    } catch (error) {
-      if ((error as any).code === 'ENOENT') {
+    } catch (error: unknown) {
+      if (isNodeError(error) && error.code === 'ENOENT') {
         return [];
       }
       logger.error('Failed to load upcoming events:', error);

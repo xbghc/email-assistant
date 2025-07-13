@@ -302,12 +302,9 @@ const saveSettings = async () => {
     // TODO: 实际的API调用
     // await apiClient.updateSettings(settings);
     
-    console.log('Settings saved:', settings);
-    
     // 显示成功消息
     alert('配置保存成功！');
-  } catch (error) {
-    console.error('Failed to save settings:', error);
+  } catch {
     alert('配置保存失败，请稍后重试。');
   } finally {
     isSaving.value = false;
@@ -322,9 +319,8 @@ const loadSettings = async () => {
     //   Object.assign(settings, response.data);
     // }
     
-    console.log('Settings loaded');
-  } catch (error) {
-    console.error('Failed to load settings:', error);
+  } catch {
+    // 可以在这里添加错误通知
   }
 };
 

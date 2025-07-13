@@ -10,12 +10,13 @@
       </div>
 
       <div class="demo-info">
-        <strong>演示说明：</strong><br>
-        管理员账号：请使用系统配置的管理员邮箱地址<br>
-        密码：如果未设置密码，请先通过API注册账号
+        <strong>登录说明：</strong><br>
+        请输入系统注册的邮箱地址，系统将发送验证码到您的邮箱<br>
+        验证码有效期为30分钟
       </div>
 
-      <form @submit.prevent="handleLogin" class="login-form">
+      <!-- 第一步：输入邮箱发送验证码 -->
+      <form v-if="!codeRequest.sent" @submit.prevent="handleSendCode" class="login-form">
         <div class="form-group">
           <label class="form-label" for="email">邮箱地址</label>
           <input 
@@ -23,30 +24,67 @@
             type="email" 
             id="email"
             class="form-input" 
-            placeholder="请输入管理员邮箱"
+            placeholder="请输入已注册的邮箱地址"
             required
             autocomplete="email"
           >
         </div>
 
+        <button type="submit" class="login-button" :disabled="isLoading">
+          <div v-if="isLoading" class="loading-spinner"></div>
+          <i v-else data-feather="send"></i>
+          <span>{{ isLoading ? '发送中...' : '发送验证码' }}</span>
+        </button>
+
+        <div v-if="errorMessage" class="error-message show">
+          {{ errorMessage }}
+        </div>
+      </form>
+
+      <!-- 第二步：输入验证码登录 -->
+      <form v-else @submit.prevent="handleVerifyCode" class="login-form">
         <div class="form-group">
-          <label class="form-label" for="password">密码</label>
+          <label class="form-label">邮箱地址</label>
+          <div class="email-display">{{ loginForm.email }}</div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="code">验证码</label>
           <input 
-            v-model="loginForm.password"
-            type="password" 
-            id="password"
-            class="form-input" 
-            placeholder="请输入密码"
+            v-model="loginForm.code"
+            type="text" 
+            id="code"
+            class="form-input code-input" 
+            placeholder="请输入6位验证码"
             required
-            autocomplete="current-password"
+            maxlength="6"
+            autocomplete="one-time-code"
           >
         </div>
 
-        <button type="submit" class="login-button" :disabled="isLoading">
-          <div v-if="isLoading" class="loading-spinner"></div>
-          <i v-else data-feather="log-in"></i>
-          <span>{{ isLoading ? '登录中...' : '登录' }}</span>
-        </button>
+        <div class="code-info">
+          <p>验证码已发送至您的邮箱，请查收</p>
+          <button 
+            type="button" 
+            class="resend-button" 
+            @click="handleResendCode"
+            :disabled="resendCooldown > 0 || isLoading"
+          >
+            {{ resendCooldown > 0 ? `重新发送 (${resendCooldown}s)` : '重新发送验证码' }}
+          </button>
+        </div>
+
+        <div class="button-group">
+          <button type="button" class="back-button" @click="resetForm">
+            <i data-feather="arrow-left"></i>
+            <span>返回</span>
+          </button>
+          <button type="submit" class="login-button verify-button" :disabled="isLoading">
+            <div v-if="isLoading" class="loading-spinner"></div>
+            <i v-else data-feather="log-in"></i>
+            <span>{{ isLoading ? '验证中...' : '验证登录' }}</span>
+          </button>
+        </div>
 
         <div v-if="errorMessage" class="error-message show">
           {{ errorMessage }}
@@ -61,7 +99,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from 'vue';
+import { ref, reactive, onMounted, onUnmounted } from 'vue';
 import { useRouter } from 'vue-router';
 import { authManager } from '@/utils/auth';
 
@@ -69,15 +107,22 @@ const router = useRouter();
 
 const loginForm = reactive({
   email: '',
-  password: ''
+  code: ''
+});
+
+const codeRequest = reactive({
+  sent: false
 });
 
 const isLoading = ref(false);
 const errorMessage = ref('');
+const resendCooldown = ref(0);
 
-const handleLogin = async () => {
-  if (!loginForm.email || !loginForm.password) {
-    errorMessage.value = '请填写完整的登录信息';
+let cooldownTimer: ReturnType<typeof setTimeout> | null = null;
+
+const handleSendCode = async () => {
+  if (!loginForm.email) {
+    errorMessage.value = '请输入邮箱地址';
     return;
   }
 
@@ -85,20 +130,70 @@ const handleLogin = async () => {
   errorMessage.value = '';
 
   try {
-    const result = await authManager.login(loginForm.email, loginForm.password);
+    const result = await authManager.sendCode(loginForm.email);
+    
+    if (result.success) {
+      codeRequest.sent = true;
+      startCooldown();
+    } else {
+      errorMessage.value = result.error || '发送验证码失败';
+    }
+  } catch {
+    errorMessage.value = '网络错误，请稍后重试';
+  } finally {
+    isLoading.value = false;
+  }
+};
+
+const handleVerifyCode = async () => {
+  if (!loginForm.email || !loginForm.code) {
+    errorMessage.value = '请输入验证码';
+    return;
+  }
+
+  isLoading.value = true;
+  errorMessage.value = '';
+
+  try {
+    const result = await authManager.verifyCode(loginForm.email, loginForm.code);
     
     if (result.success) {
       // 登录成功，路由守卫会自动重定向
       router.push('/dashboard');
     } else {
-      errorMessage.value = result.error || '登录失败，请检查邮箱和密码';
+      errorMessage.value = result.error || '验证码错误，请重试';
     }
-  } catch (error) {
-    console.error('Login error:', error);
+  } catch {
     errorMessage.value = '网络错误，请稍后重试';
   } finally {
     isLoading.value = false;
   }
+};
+
+const handleResendCode = async () => {
+  await handleSendCode();
+};
+
+const resetForm = () => {
+  codeRequest.sent = false;
+  loginForm.code = '';
+  errorMessage.value = '';
+  if (cooldownTimer) {
+    clearInterval(cooldownTimer);
+    cooldownTimer = null;
+  }
+  resendCooldown.value = 0;
+};
+
+const startCooldown = () => {
+  resendCooldown.value = 60; // 60秒冷却时间
+  cooldownTimer = setInterval(() => {
+    resendCooldown.value--;
+    if (resendCooldown.value <= 0) {
+      clearInterval(cooldownTimer!);
+      cooldownTimer = null;
+    }
+  }, 1000);
 };
 
 onMounted(() => {
@@ -110,6 +205,12 @@ onMounted(() => {
   // 初始化 Feather icons
   if (typeof window !== 'undefined' && window.feather) {
     window.feather.replace();
+  }
+});
+
+onUnmounted(() => {
+  if (cooldownTimer) {
+    clearInterval(cooldownTimer);
   }
 });
 </script>
@@ -287,5 +388,85 @@ onMounted(() => {
 
 .demo-info strong {
   color: #1a202c;
+}
+
+/* 验证码登录相关样式 */
+.email-display {
+  padding: 0.75rem 1rem;
+  background: #f0f4f8;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 1rem;
+  color: #2d3748;
+  font-weight: 500;
+}
+
+.code-input {
+  text-align: center;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: 0.5em;
+  font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+}
+
+.code-info {
+  text-align: center;
+  color: #718096;
+  font-size: 0.875rem;
+}
+
+.code-info p {
+  margin: 0 0 0.5rem 0;
+}
+
+.resend-button {
+  background: none;
+  border: none;
+  color: #667eea;
+  font-size: 0.875rem;
+  cursor: pointer;
+  text-decoration: underline;
+  transition: color 0.2s;
+}
+
+.resend-button:hover:not(:disabled) {
+  color: #5a67d8;
+}
+
+.resend-button:disabled {
+  color: #a0aec0;
+  cursor: not-allowed;
+  text-decoration: none;
+}
+
+.button-group {
+  display: flex;
+  gap: 1rem;
+}
+
+.back-button {
+  background: #f7fafc;
+  color: #4a5568;
+  border: 2px solid #e2e8f0;
+  padding: 0.875rem 1.5rem;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.back-button:hover {
+  background: #edf2f7;
+  border-color: #cbd5e0;
+}
+
+.verify-button {
+  flex: 2;
 }
 </style>

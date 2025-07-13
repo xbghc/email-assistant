@@ -385,16 +385,15 @@ class SchedulerService {
       if (user.config?.reminderPaused) {
         // 检查是否已经到了恢复日期
         if (user.config.resumeDate) {
-          const resumeDate = new Date(user.config.resumeDate);
           const now = new Date();
-          if (now >= resumeDate) {
+          if (now >= new Date(user.config.resumeDate)) {
             // 到了恢复时间，自动恢复提醒
+            const restConfig = { ...user.config };
+            delete (restConfig as { resumeDate?: string }).resumeDate;
             const newConfig = {
-              ...user.config,
+              ...restConfig,
               reminderPaused: false
             };
-            // 删除resumeDate属性
-            delete (newConfig as any).resumeDate;
             await this.userService.updateUser(user.id, { config: newConfig });
             logger.info(`Automatically resumed reminders for user ${userId}`);
             return true;

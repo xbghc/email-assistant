@@ -6,6 +6,7 @@ import UserService from '../user/userService';
 import AdminCommandService from '../admin/adminCommandService';
 import SecurityService from '../system/securityService';
 import { ParsedEmail } from './emailReceiveService';
+import { ContextEntry } from '../../models';
 
 // 前向声明避免循环依赖
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
@@ -262,7 +263,7 @@ ${response}
       const recentContext = await this.contextService.getRecentContext(5, email.userId);
       const contextText = recentContext
         .slice(-5)
-        .map((entry: any) => `[${entry.timestamp.toISOString()}] ${entry.type}: ${entry.content}`)
+        .map((entry: ContextEntry) => `[${entry.timestamp.toISOString()}] ${entry.type}: ${entry.content}`)
         .join('\n\n');
 
       // 使用Function Call功能处理用户请求

@@ -216,10 +216,19 @@ export class PromiseQueue {
 /**
  * 重试条件判断工具
  */
+
+// Helper to safely get a property from an unknown type
+function getProperty<T>(obj: unknown, key: string): T | undefined {
+  if (typeof obj === 'object' && obj !== null && key in obj) {
+    return (obj as Record<string, T>)[key];
+  }
+  return undefined;
+}
+
 export const retryConditions = {
   // 网络错误重试
   networkError: (error: unknown): boolean => {
-    const errorMessage = (error as any)?.message?.toLowerCase() || '';
+    const errorMessage = getProperty<string>(error, 'message')?.toLowerCase() || '';
     return errorMessage.includes('timeout') ||
            errorMessage.includes('econnrefused') ||
            errorMessage.includes('enotfound') ||
@@ -228,8 +237,8 @@ export const retryConditions = {
   
   // HTTP状态码重试
   httpRetryable: (error: unknown): boolean => {
-    const status = (error as any)?.status || (error as any)?.response?.status;
-    return status >= 500 && status < 600; // 5xx 错误
+    const status = getProperty<number>(error, 'status') || getProperty<number>(getProperty<unknown>(error, 'response'), 'status');
+    return !!status && status >= 500 && status < 600; // 5xx 错误
   },
   
   // 组合条件
@@ -261,7 +270,7 @@ export const retryFileOperation = createRetryWrapper({
   baseDelay: 500,
   exponentialBackoff: false,
   retryCondition: (error: unknown) => {
-    const code = (error as any)?.code;
+    const code = getProperty<string>(error, 'code');
     return code === 'EBUSY' || code === 'EMFILE' || code === 'ENFILE';
   }
 });

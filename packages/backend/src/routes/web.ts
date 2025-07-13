@@ -1,13 +1,18 @@
 import express, { Router } from 'express';
 import path from 'path';
-import logger from '../utils/logger';
-import UserService from '../services/user/userService';
-import { UserRole } from '../models/User';
-import { authenticate, requireAdmin, requireOwnershipOrAdmin } from '../middleware/authMiddleware';
-import { LogQuery } from '../services/logging/logReaderService';
-import { SystemConfig } from '../services/system/configService';
-// import WeeklyReportService from '../services/reports/weeklyReportService';
-// import PersonalizationService from '../services/reports/personalizationService';
+import logger from '../utils/logger.js';
+
+// Compatible __dirname replacement using process.cwd()
+const __dirname = path.resolve(process.cwd(), 'packages/backend/src/routes');
+import UserService from '../services/user/userService.js';
+import { UserRole, User } from '../models/User.js';
+import { authenticate, requireAdmin, requireOwnershipOrAdmin } from '../middleware/authMiddleware.js';
+import { LogQuery } from '../services/logging/logReaderService.js';
+import { SystemConfig } from '../services/system/configService.js';
+import { ServiceHealth } from '../services/core/systemHealthService.js';
+import { PerformanceAlert } from '../services/system/performanceMonitorService.js';
+// import WeeklyReportService from '../services/reports/weeklyReportService.js';
+// import PersonalizationService from '../services/reports/personalizationService.js';
 
 const router: Router = express.Router();
 
@@ -44,7 +49,7 @@ router.get('/api/users', authenticate, requireAdmin, async (req, res) => {
     const users = userService.getAllUsers();
     res.json({
       success: true,
-      data: users.map((user: any) => ({
+      data: users.map((user: User) => ({
         id: user.id,
         name: user.name,
         email: user.email,
@@ -189,7 +194,7 @@ router.get('/api/system/status', authenticate, async (req, res) => {
     
     // 转换为 web 界面期望的格式
     const systemStatus = {
-      services: systemHealth.services.map((service: any) => ({
+      services: systemHealth.services.map((service: ServiceHealth) => ({
         name: service.name,
         status: service.status === 'healthy' ? 'running' : 
                service.status === 'warning' ? 'warning' : 'error',
@@ -251,7 +256,7 @@ router.get('/api/reports', authenticate, async (req, res) => {
           createdAt: today.toISOString(),
           status: 'completed',
           summary: `本周系统运行正常，共发送邮件${emailStats.thisWeek.sent}封，用户数量${users.length}人。系统稳定运行，各项功能正常。`,
-          content: `详细周报内容：\n- 邮件发送：${emailStats.thisWeek.sent}封\n- 活跃用户：${users.filter((u: any) => u.isActive).length}人\n- 系统运行时间：${Math.floor(process.uptime() / 3600)}小时`
+          content: `详细周报内容：\n- 邮件发送：${emailStats.thisWeek.sent}封\n- 活跃用户：${users.filter((u: User) => u.isActive).length}人\n- 系统运行时间：${Math.floor(process.uptime() / 3600)}小时`
         });
       }
       
@@ -264,7 +269,7 @@ router.get('/api/reports', authenticate, async (req, res) => {
           createdAt: new Date(today.getTime() - 1 * 24 * 60 * 60 * 1000).toISOString(), // 昨天
           status: 'completed',
           summary: `基于系统使用情况分析，建议优化邮件发送频率和用户体验。当前系统表现良好，建议继续保持。`,
-          content: `个性化建议：\n- 邮件发送效率良好\n- 用户活跃度：${Math.round(users.filter((u: any) => u.isActive).length / users.length * 100)}%\n- 建议定期检查系统性能`
+          content: `个性化建议：\n- 邮件发送效率良好\n- 用户活跃度：${Math.round(users.filter((u: User) => u.isActive).length / users.length * 100)}%\n- 建议定期检查系统性能`
         });
       }
       
@@ -589,7 +594,7 @@ router.get('/api/dashboard/stats', authenticate, async (req, res) => {
     await userService.initialize();
     
     const users = userService.getAllUsers();
-    const activeUsers = users.filter((user: any) => user.isActive);
+    const activeUsers = users.filter((user: User) => user.isActive);
     
     // 获取真实的邮件统计数据
     const EmailService = (await import('../services/email/emailService')).default;
@@ -725,7 +730,7 @@ router.get('/api/performance/alerts', authenticate, async (req, res) => {
         summary: {
           total: allAlerts.length,
           active: activeAlerts.length,
-          resolved: allAlerts.filter((a: any) => a.resolved).length
+          resolved: allAlerts.filter((a: PerformanceAlert) => a.resolved).length
         }
       }
     });

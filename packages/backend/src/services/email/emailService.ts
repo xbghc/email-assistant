@@ -427,6 +427,28 @@ ${originalContent}
     await this.sendEmail(subject, content);
   }
 
+  async sendVerificationCode(email: string, code: string): Promise<void> {
+    const subject = `🔐 登录验证码`;
+    const content = `
+您好，
+
+您的登录验证码是：
+
+${code}
+
+🕒 验证码有效期：30分钟
+🔒 为了保障您的账户安全，请勿将验证码泄露给他人
+
+如果这不是您本人的操作，请忽略此邮件。
+
+此致，
+邮件助手安全团队
+    `.trim();
+
+    await this.sendEmailToUser(email, subject, content);
+    logger.info(`Verification code sent to: ${email}`);
+  }
+
   async verifyConnection(): Promise<boolean> {
     try {
       await this.circuitBreaker.execute(async () => {

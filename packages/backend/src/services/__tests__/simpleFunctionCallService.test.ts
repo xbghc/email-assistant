@@ -1,38 +1,45 @@
 import SimpleFunctionCallService from '../ai/functionCall/simpleFunctionCallService';
 import UserService from '../user/userService';
+import { User, UserRole } from '../../models/User';
 
 // Mock UserService
 jest.mock('../user/userService');
 
-const mockUserService = UserService as jest.MockedClass<typeof UserService>;
+const MockedUserService = UserService as jest.MockedClass<typeof UserService>;
 
 describe('SimpleFunctionCallService', () => {
   let service: SimpleFunctionCallService;
   let mockUserServiceInstance: jest.Mocked<UserService>;
 
+  const mockUser: User = {
+    id: 'user123',
+    name: 'Test User',
+    email: 'test@example.com',
+    role: UserRole.USER,
+    config: {
+      schedule: {
+        morningReminderTime: '08:00',
+        eveningReminderTime: '20:00',
+        timezone: 'Asia/Shanghai'
+      },
+      language: 'zh'
+    },
+    isActive: true,
+    emailVerified: true,
+    createdAt: new Date('2024-01-01'),
+    updatedAt: new Date('2024-01-01'),
+  };
+
   beforeEach(() => {
+    // Create a partial mock of the UserService instance
     mockUserServiceInstance = {
       initialize: jest.fn(),
       updateUserConfig: jest.fn(),
       getUserByEmail: jest.fn(),
-      getUserById: jest.fn().mockReturnValue({
-        id: 'user123',
-        name: 'Test User',
-        email: 'test@example.com',
-        config: {
-          schedule: {
-            morningReminderTime: '08:00',
-            eveningReminderTime: '20:00',
-            timezone: 'Asia/Shanghai'
-          },
-          language: 'zh'
-        },
-        isActive: true,
-        createdAt: new Date('2024-01-01')
-      }),
-    } as any;
+      getUserById: jest.fn().mockReturnValue(mockUser),
+    } as unknown as jest.Mocked<UserService>;
 
-    mockUserService.mockImplementation(() => mockUserServiceInstance);
+    MockedUserService.mockImplementation(() => mockUserServiceInstance);
     service = new SimpleFunctionCallService();
   });
 
@@ -120,23 +127,7 @@ describe('SimpleFunctionCallService', () => {
     });
 
     it('should handle get_user_config function', async () => {
-      const mockUser = {
-        id: 'user123',
-        email: 'test@example.com',
-        name: 'Test User',
-        config: {
-          schedule: {
-            morningReminderTime: '08:00',
-            eveningReminderTime: '20:00',
-            timezone: 'Asia/Shanghai'
-          },
-          language: 'zh'
-        },
-        isActive: true,
-        createdAt: new Date('2024-01-01')
-      };
-
-      mockUserServiceInstance.getUserById.mockReturnValue(mockUser as any);
+      mockUserServiceInstance.getUserById.mockReturnValue(mockUser);
 
       const result = await service.handleFunctionCall('get_user_config', {}, 'user123');
 

@@ -49,6 +49,10 @@ export interface PerformanceAlert {
   resolved: boolean;
 }
 
+// Interfaces for data loaded from JSON
+type LoadedMetric = Omit<PerformanceMetrics, 'timestamp'> & { timestamp: string };
+type LoadedAlert = Omit<PerformanceAlert, 'timestamp'> & { timestamp: string };
+
 export class PerformanceMonitorService {
   private metrics: PerformanceMetrics[] = [];
   private alerts: PerformanceAlert[] = [];
@@ -60,8 +64,8 @@ export class PerformanceMonitorService {
   // 性能阈值配置
   private thresholds = {
     memoryUsage: 0.85, // 85% 内存使用率
-    cpuUsage: 0.80,    // 80% CPU使用率
-    heapUsage: 0.90,   // 90% 堆内存使用率
+    cpuUsage: 0.8, // 80% CPU使用率
+    heapUsage: 0.9, // 90% 堆内存使用率
     responseTime: 5000, // 5秒响应时间
   };
 
@@ -96,7 +100,7 @@ export class PerformanceMonitorService {
     }
 
     this.isRunning = true;
-    
+
     // 立即收集一次指标
     await this.collectMetrics();
 
@@ -117,7 +121,7 @@ export class PerformanceMonitorService {
   stop(): void {
     if (this.monitoringInterval) {
       clearInterval(this.monitoringInterval);
-      this.monitoringInterval = undefined as any;
+      delete this.monitoringInterval;
     }
     this.isRunning = false;
     logger.info('Performance monitoring stopped');
@@ -127,7 +131,14 @@ export class PerformanceMonitorService {
     try {
       const memoryUsage = process.memoryUsage();
       const cpuUsage = await this.getCpuUsage();
-      
+
+      // _getActiveHandles and _getActiveRequests are undocumented and not in @types/node
+      // Using ts-expect-error to suppress errors while retaining functionality.
+      // @ts-expect-error -- Undocumented API
+      const activeHandles = process._getActiveHandles?.().length || 0;
+      // @ts-expect-error -- Undocumented API
+      const activeRequests = process._getActiveRequests?.().length || 0;
+
       const metrics: PerformanceMetrics = {
         timestamp: new Date(),
         memory: {
@@ -152,8 +163,8 @@ export class PerformanceMonitorService {
         application: {
           uptime: (Date.now() - this.startTime) / 1000,
           pid: process.pid,
-          activeHandles: (process as any)._getActiveHandles().length,
-          activeRequests: (process as any)._getActiveRequests().length,
+          activeHandles,
+          activeRequests,
         },
       };
 
@@ -171,14 +182,14 @@ export class PerformanceMonitorService {
       }
 
       this.metrics.push(metrics);
-      
+
       // 保持最近1000条记录
       if (this.metrics.length > 1000) {
         this.metrics = this.metrics.slice(-1000);
       }
 
       await this.saveMetrics();
-      
+
       logger.debug('Performance metrics collected', {
         memoryUsed: Math.round(metrics.memory.used / 1024 / 1024),
         cpuUsage: Math.round(metrics.cpu.usage * 100),
@@ -190,20 +201,20 @@ export class PerformanceMonitorService {
   }
 
   private async getCpuUsage(): Promise<number> {
-    return new Promise((resolve) => {
+    return new Promise(resolve => {
       const startUsage = process.cpuUsage();
       const startTime = Date.now();
 
       setTimeout(() => {
         const endUsage = process.cpuUsage(startUsage);
         const endTime = Date.now();
-        
+
         const userUsage = endUsage.user / 1000; // 转换为毫秒
         const systemUsage = endUsage.system / 1000;
         const totalUsage = userUsage + systemUsage;
         const elapsedTime = endTime - startTime;
-        
-        const cpuPercent = (totalUsage / elapsedTime) / os.cpus().length;
+
+        const cpuPercent = totalUsage / elapsedTime / os.cpus().length;
         resolve(Math.min(cpuPercent, 1)); // 限制在0-1之间
       }, 100);
     });
@@ -264,7 +275,7 @@ export class PerformanceMonitorService {
     if (newAlerts.length > 0) {
       this.alerts.push(...newAlerts);
       await this.saveAlerts();
-      
+
       // 记录警报
       for (const alert of newAlerts) {
         logger.warn(`Performance Alert [${alert.severity}]: ${alert.message}`, {
@@ -287,16 +298,17 @@ export class PerformanceMonitorService {
 
     // 清理已解决的旧警报（保留1小时内的未解决警报）
     const originalAlertsCount = this.alerts.length;
-    this.alerts = this.alerts.filter(a => 
-      (!a.resolved && a.timestamp > oneHourAgo) || 
-      (a.resolved && a.timestamp > oneDayAgo)
+    this.alerts = this.alerts.filter(
+      a => (!a.resolved && a.timestamp > oneHourAgo) || (a.resolved && a.timestamp > oneDayAgo)
     );
 
-    if (this.metrics.length !== originalMetricsCount || 
-        this.alerts.length !== originalAlertsCount) {
+    if (
+      this.metrics.length !== originalMetricsCount ||
+      this.alerts.length !== originalAlertsCount
+    ) {
       await this.saveMetrics();
       await this.saveAlerts();
-      
+
       logger.debug('Performance data cleanup completed', {
         metricsRemoved: originalMetricsCount - this.metrics.length,
         alertsRemoved: originalAlertsCount - this.alerts.length,
@@ -327,9 +339,7 @@ export class PerformanceMonitorService {
     const alert = this.alerts.find(a => a.id === alertId);
     if (alert) {
       alert.resolved = true;
-      this.saveAlerts().catch(err => 
-        logger.error('Failed to save alerts after resolving:', err)
-      );
+      this.saveAlerts().catch(err => logger.error('Failed to save alerts after resolving:', err));
       return true;
     }
     return false;
@@ -340,35 +350,35 @@ export class PerformanceMonitorService {
     if (!current) return 100;
 
     let score = 100;
-    
+
     // 内存使用率扣分
     const memoryUsage = current.memory.used / current.memory.total;
     if (memoryUsage > 0.8) score -= (memoryUsage - 0.8) * 100;
-    
+
     // CPU使用率扣分
     if (current.cpu.usage > 0.7) score -= (current.cpu.usage - 0.7) * 100;
-    
+
     // 堆内存使用率扣分
     const heapUsage = current.memory.heapUsed / current.memory.heapTotal;
     if (heapUsage > 0.8) score -= (heapUsage - 0.8) * 50;
-    
+
     // 活跃警报扣分
     const activeAlerts = this.getActiveAlerts();
     score -= activeAlerts.length * 5;
-    
+
     return Math.max(0, Math.round(score));
   }
 
   private async loadMetrics(): Promise<void> {
     try {
       const data = await fs.readFile(this.metricsFile, 'utf-8');
-      const parsed = JSON.parse(data);
-      this.metrics = parsed.map((m: any) => ({
+      const parsed: LoadedMetric[] = JSON.parse(data);
+      this.metrics = parsed.map(m => ({
         ...m,
         timestamp: new Date(m.timestamp),
       }));
-    } catch (error) {
-      if ((error as any).code !== 'ENOENT') {
+    } catch (error: unknown) {
+      if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
         logger.error('Failed to load performance metrics:', error);
       }
       this.metrics = [];
@@ -386,13 +396,13 @@ export class PerformanceMonitorService {
   private async loadAlerts(): Promise<void> {
     try {
       const data = await fs.readFile(this.alertsFile, 'utf-8');
-      const parsed = JSON.parse(data);
-      this.alerts = parsed.map((a: any) => ({
+      const parsed: LoadedAlert[] = JSON.parse(data);
+      this.alerts = parsed.map(a => ({
         ...a,
         timestamp: new Date(a.timestamp),
       }));
-    } catch (error) {
-      if ((error as any).code !== 'ENOENT') {
+    } catch (error: unknown) {
+      if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
         logger.error('Failed to load performance alerts:', error);
       }
       this.alerts = [];

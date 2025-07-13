@@ -296,7 +296,7 @@ class AdminCommandService {
       return `用户 ${email} 已经是启用状态`;
     }
 
-    await this.userService.updateUser(user.id, { isActive: true });
+    this.userService.updateUser(user.id, { isActive: true });
     return `用户 ${email} (${user.name}) 已启用`;
   }
 
@@ -319,7 +319,7 @@ class AdminCommandService {
       return `用户 ${email} 已经是禁用状态`;
     }
 
-    await this.userService.updateUser(user.id, { isActive: false });
+    this.userService.updateUser(user.id, { isActive: false });
     return `用户 ${email} (${user.name}) 已禁用`;
   }
 
@@ -345,7 +345,7 @@ class AdminCommandService {
     }
 
     const oldName = user.name;
-    await this.userService.updateUser(user.id, { name: newName });
+    this.userService.updateUser(user.id, { name: newName });
     
     // 发送更名通知邮件给用户
     try {
@@ -399,7 +399,7 @@ class AdminCommandService {
 
     switch (field.toLowerCase()) {
       case 'name':
-        await this.userService.updateUser(user.id, { name: value });
+        this.userService.updateUser(user.id, { name: value });
         return `用户 ${email} 的姓名已更新为: ${value}`;
 
       case 'morningtime': {
@@ -416,7 +416,7 @@ class AdminCommandService {
           },
           language: user.config?.language || 'zh' as const
         };
-        await this.userService.updateUser(user.id, { config: newMorningConfig });
+        this.userService.updateUser(user.id, { config: newMorningConfig });
         return `用户 ${email} 的早晨提醒时间已更新为: ${value}`;
       }
 
@@ -434,7 +434,7 @@ class AdminCommandService {
           },
           language: user.config?.language || 'zh' as const
         };
-        await this.userService.updateUser(user.id, { config: newEveningConfig });
+        this.userService.updateUser(user.id, { config: newEveningConfig });
         return `用户 ${email} 的晚间提醒时间已更新为: ${value}`;
       }
 
@@ -451,7 +451,7 @@ class AdminCommandService {
             timezone: 'Asia/Shanghai'
           }
         };
-        await this.userService.updateUser(user.id, { config: newLangConfig });
+        this.userService.updateUser(user.id, { config: newLangConfig });
         return `用户 ${email} 的语言已更新为: ${value}`;
       }
 
@@ -665,7 +665,7 @@ class AdminCommandService {
         language: user.config?.language || 'zh' as const
       };
 
-      await this.userService.updateUser(user.id, { config: newConfig });
+      this.userService.updateUser(user.id, { config: newConfig });
 
       // 发送暂停通知邮件
       try {
@@ -721,8 +721,11 @@ class AdminCommandService {
 
     try {
       // 更新用户配置，移除暂停信息
+      const restConfig = { ...user.config };
+      delete (restConfig as { resumeDate?: string }).resumeDate;
+
       const newConfig: UserConfig = {
-        ...user.config,
+        ...restConfig,
         reminderPaused: false,
         schedule: user.config?.schedule || {
           morningReminderTime: '09:00',
@@ -731,11 +734,8 @@ class AdminCommandService {
         },
         language: user.config?.language || 'zh' as const
       };
-      // 删除resumeDate属性
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      delete (newConfig as any).resumeDate;
 
-      await this.userService.updateUser(user.id, { config: newConfig });
+      this.userService.updateUser(user.id, { config: newConfig });
 
       // 发送恢复通知邮件
       try {

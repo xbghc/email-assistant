@@ -1,4 +1,4 @@
-import type { AppState, User } from '../types/index';
+import type { AppState, User, SystemStatus, LogEntry, Settings } from '../types/index';
 
 class StateManager {
   private state: AppState;
@@ -9,9 +9,22 @@ class StateManager {
       currentPage: 'dashboard',
       data: {
         users: [],
-        systemStats: {},
+        systemStats: {
+          services: [],
+          metrics: {
+            memoryUsage: { heapUsed: 0, heapTotal: 0 },
+            cpuUsage: { user: 0, system: 0 },
+            uptime: 0,
+            version: '',
+            emailsToday: 0,
+            errorsLastHour: 0,
+            warningsLastHour: 0
+          },
+          timestamp: '',
+          overall: 'unknown'
+        },
         logs: [],
-        settings: {}
+        settings: {} as Settings
       },
       auth: {
         token: localStorage.getItem('authToken'),
@@ -89,21 +102,21 @@ class StateManager {
   }
 
   // 设置系统统计
-  setSystemStats(systemStats: any): void {
+  setSystemStats(systemStats: SystemStatus): void {
     this.updateState({
       data: { ...this.state.data, systemStats }
     });
   }
 
   // 设置日志
-  setLogs(logs: any[]): void {
+  setLogs(logs: LogEntry[]): void {
     this.updateState({
       data: { ...this.state.data, logs }
     });
   }
 
   // 设置设置
-  setSettings(settings: any): void {
+  setSettings(settings: Settings): void {
     this.updateState({
       data: { ...this.state.data, settings }
     });
@@ -114,9 +127,22 @@ class StateManager {
     this.updateState({
       data: {
         users: [],
-        systemStats: {},
+        systemStats: {
+          services: [],
+          metrics: {
+            memoryUsage: { heapUsed: 0, heapTotal: 0 },
+            cpuUsage: { user: 0, system: 0 },
+            uptime: 0,
+            version: '',
+            emailsToday: 0,
+            errorsLastHour: 0,
+            warningsLastHour: 0
+          },
+          timestamp: '',
+          overall: 'unknown'
+        },
         logs: [],
-        settings: {}
+        settings: {} as Settings
       },
       auth: {
         token: null,

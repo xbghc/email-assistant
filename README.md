@@ -32,6 +32,24 @@
 - **健康监控**: 全面的系统健康检查和性能指标
 - **角色权限**: 基于JWT的身份认证和角色管理
 
+## 📚 文档导航
+
+### 开发文档
+- [开发指南](./CLAUDE.md) - Claude Code 使用指南
+- [后端文档](./packages/backend/docs/README.md) - 完整的后端开发文档
+
+### API 文档
+- [API 概览](./packages/backend/docs/api/overview.md) - API 使用概述
+- [认证 API](./packages/backend/docs/api/authentication.md) - 身份认证接口
+- [用户管理 API](./packages/backend/docs/api/users.md) - 用户相关接口
+- [日程管理 API](./packages/backend/docs/api/schedule.md) - 日程功能接口
+- [系统监控 API](./packages/backend/docs/api/system.md) - 系统状态接口
+
+### 部署运维
+- [架构说明](./packages/backend/docs/ARCHITECTURE.md) - 系统架构详解
+- [部署指南](./packages/backend/docs/DEPLOYMENT.md) - 生产环境部署
+- [认证指南](./packages/backend/docs/AUTHENTICATION.md) - 认证机制说明
+
 ## 📦 安装配置
 
 ### 1. 克隆项目
@@ -47,12 +65,12 @@ npm install
 
 ### 3. 环境配置
 ```bash
-cp .env.example .env
+cp packages/backend/.env.example packages/backend/.env
 ```
 
 ### 4. 配置环境变量
 
-编辑 `.env` 文件，配置你的设置：
+编辑 `packages/backend/.env` 文件，配置你的设置：
 
 ```env
 # 邮件配置 (SMTP发送)
@@ -159,7 +177,7 @@ npm run typecheck:backend  # 后端类型检查
 
 ### 邮件服务调试
 ```bash
-node debug-email-config.js  # 测试SMTP/IMAP连接并诊断问题
+node packages/backend/debug-email-config.js  # 测试SMTP/IMAP连接并诊断问题
 ```
 
 ## 🏗️ 架构概览
@@ -289,7 +307,7 @@ DOMUtils.addEventListener(element, 'click', handler);
 
 ### 常见问题
 
-1. **邮件配置问题**: 运行 `node debug-email-config.js` 进行连接测试
+1. **邮件配置问题**: 运行 `node packages/backend/debug-email-config.js` 进行连接测试
 2. **前端构建问题**: 检查TypeScript编译错误 `npm run typecheck:frontend`
 3. **后端服务问题**: 查看服务日志和健康检查端点
 
