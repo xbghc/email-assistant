@@ -149,8 +149,8 @@ const loadUsers = async () => {
     if (response.success && response.data) {
       users.value = response.data;
     }
-  } catch (error) {
-    console.error('Failed to load users:', error);
+  } catch {
+    // 可以在这里添加错误通知
   } finally {
     isLoading.value = false;
   }
@@ -172,8 +172,8 @@ const addUser = async () => {
       });
       await loadUsers();
     }
-  } catch (error) {
-    console.error('Failed to add user:', error);
+  } catch {
+    // 可以在这里添加错误通知
   } finally {
     isSubmitting.value = false;
   }
@@ -194,8 +194,8 @@ const deleteUser = async (user: User) => {
     if (response.success) {
       await loadUsers();
     }
-  } catch (error) {
-    console.error('Failed to delete user:', error);
+  } catch {
+    // 可以在这里添加错误通知
   }
 };
 

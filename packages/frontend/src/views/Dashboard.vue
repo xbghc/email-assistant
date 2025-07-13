@@ -303,6 +303,7 @@ const refreshReminderStatus = async () => {
       Object.assign(reminderStatus, response.data);
     }
   } catch {
+    addNotification('刷新提醒状态失败', 'error');
   } finally {
     isLoading.value = false;
   }
@@ -350,8 +351,8 @@ const loadDashboardData = async () => {
     if (reminderResponse.success && reminderResponse.data) {
       Object.assign(reminderStatus, reminderResponse.data);
     }
-  } catch (error) {
-    console.error('Failed to load dashboard data:', error);
+  } catch {
+    addNotification('加载仪表盘数据失败', 'error');
   }
 };
 

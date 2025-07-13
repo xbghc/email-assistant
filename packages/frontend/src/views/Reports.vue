@@ -63,6 +63,9 @@
 <script setup lang="ts">
 import { ref, onMounted, nextTick } from 'vue';
 import Layout from '@/components/Layout.vue';
+import { useNotifications } from '@/composables/useNotifications';
+
+const { addNotification } = useNotifications();
 
 interface Report {
   id: string;
@@ -121,8 +124,8 @@ const generateReports = async () => {
     if (typeof window !== 'undefined' && window.feather) {
       window.feather.replace();
     }
-  } catch (error) {
-    console.error('Failed to generate report:', error);
+  } catch {
+    addNotification('操作失败，请稍后重试', 'error');
   } finally {
     isGenerating.value = false;
   }
@@ -130,12 +133,12 @@ const generateReports = async () => {
 
 const viewReport = (report: Report) => {
   // TODO: 实现查看报告功能
-  console.log('View report:', report);
+  addNotification(`查看报告: ${report.title}`, 'info');
 };
 
 const downloadReport = (report: Report) => {
   // TODO: 实现下载报告功能
-  console.log('Download report:', report);
+  addNotification(`下载报告: ${report.title}`, 'info');
 };
 
 const deleteReport = async (report: Report) => {
@@ -145,8 +148,8 @@ const deleteReport = async (report: Report) => {
   
   try {
     reports.value = reports.value.filter(r => r.id !== report.id);
-  } catch (error) {
-    console.error('Failed to delete report:', error);
+  } catch {
+    addNotification('操作失败，请稍后重试', 'error');
   }
 };
 
@@ -175,8 +178,8 @@ const loadReports = async () => {
         content: '详细内容...'
       }
     ];
-  } catch (error) {
-    console.error('Failed to load reports:', error);
+  } catch {
+    addNotification('操作失败，请稍后重试', 'error');
   } finally {
     isLoading.value = false;
   }

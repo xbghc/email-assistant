@@ -130,7 +130,6 @@ const getMetricClass = (percentage: number) => {
 
 onMounted(() => {
   // 模拟数据加载
-  console.log('System monitoring loaded');
 });
 </script>
 

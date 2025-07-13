@@ -138,8 +138,7 @@ const handleSendCode = async () => {
     } else {
       errorMessage.value = result.error || '发送验证码失败';
     }
-  } catch (error) {
-    console.error('Send code error:', error);
+  } catch {
     errorMessage.value = '网络错误，请稍后重试';
   } finally {
     isLoading.value = false;
@@ -164,8 +163,7 @@ const handleVerifyCode = async () => {
     } else {
       errorMessage.value = result.error || '验证码错误，请重试';
     }
-  } catch (error) {
-    console.error('Verify code error:', error);
+  } catch {
     errorMessage.value = '网络错误，请稍后重试';
   } finally {
     isLoading.value = false;

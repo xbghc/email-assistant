@@ -34,23 +34,32 @@ interface BenchmarkSuite {
 async function runBenchmarks(): Promise<void> {
   try {
     console.log('🚀 启动性能基准测试...\n');
+
+    // ESM-compatible way to get the current directory
+    const __filename = fileURLToPath(import.meta.url);
+    const __dirname = path.dirname(__filename);
     
-    // 检查是否已构建
-    const distPath = path.join(process.cwd(), 'dist');
+    // 使用 __dirname 来构建更健壮的路径，避免受 CWD 影响
+    const backendRoot = path.resolve(__dirname, '..');
+    const distPath = path.join(backendRoot, 'dist');
     
     if (!fs.existsSync(distPath)) {
       console.error('❌ 项目尚未构建，请先运行: pnpm build');
+      console.error(`🔍 检查路径: ${distPath}`);
       process.exit(1);
     }
     
     // 动态导入基准测试服务
-    const { default: BenchmarkService } = await import('../dist/services/system/benchmarkService.js');
+    // 构建服务的绝对路径，并转换为 import() 可靠��别的 URL 格式
+    const benchmarkServicePath = path.join(distPath, 'services/system/benchmarkService.js');
+    const { default: BenchmarkService } = await import(pathToFileURL(benchmarkServicePath).href);
     const benchmarkService = new BenchmarkService();
     
     console.log('📊 运行基准测试套件...\n');
     
     // 运行基准测试
     const suite: BenchmarkSuite = await benchmarkService.runBenchmarkSuite();
+
     
     // 显示结果
     console.log('\n📈 基准测试结果:');

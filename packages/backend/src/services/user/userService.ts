@@ -1,5 +1,6 @@
 import { User, UserConfig, UserStorage, UserRole } from '../../models/User';
 import path from 'path';
+import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import logger from '../../utils/logger';
 import config from '../../config/index';
@@ -19,7 +20,9 @@ class UserService implements UserStorage {
   private dataFile: string;
 
   constructor() {
-    this.dataFile = path.join(process.cwd(), 'users.json');
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    // 将数据文件存储在项目根目录下的 `data` 文件夹中，更健壮
+    this.dataFile = path.resolve(__dirname, '../../../data/users.json');
   }
 
   async initialize(): Promise<void> {
@@ -85,11 +88,16 @@ class UserService implements UserStorage {
     const user = this.users.get(id);
     if (user) {
       const oldEmail = user.email;
-      Object.assign(user, updates);
+      
+      // 确保ID不会被修改
+      const safeUpdates = { ...updates };
+      delete (safeUpdates as Partial<User>).id;
+      
+      Object.assign(user, safeUpdates);
       user.updatedAt = new Date();
       
       // 如果邮箱发生变化，更新映射
-      if (oldEmail !== user.email) {
+      if (updates.email && oldEmail.toLowerCase() !== updates.email.toLowerCase()) {
         this.emailToIdMap.delete(oldEmail.toLowerCase());
         this.emailToIdMap.set(user.email.toLowerCase(), user.id);
         userCache.delete(`user:email:${oldEmail.toLowerCase()}`);
@@ -128,11 +136,13 @@ class UserService implements UserStorage {
     return undefined;
   }
 
-  async updateUserConfig(id: string, config: UserConfig): Promise<boolean> {
+  async updateUserConfig(id: string, newConfig: Partial<UserConfig>): Promise<boolean> {
     const user = this.users.get(id);
     if (user) {
-      user.config = config;
+      // 安全地合并配置，而不是完全替换
+      user.config = { ...user.config, ...newConfig };
       user.updatedAt = new Date();
+      this.invalidateUserCache(user);
       await this.saveToFile();
       return true;
     }
@@ -184,12 +194,16 @@ class UserService implements UserStorage {
   }
 
   // 获取可序列化的用户数据
-  private getSerializableUsers(): any[] {
-    return Array.from(this.users.entries()).map(([, user]) => ({
-      ...user,
-      createdAt: user.createdAt.toISOString(),
-      updatedAt: user.updatedAt.toISOString()
-    }));
+  private getSerializableUsers(): SerializableUser[] {
+    return Array.from(this.users.values()).map(user => {
+      const { createdAt, updatedAt, lastLoginAt, ...rest } = user;
+      return {
+        ...rest,
+        createdAt: createdAt.toISOString(),
+        updatedAt: updatedAt.toISOString(),
+        ...(lastLoginAt && { lastLoginAt: lastLoginAt.toISOString() }),
+      };
+    });
   }
 
   async loadFromFile(): Promise<void> {
@@ -200,11 +214,12 @@ class UserService implements UserStorage {
       this.emailToIdMap.clear();
       
       for (const userData of usersData) {
+        const { lastLoginAt, ...restData } = userData;
         const user: User = {
-          ...userData,
+          ...restData,
           createdAt: new Date(userData.createdAt),
           updatedAt: new Date(userData.updatedAt),
-          lastLoginAt: userData.lastLoginAt ? new Date(userData.lastLoginAt) : undefined
+          ...(lastLoginAt && { lastLoginAt: new Date(lastLoginAt) })
         };
         this.users.set(user.id, user);
         // 重建邮箱映射
