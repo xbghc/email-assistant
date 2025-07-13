@@ -12,6 +12,7 @@
 
 import path from 'path';
 import fs from 'fs';
+import { pathToFileURL } from 'url';
 
 // 基准测试结果接口
 interface BenchmarkResult {
@@ -35,12 +36,8 @@ async function runBenchmarks(): Promise<void> {
   try {
     console.log('🚀 启动性能基准测试...\n');
 
-    // ESM-compatible way to get the current directory
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = path.dirname(__filename);
-    
-    // 使用 __dirname 来构建更健壮的路径，避免受 CWD 影响
-    const backendRoot = path.resolve(__dirname, '..');
+    // Compatible way to get the backend directory using process.cwd()
+    const backendRoot = path.resolve(process.cwd(), 'packages/backend');
     const distPath = path.join(backendRoot, 'dist');
     
     if (!fs.existsSync(distPath)) {
@@ -153,4 +150,8 @@ process.on('uncaughtException', (error: Error) => {
 });
 
 // 运行主函数
-main().catch(console.error);
+main().catch((error: unknown) => {
+  const message = error instanceof Error ? error.message : String(error);
+  console.error('❌ 运行基准测试脚本失败:', message);
+  process.exit(1);
+});

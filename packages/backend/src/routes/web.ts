@@ -1,11 +1,9 @@
 import express, { Router } from 'express';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import logger from '../utils/logger.js';
 
-// ESM-compatible __dirname replacement
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// Compatible __dirname replacement using process.cwd()
+const __dirname = path.resolve(process.cwd(), 'packages/backend/src/routes');
 import UserService from '../services/user/userService.js';
 import { UserRole, User } from '../models/User.js';
 import { authenticate, requireAdmin, requireOwnershipOrAdmin } from '../middleware/authMiddleware.js';

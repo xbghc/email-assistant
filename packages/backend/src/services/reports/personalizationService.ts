@@ -712,12 +712,14 @@ ${pattern.achievements.recent.slice(0, 3).join('\n')}
             const typeStr = titleParts.length >= 2 ? titleParts[0] : 'productivity';
             const title = titleParts.length >= 2 ? titleParts[1] : typeAndTitle;
             
-            if (!title) continue;
-
-            const finalType = isSuggestionType(typeStr) ? typeStr : 'productivity';
+            // 确保标题存在且类型有效
+            if (!title || !typeStr || !isSuggestionType(typeStr)) {
+              logger.debug(`Skipping invalid AI suggestion: type='${typeStr}', title='${title}'`);
+              continue;
+            }
 
             suggestions.push({
-              type: finalType,
+              type: typeStr,
               priority: 'medium',
               title: title,
               description: description || '',
@@ -782,11 +784,12 @@ ${pattern.achievements.recent.slice(0, 3).join('\n')}
    */
   private async sendSuggestionsEmail(result: PersonalizationResult): Promise<void> {
     const user = this.userService.getUserById(result.userId);
-    const userEmail = user?.email || 'admin';
-    const userName = user?.name || '用户';
 
     const subject = `🎯 个性化工作建议 - ${new Date().toLocaleDateString()}`;
-    const content = `
+    
+    if (user) {
+      const userName = user.name || '用户';
+      const content = `
 您好 ${userName}，
 
 基于您的工作模式分析，为您生成了个性化建议：
@@ -824,11 +827,10 @@ ${result.nextReviewDate.toLocaleDateString()}
 此致，
 您的智能工作助手
     `.trim();
-
-    if (user) {
-      await this.emailService.sendEmailToUser(userEmail, subject, content);
+      await this.emailService.sendEmailToUser(user.email, subject, content);
     } else {
-      await this.emailService.sendEmail(subject, content);
+      // Handle case where user is not found, maybe log an error or send to admin
+      logger.warn(`User with ID ${result.userId} not found when trying to send suggestion email.`);
     }
   }
 

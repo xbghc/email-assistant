@@ -4,6 +4,8 @@
 
 用户管理 API 允许用户查看和更新自己的个人信息、偏好设置等。所有端点都需要用户认证。
 
+用户的唯一标识符（ID）就是其电子邮件地址。
+
 ## API 端点
 
 ### 获取当前用户信息
@@ -14,11 +16,12 @@ Authorization: Bearer <token>
 ```
 
 **响应：**
+
 ```json
 {
   "success": true,
   "data": {
-    "id": "user-123",
+    "id": "user@example.com",
     "username": "张三",
     "email": "user@example.com",
     "role": "User",
@@ -85,6 +88,7 @@ Authorization: Bearer <token>
 ```
 
 **响应：**
+
 ```json
 {
   "success": true,
@@ -108,4 +112,4 @@ Authorization: Bearer <token>
 
 ---
 
-**文档版本**: v1.0.0
+## **文档版本**: v1.0.0

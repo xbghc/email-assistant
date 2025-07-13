@@ -2,6 +2,7 @@
   "name": "@email-assistant/shared",
   "version": "1.0.0",
   "description": "Shared types and utilities for email assistant",
+  "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "private": true,
@@ -18,6 +19,7 @@
     "@typescript-eslint/eslint-plugin": "^8.0.0",
     "@typescript-eslint/parser": "^8.0.0",
     "eslint": "^9.0.0",
+    "globals": "^16.3.0",
     "typescript": "^5.5.0"
   }
 }

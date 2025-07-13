@@ -12,7 +12,11 @@ class ContextService {
   private aiService: AIService;
 
   constructor() {
-    this.contextFile = path.join(process.cwd(), 'data', 'context.json');
+    // 基于脚本文件位置确定后端根目录
+    const scriptPath = process.argv[1] || process.cwd();
+    const scriptDir = path.dirname(scriptPath);
+    const backendRoot = path.resolve(scriptDir, '../../../'); // 从 src/services/reports 到 packages/backend
+    this.contextFile = path.join(backendRoot, 'data/context.json');
     this.aiService = new AIService();
   }
 
@@ -83,7 +87,7 @@ class ContextService {
 
   private async loadContext(): Promise<void> {
     try {
-      const parsed = await safeReadJsonFile<Record<string, unknown>>(this.contextFile, {});
+      const parsed = await safeReadJsonFile<Record<string, RawContextEntry[]> | RawContextEntry[]>(this.contextFile, {});
       
       this.context.clear();
       if (Array.isArray(parsed)) {

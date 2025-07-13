@@ -1,32 +1,33 @@
 import js from '@eslint/js';
-import tsParser from '@typescript-eslint/parser';
-import tsPlugin from '@typescript-eslint/eslint-plugin';
+import globals from 'globals';
 
 export default [
   js.configs.recommended,
+  
+  // 根目录配置文件
   {
-    files: ['**/*.ts', '**/*.tsx'],
+    files: ['*.js', '*.mjs', '*.config.js'],
     languageOptions: {
-      parser: tsParser,
-      parserOptions: {
-        ecmaVersion: 'latest',
-        sourceType: 'module',
-        project: ['./packages/*/tsconfig.json']
+      ecmaVersion: 'latest',
+      sourceType: 'module',
+      globals: {
+        ...globals.node,
+        ...globals.es2022
       }
     },
-    plugins: {
-      '@typescript-eslint': tsPlugin
-    },
     rules: {
-      ...tsPlugin.configs.recommended.rules,
-      '@typescript-eslint/no-unused-vars': 'error',
-      '@typescript-eslint/explicit-function-return-type': 'warn',
-      '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/prefer-const': 'error',
-      'no-console': 'warn'
+      'prefer-const': 'error',
+      'no-console': 'off'
     }
   },
+  
   {
-    ignores: ['**/dist/**', '**/node_modules/**', '**/.env*']
+    ignores: [
+      'packages/**', // 各包有自己的配置
+      '**/dist/**',
+      '**/node_modules/**',
+      '**/.env*',
+      '**/coverage/**'
+    ]
   }
 ];

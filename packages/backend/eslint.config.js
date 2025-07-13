@@ -1,6 +1,7 @@
 import js from '@eslint/js';
 import tseslint from '@typescript-eslint/eslint-plugin';
 import tsparser from '@typescript-eslint/parser';
+import globals from 'globals';
 
 export default [
   js.configs.recommended,
@@ -14,14 +15,8 @@ export default [
         project: './tsconfig.json',
       },
       globals: {
-        console: 'readonly',
-        process: 'readonly',
-        Buffer: 'readonly',
-        setInterval: 'readonly',
-        clearInterval: 'readonly',
-        setTimeout: 'readonly',
-        clearTimeout: 'readonly',
-        NodeJS: 'readonly',
+        ...globals.node,
+        NodeJS: 'readonly', // TypeScript namespace，不在globals.node中
       },
     },
     plugins: {
@@ -29,10 +24,8 @@ export default [
     },
     rules: {
       ...tseslint.configs.recommended.rules,
-      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
-      '@typescript-eslint/explicit-function-return-type': 'off',
-      '@typescript-eslint/no-explicit-any': 'warn',
-      '@typescript-eslint/no-non-null-assertion': 'warn',
+      // 只保留必要的覆盖
+      '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }], // 添加忽略下划线参数
       'no-undef': 'off', // TypeScript handles this
     },
   },
@@ -42,25 +35,20 @@ export default [
       ecmaVersion: 2022,
       sourceType: 'module',
       globals: {
-        console: 'readonly',
-        process: 'readonly',
-        require: 'readonly',
-        module: 'readonly',
-        exports: 'readonly',
-        __dirname: 'readonly',
-        __filename: 'readonly',
-        Buffer: 'readonly',
-        URL: 'readonly',
-        global: 'readonly',
-        setInterval: 'readonly',
-        clearInterval: 'readonly',
-        setTimeout: 'readonly',
-        clearTimeout: 'readonly',
+        ...globals.node,
       },
     },
     rules: {
       'no-console': 'off',
       'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    },
+  },
+  {
+    files: ['**/*.test.ts', '**/*.spec.ts'],
+    languageOptions: {
+      globals: {
+        ...globals.jest,
+      },
     },
   },
   {
@@ -72,8 +60,6 @@ export default [
       'coverage/**',
       'src/public/**',
       '*.config.js',
-      '**/*.test.ts',
-      '**/*.spec.ts',
       'test-*.js',
       'debug-*.js',
       'final-*.js',
