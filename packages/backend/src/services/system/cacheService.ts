@@ -29,11 +29,14 @@ export class CacheService {
     this.maxSize = options.maxSize || 1000;
     this.defaultTtl = options.defaultTtl || 5 * 60 * 1000; // 5分钟
     
-    // 定期清理过期缓存
-    const cleanupInterval = options.cleanupInterval || 60 * 1000; // 1分钟
-    this.cleanupInterval = setInterval(() => {
-      this.cleanup();
-    }, cleanupInterval);
+    // 在测试环境中禁用定期清理，避免影响Jest退出
+    const isTestEnv = process.env.NODE_ENV === 'test' || process.env.JEST_WORKER_ID !== undefined;
+    if (!isTestEnv) {
+      const cleanupInterval = options.cleanupInterval || 60 * 1000; // 1分钟
+      this.cleanupInterval = setInterval(() => {
+        this.cleanup();
+      }, cleanupInterval);
+    }
   }
 
   /**

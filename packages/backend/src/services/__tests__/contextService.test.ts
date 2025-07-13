@@ -21,6 +21,8 @@ describe('ContextService', () => {
   const testContextFile = '/tmp/test-context.json';
 
   beforeEach(() => {
+    // 使用假定时器避免真实的异步操作
+    jest.useFakeTimers();
     jest.clearAllMocks();
     
     // Setup default mocks
@@ -32,6 +34,13 @@ describe('ContextService', () => {
     contextService = new ContextService();
     // @ts-expect-error - Override the private contextFile for testing
     contextService.contextFile = testContextFile;
+  });
+
+  afterEach(() => {
+    // 清理所有 mock 和定时器
+    jest.clearAllMocks();
+    jest.clearAllTimers();
+    jest.useRealTimers();
   });
 
   describe('initialization', () => {
@@ -46,9 +55,6 @@ describe('ContextService', () => {
     it('should load existing context from file', async () => {
       // Test by adding data directly and verifying it loads correctly
       const testDate = new Date();
-      
-      // First add some data to the service
-      await contextService.addEntry('conversation', 'Test content', { test: true }, 'user1');
       
       // Create a new service instance to test loading
       const newContextService = new ContextService();

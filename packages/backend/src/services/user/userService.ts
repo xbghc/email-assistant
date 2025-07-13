@@ -3,7 +3,7 @@ import path from 'path';
 import logger from '../../utils/logger';
 import config from '../../config/index';
 import { safeReadJsonFile, safeWriteJsonFile, withFileLock } from '../../utils/fileUtils';
-import { userCache } from '../system/cacheService';
+import CacheService, { userCache } from '../system/cacheService';
 
 // 定义可序列化的用户数据接口
 interface SerializableUser extends Omit<User, 'createdAt' | 'updatedAt' | 'lastLoginAt'> {
@@ -15,13 +15,15 @@ interface SerializableUser extends Omit<User, 'createdAt' | 'updatedAt' | 'lastL
 class UserService implements UserStorage {
   public users = new Map<string, User>();
   private dataFile: string;
+  private cache: CacheService;
 
-  constructor() {
+  constructor(cache: CacheService = userCache) {
     // 基于脚本文件位置确定后端根目录
     const scriptPath = process.argv[1] || process.cwd();
     const scriptDir = path.dirname(scriptPath);
     const backendRoot = path.resolve(scriptDir, '../../../'); // 从 src/services/user 到 packages/backend
     this.dataFile = path.join(backendRoot, 'data/users.json');
+    this.cache = cache;
   }
 
   async initialize(): Promise<void> {
@@ -37,7 +39,7 @@ class UserService implements UserStorage {
     const normalizedId = id.toLowerCase();
     // 先检查缓存
     const cacheKey = `user:id:${normalizedId}`;
-    const cached = userCache.get<User>(cacheKey);
+    const cached = this.cache.get<User>(cacheKey);
     if (cached) {
       return cached;
     }
@@ -45,7 +47,7 @@ class UserService implements UserStorage {
     const user = this.users.get(normalizedId);
     if (user) {
       // 缓存用户数据10分钟
-      userCache.set(cacheKey, user, 10 * 60 * 1000);
+      this.cache.set(cacheKey, user, 10 * 60 * 1000);
     }
     return user;
   }
@@ -55,7 +57,7 @@ class UserService implements UserStorage {
 
     // 先检查缓存
     const cacheKey = `user:email:${normalizedEmail}`;
-    const cached = userCache.get<User>(cacheKey);
+    const cached = this.cache.get<User>(cacheKey);
     if (cached) {
       return cached;
     }
@@ -64,8 +66,8 @@ class UserService implements UserStorage {
     const user = this.users.get(normalizedEmail);
     if (user) {
       // 缓存用户数据
-      userCache.set(cacheKey, user, 10 * 60 * 1000);
-      userCache.set(`user:id:${user.id}`, user, 10 * 60 * 1000);
+      this.cache.set(cacheKey, user, 10 * 60 * 1000);
+      this.cache.set(`user:id:${user.id}`, user, 10 * 60 * 1000);
       return user;
     }
     return undefined;
@@ -100,7 +102,7 @@ class UserService implements UserStorage {
         this.users.set(user.id, user);
 
         // 清除旧邮箱的缓存
-        userCache.delete(`user:email:${oldEmail.toLowerCase()}`);
+        this.cache.delete(`user:email:${oldEmail.toLowerCase()}`);
       }
 
       // 清除旧的和新的缓存
@@ -273,8 +275,8 @@ class UserService implements UserStorage {
 
   // 缓存失效辅助方法
   private invalidateUserCache(user: User): void {
-    userCache.delete(`user:id:${user.id}`);
-    userCache.delete(`user:email:${user.email.toLowerCase()}`);
+    this.cache.delete(`user:id:${user.id}`);
+    this.cache.delete(`user:email:${user.email.toLowerCase()}`);
   }
 
   // 获取缓存统计信息
@@ -285,7 +287,7 @@ class UserService implements UserStorage {
     hitRate: number;
     memoryUsage: number;
   } {
-    return userCache.getStats();
+    return this.cache.getStats();
   }
 }
 

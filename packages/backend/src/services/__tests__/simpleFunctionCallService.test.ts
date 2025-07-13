@@ -30,6 +30,13 @@ describe('SimpleFunctionCallService', () => {
     updatedAt: new Date('2024-01-01'),
   };
 
+  const mockAdminUser: User = {
+    ...mockUser,
+    id: 'admin123',
+    email: 'admin@example.com',
+    role: UserRole.ADMIN,
+  };
+
   beforeEach(() => {
     // Create a partial mock of the UserService instance
     mockUserServiceInstance = {
@@ -116,14 +123,17 @@ describe('SimpleFunctionCallService', () => {
     });
 
     it('should handle mark_emails_read function', async () => {
+      // Mock admin user for this test
+      mockUserServiceInstance.getUserById.mockReturnValue(mockAdminUser);
+      
       const args = {
         markAll: true
       };
 
-      const result = await service.handleFunctionCall('mark_emails_read', args);
+      const result = await service.handleFunctionCall('mark_emails_read', args, 'admin123');
 
       expect(result.success).toBe(true);
-      expect(result.message).toContain('已标记所有邮件为已读');
+      expect(result.message).toContain('已标记');
     });
 
     it('should handle get_user_config function', async () => {

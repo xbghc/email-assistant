@@ -10,6 +10,7 @@ class ContextService {
   private contextFile: string;
   private context: Map<string, ContextEntry[]> = new Map(); // 用户ID -> 上下文数组
   private aiService: AIService;
+  private saveTimer: NodeJS.Timeout | null = null;
 
   constructor() {
     // 基于脚本文件位置确定后端根目录
@@ -112,28 +113,10 @@ class ContextService {
     } catch (error) {
       logger.error('Failed to load context:', error);
       this.context.clear();
-      await this.saveContext();
+      await this.saveContextImmediate();
     }
   }
 
-  private async saveContext(): Promise<void> {
-    try {
-      // 转换Map为普通对象进行序列化
-      const contextObj: Record<string, ContextEntry[]> = {};
-      for (const [userId, entries] of this.context.entries()) {
-        contextObj[userId] = entries;
-      }
-      
-      await withFileLock(this.contextFile, async () => {
-        await safeWriteJsonFile(this.contextFile, contextObj, { backup: true });
-      });
-      
-      logger.debug('Context saved with atomic write');
-    } catch (error) {
-      logger.error('Failed to save context:', error);
-      throw error;
-    }
-  }
 
   private shouldCompress(userId: string): boolean {
     const userContext = this.context.get(userId) || [];
@@ -160,7 +143,7 @@ class ContextService {
       };
 
       this.context.set(userId, [compressedEntry, ...recentContext]);
-      await this.saveContext();
+      await this.saveContextImmediate();
       
       logger.debug(`Context compressed for user ${userId}: ${oldContext.length} entries → 1 compressed entry`);
     } catch (error) {
@@ -169,7 +152,7 @@ class ContextService {
   }
 
   private generateId(): string {
-    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    return `${Date.now()}-${Math.random().toString(36).substring(2, 11)}`;
   }
 
   // 获取所有用户的上下文统计
@@ -189,21 +172,28 @@ class ContextService {
   // 清理用户上下文
   async clearUserContext(userId: string): Promise<void> {
     this.context.delete(userId);
-    await this.saveContext();
+    await this.saveContextImmediate();
     logger.debug(`Cleared context for user ${userId}`);
   }
 
   // 防抖保存方法
   private saveContextDebounced(): void {
-    const contextData: Record<string, ContextEntry[]> = {};
-    for (const [userId, entries] of this.context.entries()) {
-      contextData[userId] = entries;
+    // 清除之前的定时器
+    if (this.saveTimer) {
+      clearTimeout(this.saveTimer);
     }
     
-    safeWriteJsonFile(this.contextFile, contextData, { 
-      backup: true, 
-      debounceMs: 3000  // 3秒防抖
-    }).catch(err => logger.error('Failed to save context (debounced):', err));
+    // 设置新的定时器
+    this.saveTimer = setTimeout(async () => {
+      try {
+        await this.saveContextImmediate();
+        logger.debug('Context saved with debounced write');
+      } catch (err) {
+        logger.error('Failed to save context (debounced):', err);
+      } finally {
+        this.saveTimer = null;
+      }
+    }, 3000);
   }
 
   // 立即保存方法（用于重要操作）
@@ -217,6 +207,7 @@ class ContextService {
       await safeWriteJsonFile(this.contextFile, contextData, { backup: true });
     });
   }
+
 }
 
 export default ContextService;
