@@ -231,6 +231,7 @@ const testMorningReminder = async () => {
       showNotification('晨间提醒测试失败', 'error');
     }
   } catch (error) {
+    console.error('晨间提醒测试失败:', error);
     showNotification('网络错误', 'error');
   } finally {
     isLoading.value = false;
@@ -249,6 +250,7 @@ const testEveningReminder = async () => {
       showNotification('晚间提醒测试失败', 'error');
     }
   } catch (error) {
+    console.error('晚间提醒测试失败:', error);
     showNotification('网络错误', 'error');
   } finally {
     isLoading.value = false;
@@ -267,6 +269,7 @@ const generateWeeklyReport = async () => {
       showNotification('周报生成失败', 'error');
     }
   } catch (error) {
+    console.error('周报生成失败:', error);
     showNotification('网络错误', 'error');
   } finally {
     isLoading.value = false;
@@ -285,6 +288,7 @@ const generateSuggestions = async () => {
       showNotification('建议生成失败', 'error');
     }
   } catch (error) {
+    console.error('建议生成失败:', error);
     showNotification('网络错误', 'error');
   } finally {
     isLoading.value = false;
@@ -324,6 +328,7 @@ const resetReminderStatus = async () => {
       showNotification('提醒状态重置失败', 'error');
     }
   } catch (error) {
+    console.error('提醒状态重置失败:', error);
     showNotification('网络错误', 'error');
   } finally {
     isLoading.value = false;

@@ -135,6 +135,7 @@ const checkSystemStatus = async () => {
     systemStatus.value = 'healthy';
     statusText.value = '系统正常';
   } catch (error) {
+    console.error('系统状态检查失败:', error);
     systemStatus.value = 'error';
     statusText.value = '系统异常';
   }

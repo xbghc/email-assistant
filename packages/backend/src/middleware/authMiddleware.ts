@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import { AuthService } from '../services/user/authService';
 import UserService from '../services/user/userService';
+import EmailService from '../services/email/emailService';
 import { UserRole, JWTPayload } from '../models/User';
 import logger from '../utils/logger';
 
@@ -22,7 +23,7 @@ export class AuthMiddleware {
 
   constructor() {
     const userService = new UserService();
-    const emailService = new (require('../services/email/emailService').default)();
+    const emailService = new EmailService();
     this.authService = new AuthService(userService, emailService);
   }
 

@@ -1,5 +1,4 @@
 import jwt from 'jsonwebtoken';
-import crypto from 'crypto';
 import { User, UserRole, SendCodeRequest, VerifyCodeRequest, RegisterRequest, AuthResponse, JWTPayload } from '../../models/User';
 import UserService from './userService';
 import EmailService from '../email/emailService';
