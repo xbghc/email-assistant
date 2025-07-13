@@ -266,8 +266,8 @@ class ReminderTrackingService {
     try {
       const data = await fs.readFile(this.trackingFile, 'utf-8');
       this.tracking = JSON.parse(data);
-    } catch (error: any) {
-      if (error.code === 'ENOENT') {
+    } catch (error: unknown) {
+      if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
         // 文件不存在，创建新的
         this.tracking = {};
         await this.saveTracking();

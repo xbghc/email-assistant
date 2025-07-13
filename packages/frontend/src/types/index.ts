@@ -59,7 +59,7 @@ export interface AppState {
     users: User[];
     systemStats: SystemStatus;
     logs: LogEntry[];
-    settings: Record<string, unknown>;
+    settings: Settings;
   };
   auth: {
     token: string | null;

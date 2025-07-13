@@ -1,4 +1,4 @@
-import type { AppState, User } from '../types/index';
+import type { AppState, User, SystemStatus, LogEntry, Settings } from '../types/index';
 
 class StateManager {
   private state: AppState;
@@ -24,7 +24,7 @@ class StateManager {
           overall: 'unknown'
         },
         logs: [],
-        settings: {}
+        settings: {} as Settings
       },
       auth: {
         token: localStorage.getItem('authToken'),

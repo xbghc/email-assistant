@@ -695,6 +695,13 @@ ${pattern.achievements.recent.slice(0, 3).join('\n')}
     const suggestions: PersonalizedSuggestion[] = [];
     const lines = aiResponse.split('\n').filter(line => line.trim() && line.includes('|'));
     
+    type SuggestionType = PersonalizedSuggestion['type'];
+    const suggestionTypes: SuggestionType[] = ['productivity', 'time_management', 'skill_development', 'wellbeing', 'workflow'];
+    
+    const isSuggestionType = (type: string): type is SuggestionType => {
+      return suggestionTypes.includes(type as SuggestionType);
+    };
+
     for (const line of lines.slice(0, 3)) {
       try {
         const parts = line.split('|').map(part => part.trim());
@@ -702,12 +709,17 @@ ${pattern.achievements.recent.slice(0, 3).join('\n')}
           const [typeAndTitle, description, actions] = parts;
           if (typeAndTitle && description && actions) {
             const titleParts = typeAndTitle.split(']').map(s => s.replace('[', '').trim());
-            const [typeStr, title] = titleParts.length >= 2 ? titleParts : ['productivity', typeAndTitle];
+            const typeStr = titleParts.length >= 2 ? titleParts[0] : 'productivity';
+            const title = titleParts.length >= 2 ? titleParts[1] : typeAndTitle;
             
+            if (!title) continue;
+
+            const finalType = isSuggestionType(typeStr) ? typeStr : 'productivity';
+
             suggestions.push({
-              type: (typeStr as any) || 'productivity',
+              type: finalType,
               priority: 'medium',
-              title: title || '个性化建议',
+              title: title,
               description: description || '',
               reasoning: 'AI基于您的工作模式分析生成',
               actionItems: actions.split('、').map(item => item.trim()),

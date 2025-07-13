@@ -1,4 +1,4 @@
-import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction, RequestHandler } from 'express';
 import { AuthService } from '../services/user/authService';
 import UserService from '../services/user/userService';
 import EmailService from '../services/email/emailService';
@@ -16,6 +16,11 @@ declare global {
     }
   }
   /* eslint-enable @typescript-eslint/no-namespace */
+}
+
+// 为速率限制中间件定义一个带有清理功能的新类型
+interface RateLimitMiddleware extends RequestHandler {
+  cleanup?: () => void;
 }
 
 export class AuthMiddleware {
@@ -178,7 +183,7 @@ export class AuthMiddleware {
   };
 
   // 速率限制（带内存清理版本）
-  rateLimit = (maxRequests: number, windowMs: number) => {
+  rateLimit = (maxRequests: number, windowMs: number): RateLimitMiddleware => {
     const requests = new Map<string, { count: number; resetTime: number }>();
     
     // 定期清理过期记录，防止内存泄漏
@@ -197,7 +202,7 @@ export class AuthMiddleware {
       requests.clear();
     };
 
-    const middleware = (req: Request, res: Response, next: NextFunction): void => {
+    const middleware: RateLimitMiddleware = (req: Request, res: Response, next: NextFunction): void => {
       const identifier = req.ip || 'unknown';
       const now = Date.now();
       
@@ -225,8 +230,7 @@ export class AuthMiddleware {
     };
 
     // 将清理方法附加到中间件上
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    (middleware as any).cleanup = cleanup;
+    middleware.cleanup = cleanup;
     return middleware;
   };
 

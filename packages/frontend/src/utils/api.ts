@@ -147,19 +147,19 @@ class ApiClient {
     }
 
     const endpoint = `/api/reports${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
-    return this.request<any[]>(endpoint);
+    return this.request<Report[]>(endpoint);
   }
 
-  async getReport(reportId: string): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/reports/${reportId}`);
+  async getReport(reportId: string): Promise<ApiResponse<Report>> {
+    return this.request<Report>(`/api/reports/${reportId}`);
   }
 
   // 设置管理
-  async getSettings(): Promise<ApiResponse<any>> {
-    return this.request<any>('/api/settings');
+  async getSettings(): Promise<ApiResponse<Record<string, unknown>>> {
+    return this.request<Record<string, unknown>>('/api/settings');
   }
 
-  async updateSettings(settings: any): Promise<ApiResponse<void>> {
+  async updateSettings(settings: Record<string, unknown>): Promise<ApiResponse<void>> {
     return this.request<void>('/api/settings', {
       method: 'PUT',
       body: JSON.stringify(settings),
@@ -167,9 +167,9 @@ class ApiClient {
   }
 
   // 提醒状态
-  async getReminderStatus(userId?: string): Promise<ApiResponse<any>> {
+  async getReminderStatus(userId?: string): Promise<ApiResponse<Record<string, unknown>>> {
     const endpoint = userId ? `/api/reminder-status?userId=${userId}` : '/api/reminder-status';
-    return this.request<any>(endpoint);
+    return this.request<Record<string, unknown>>(endpoint);
   }
 
   async resetReminderStatus(userId?: string): Promise<ApiResponse<void>> {
@@ -180,17 +180,17 @@ class ApiClient {
   }
 
   // 邮件趋势
-  async getEmailTrends(days: number = 7): Promise<ApiResponse<any>> {
-    return this.request<any>(`/api/email-trends?days=${days}`);
+  async getEmailTrends(days: number = 7): Promise<ApiResponse<Record<string, unknown>>> {
+    return this.request<Record<string, unknown>>(`/api/email-trends?days=${days}`);
   }
 
   // 性能监控
-  async getPerformanceMetrics(): Promise<ApiResponse<any>> {
-    return this.request<any>('/api/performance/metrics');
+  async getPerformanceMetrics(): Promise<ApiResponse<Record<string, unknown>>> {
+    return this.request<Record<string, unknown>>('/api/performance/metrics');
   }
 
-  async getPerformanceAlerts(): Promise<ApiResponse<any>> {
-    return this.request<any>('/api/performance/alerts');
+  async getPerformanceAlerts(): Promise<ApiResponse<Record<string, unknown>>> {
+    return this.request<Record<string, unknown>>('/api/performance/alerts');
   }
 
   async resolveAlert(alertId: string): Promise<ApiResponse<void>> {

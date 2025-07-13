@@ -155,13 +155,13 @@ export class DOMUtils {
   }
 
   // 防抖函数
-  static debounce<T extends (...args: any[]) => any>(
+  static debounce<T extends (...args: unknown[]) => unknown>(
     func: T,
     wait: number
   ): (...args: Parameters<T>) => void {
     let timeout: ReturnType<typeof setTimeout>;
     
-    return function(this: any, ...args: Parameters<T>) {
+    return function(this: ThisParameterType<T>, ...args: Parameters<T>) {
       const later = () => {
         clearTimeout(timeout);
         func.apply(this, args);
@@ -173,13 +173,13 @@ export class DOMUtils {
   }
 
   // 节流函数
-  static throttle<T extends (...args: any[]) => any>(
+  static throttle<T extends (...args: unknown[]) => unknown>(
     func: T,
     limit: number
   ): (...args: Parameters<T>) => void {
     let inThrottle: boolean;
     
-    return function(this: any, ...args: Parameters<T>) {
+    return function(this: ThisParameterType<T>, ...args: Parameters<T>) {
       if (!inThrottle) {
         func.apply(this, args);
         inThrottle = true;

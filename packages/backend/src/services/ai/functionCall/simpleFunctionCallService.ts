@@ -349,7 +349,8 @@ class SimpleFunctionCallService {
         };
       }
 
-      const reminderData = JSON.parse(readFileSync(reminderPath, 'utf-8'));
+      type ReminderStatus = { morning?: boolean; evening?: boolean };
+      const reminderData: Record<string, ReminderStatus> = JSON.parse(readFileSync(reminderPath, 'utf-8'));
       const cutoffDate = new Date();
       cutoffDate.setDate(cutoffDate.getDate() - days);
 
@@ -369,9 +370,8 @@ class SimpleFunctionCallService {
       const reminderSummary = recentReminders
         .map(([dateKey, status]) => {
           const date = new Date(dateKey).toLocaleDateString();
-          const statusText = status as any;
-          const morningStatus = statusText.morning ? '✅ 已发送' : '❌ 未发送';
-          const eveningStatus = statusText.evening ? '✅ 已发送' : '❌ 未发送';
+          const morningStatus = status.morning ? '✅ 已发送' : '❌ 未发送';
+          const eveningStatus = status.evening ? '✅ 已发送' : '❌ 未发送';
           
           return `📅 ${date}\n• 早晨提醒: ${morningStatus}\n• 晚间提醒: ${eveningStatus}`;
         })

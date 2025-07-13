@@ -49,6 +49,10 @@ export interface PerformanceAlert {
   resolved: boolean;
 }
 
+// Interfaces for data loaded from JSON
+type LoadedMetric = Omit<PerformanceMetrics, 'timestamp'> & { timestamp: string };
+type LoadedAlert = Omit<PerformanceAlert, 'timestamp'> & { timestamp: string };
+
 export class PerformanceMonitorService {
   private metrics: PerformanceMetrics[] = [];
   private alerts: PerformanceAlert[] = [];
@@ -128,6 +132,13 @@ export class PerformanceMonitorService {
       const memoryUsage = process.memoryUsage();
       const cpuUsage = await this.getCpuUsage();
       
+      // _getActiveHandles and _getActiveRequests are undocumented and not in @types/node
+      // Using ts-expect-error to suppress errors while retaining functionality.
+      // @ts-expect-error -- Undocumented API
+      const activeHandles = process._getActiveHandles?.().length || 0;
+      // @ts-expect-error -- Undocumented API
+      const activeRequests = process._getActiveRequests?.().length || 0;
+
       const metrics: PerformanceMetrics = {
         timestamp: new Date(),
         memory: {
@@ -152,8 +163,8 @@ export class PerformanceMonitorService {
         application: {
           uptime: (Date.now() - this.startTime) / 1000,
           pid: process.pid,
-          activeHandles: (process as any)._getActiveHandles().length,
-          activeRequests: (process as any)._getActiveRequests().length,
+          activeHandles,
+          activeRequests,
         },
       };
 
@@ -362,13 +373,13 @@ export class PerformanceMonitorService {
   private async loadMetrics(): Promise<void> {
     try {
       const data = await fs.readFile(this.metricsFile, 'utf-8');
-      const parsed = JSON.parse(data);
-      this.metrics = parsed.map((m: any) => ({
+      const parsed: LoadedMetric[] = JSON.parse(data);
+      this.metrics = parsed.map((m) => ({
         ...m,
         timestamp: new Date(m.timestamp),
       }));
-    } catch (error) {
-      if ((error as any).code !== 'ENOENT') {
+    } catch (error: unknown) {
+      if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
         logger.error('Failed to load performance metrics:', error);
       }
       this.metrics = [];
@@ -386,13 +397,13 @@ export class PerformanceMonitorService {
   private async loadAlerts(): Promise<void> {
     try {
       const data = await fs.readFile(this.alertsFile, 'utf-8');
-      const parsed = JSON.parse(data);
-      this.alerts = parsed.map((a: any) => ({
+      const parsed: LoadedAlert[] = JSON.parse(data);
+      this.alerts = parsed.map((a) => ({
         ...a,
         timestamp: new Date(a.timestamp),
       }));
-    } catch (error) {
-      if ((error as any).code !== 'ENOENT') {
+    } catch (error: unknown) {
+      if (!(error instanceof Error && 'code' in error && error.code === 'ENOENT')) {
         logger.error('Failed to load performance alerts:', error);
       }
       this.alerts = [];

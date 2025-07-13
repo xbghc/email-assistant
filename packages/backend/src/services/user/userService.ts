@@ -6,6 +6,13 @@ import config from '../../config/index';
 import { safeReadJsonFile, safeWriteJsonFile, withFileLock } from '../../utils/fileUtils';
 import { userCache } from '../system/cacheService';
 
+// 定义可序列化的用户数据接口
+interface SerializableUser extends Omit<User, 'createdAt' | 'updatedAt' | 'lastLoginAt'> {
+  createdAt: string;
+  updatedAt: string;
+  lastLoginAt?: string;
+}
+
 class UserService implements UserStorage {
   public users = new Map<string, User>();
   private emailToIdMap = new Map<string, string>(); // 邮箱到ID的快速映射
@@ -155,11 +162,7 @@ class UserService implements UserStorage {
 
   async saveToFile(): Promise<void> {
     try {
-      const usersData = Array.from(this.users.entries()).map(([, user]) => ({
-        ...user,
-        createdAt: user.createdAt.toISOString(),
-        updatedAt: user.updatedAt.toISOString()
-      }));
+      const usersData = this.getSerializableUsers();
       
       await withFileLock(this.dataFile, async () => {
         await safeWriteJsonFile(this.dataFile, usersData, { backup: true });
@@ -191,7 +194,7 @@ class UserService implements UserStorage {
 
   async loadFromFile(): Promise<void> {
     try {
-      const usersData = await safeReadJsonFile<any[]>(this.dataFile, []);
+      const usersData = await safeReadJsonFile<SerializableUser[]>(this.dataFile, []);
       
       this.users.clear();
       this.emailToIdMap.clear();

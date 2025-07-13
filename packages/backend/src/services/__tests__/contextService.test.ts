@@ -1,7 +1,5 @@
 import fs from 'fs/promises';
-import path from 'path';
 import ContextService from '../reports/contextService';
-import { ContextEntry } from '../../models/index';
 import * as fileUtils from '../../utils/fileUtils';
 
 // Mock dependencies
@@ -18,8 +16,8 @@ describe('ContextService', () => {
 
   beforeEach(() => {
     contextService = new ContextService();
-    // Override the private contextFile for testing
-    (contextService as any).contextFile = testContextFile;
+    // @ts-expect-error - Override the private contextFile for testing
+    contextService.contextFile = testContextFile;
     jest.clearAllMocks();
     
     // Setup default mocks
@@ -53,7 +51,8 @@ describe('ContextService', () => {
 
       // Create a new service instance with mock data
       const newContextService = new ContextService();
-      (newContextService as any).contextFile = testContextFile;
+      // @ts-expect-error - Override the private contextFile for testing
+      newContextService.contextFile = testContextFile;
       mockFileUtils.safeReadJsonFile.mockResolvedValue(mockData);
 
       await newContextService.initialize();
@@ -76,7 +75,8 @@ describe('ContextService', () => {
 
       // Create a new service instance with mock data
       const newContextService = new ContextService();
-      (newContextService as any).contextFile = testContextFile;
+      // @ts-expect-error - Override the private contextFile for testing
+      newContextService.contextFile = testContextFile;
       mockFileUtils.safeReadJsonFile.mockResolvedValue(mockData);
 
       await newContextService.initialize();
@@ -213,7 +213,8 @@ describe('ContextService', () => {
     });
 
     it('should check if compression is needed', async () => {
-      const checkMethod = (contextService as any).shouldCompress.bind(contextService);
+      // @ts-expect-error - Accessing private method for testing
+      const checkMethod = contextService.shouldCompress.bind(contextService);
       
       // Add entries with long content to trigger compression threshold
       await contextService.addEntry('conversation', 'x'.repeat(3000), {}, 'user1');

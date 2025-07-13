@@ -103,8 +103,8 @@ export async function safeReadJsonFile<T>(filePath: string, defaultValue: T): Pr
   try {
     const data = await fs.readFile(filePath, 'utf8');
     return JSON.parse(data);
-  } catch (error) {
-    if ((error as any).code === 'ENOENT') {
+  } catch (error: unknown) {
+    if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
       // 文件不存在，返回默认值
       return defaultValue;
     }
@@ -195,8 +195,8 @@ export class FileLock {
         await fs.writeFile(this.lockFile, process.pid.toString(), { flag: 'wx' });
         this.locked = true;
         return;
-      } catch (error) {
-        if ((error as any).code === 'EEXIST') {
+      } catch (error: unknown) {
+        if (error instanceof Error && 'code' in error && error.code === 'EEXIST') {
           // 检查锁文件是否过期
           try {
             const stats = await fs.stat(this.lockFile);

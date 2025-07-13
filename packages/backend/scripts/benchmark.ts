@@ -109,8 +109,9 @@ async function runBenchmarks(): Promise<void> {
       console.log('🚨 性能需要优化，建议检查系统配置');
     }
     
-  } catch (error: any) {
-    console.error('❌ 基准测试失败:', error.message);
+  } catch (error: unknown) {
+    const message = error instanceof Error ? error.message : String(error);
+    console.error('❌ 基准测试失败:', message);
     console.error('\n🔍 故障排除:');
     console.error('1. 确保项目已构建: pnpm build');
     console.error('2. 确保依赖已安装: pnpm install');
@@ -132,7 +133,7 @@ async function main(): Promise<void> {
 }
 
 // 处理未捕获的异常
-process.on('unhandledRejection', (reason: any, _promise: Promise<any>) => {
+process.on('unhandledRejection', (reason: unknown, _promise: Promise<unknown>) => {
   console.error('❌ 未处理的Promise拒绝:', reason);
   process.exit(1);
 });
