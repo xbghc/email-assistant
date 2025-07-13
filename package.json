@@ -19,7 +19,7 @@
     "lint": "pnpm -r lint",
     "lint:fix": "pnpm -r lint:fix",
     "typecheck": "pnpm -r typecheck",
-    "validate": "pnpm typecheck && pnpm lint",
+    "validate": "pnpm typecheck && pnpm lint && pnpm test:ci",
     "clean": "pnpm -r clean",
     "migration:status": "echo 'Current architecture: PNPM Monorepo with Backend + Frontend + Shared packages'",
     "prepare": "husky"
