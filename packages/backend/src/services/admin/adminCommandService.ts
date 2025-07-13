@@ -721,7 +721,9 @@ class AdminCommandService {
 
     try {
       // 更新用户配置，移除暂停信息
-      const { resumeDate: _, ...restConfig } = user.config;
+      const restConfig = { ...user.config };
+      delete (restConfig as { resumeDate?: string }).resumeDate;
+
       const newConfig: UserConfig = {
         ...restConfig,
         reminderPaused: false,

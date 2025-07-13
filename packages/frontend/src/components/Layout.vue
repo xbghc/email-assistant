@@ -95,7 +95,7 @@ const notifications = ref<Array<{
 const systemStatus = ref('checking');
 const statusText = ref('检查中...');
 
-const currentRoute = computed(() => route.name?.toString().toLowerCase());
+const currentRoute = computed(() => route.name?.toString().toLowerCase() || "");
 
 const pageTitle = computed(() => {
   const titles: Record<string, string> = {
@@ -134,8 +134,7 @@ const checkSystemStatus = async () => {
     // const response = await apiClient.getSystemHealth();
     systemStatus.value = 'healthy';
     statusText.value = '系统正常';
-  } catch (error) {
-    console.error('系统状态检查失败:', error);
+  } catch {
     systemStatus.value = 'error';
     statusText.value = '系统异常';
   }
