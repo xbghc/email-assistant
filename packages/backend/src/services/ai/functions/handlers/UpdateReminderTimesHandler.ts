@@ -11,13 +11,21 @@ export class UpdateReminderTimesHandler extends BaseFunctionHandler {
     parameters: {
       type: 'object',
       properties: {
-        morningTime: {
-          type: 'string',
-          description: '早晨提醒时间，格式为 HH:MM 或自然语言（如：9点半）'
+        morningHour: {
+          type: 'number',
+          description: '早晨提醒小时数 (0-23)'
         },
-        eveningTime: {
-          type: 'string',
-          description: '晚间提醒时间，格式为 HH:MM 或自然语言（如：6点）'
+        morningMinute: {
+          type: 'number',
+          description: '早晨提醒分钟数 (0-59)'
+        },
+        eveningHour: {
+          type: 'number',
+          description: '晚间提醒小时数 (0-23)'
+        },
+        eveningMinute: {
+          type: 'number',
+          description: '晚间提醒分钟数 (0-59)'
         }
       }
     }
@@ -41,31 +49,39 @@ export class UpdateReminderTimesHandler extends BaseFunctionHandler {
         return this.createErrorResult('用户未找到');
       }
 
-      // 解析和验证时间格式
-      const originalMorningTime = args.morningTime as string | undefined;
-      const originalEveningTime = args.eveningTime as string | undefined;
+      // 获取和验证数字参数
+      const morningHour = args.morningHour as number | undefined;
+      const morningMinute = args.morningMinute as number | undefined;
+      const eveningHour = args.eveningHour as number | undefined;
+      const eveningMinute = args.eveningMinute as number | undefined;
       
       let morningTime: string | undefined;
       let eveningTime: string | undefined;
       
-      // 解析早晨时间
-      if (originalMorningTime) {
-        morningTime = this.parseTimeString(originalMorningTime) || undefined;
-        if (!morningTime) {
-          return this.createErrorResult(
-            `早晨时间格式无效："${originalMorningTime}"，请使用 HH:MM 格式（如：09:30）或自然语言（如：9点半）`
-          );
+      // 验证和构建早晨时间
+      if (morningHour !== undefined || morningMinute !== undefined) {
+        if (morningHour === undefined || morningMinute === undefined) {
+          return this.createErrorResult('早晨时间需要同时提供小时和分钟');
         }
+        
+        if (!this.isValidTime(morningHour, morningMinute)) {
+          return this.createErrorResult(`早晨时间无效：${morningHour}:${morningMinute}。小时应在0-23之间，分钟应在0-59之间`);
+        }
+        
+        morningTime = `${morningHour.toString().padStart(2, '0')}:${morningMinute.toString().padStart(2, '0')}`;
       }
       
-      // 解析晚间时间
-      if (originalEveningTime) {
-        eveningTime = this.parseTimeString(originalEveningTime) || undefined;
-        if (!eveningTime) {
-          return this.createErrorResult(
-            `晚间时间格式无效："${originalEveningTime}"，请使用 HH:MM 格式（如：18:00）或自然语言（如：6点）`
-          );
+      // 验证和构建晚间时间
+      if (eveningHour !== undefined || eveningMinute !== undefined) {
+        if (eveningHour === undefined || eveningMinute === undefined) {
+          return this.createErrorResult('晚间时间需要同时提供小时和分钟');
         }
+        
+        if (!this.isValidTime(eveningHour, eveningMinute)) {
+          return this.createErrorResult(`晚间时间无效：${eveningHour}:${eveningMinute}。小时应在0-23之间，分钟应在0-59之间`);
+        }
+        
+        eveningTime = `${eveningHour.toString().padStart(2, '0')}:${eveningMinute.toString().padStart(2, '0')}`;
       }
 
       // 更新用户配置
@@ -104,51 +120,15 @@ export class UpdateReminderTimesHandler extends BaseFunctionHandler {
     }
   }
 
-  private parseTimeString(timeStr: string): string | null {
-    // 清理输入
-    const cleanTime = timeStr.trim().toLowerCase();
-    
-    // 直接匹配 HH:MM 格式
-    const directMatch = cleanTime.match(/^([01]?[0-9]|2[0-3]):([0-5][0-9])$/);
-    if (directMatch) {
-      return directMatch[0];
-    }
-    
-    // 匹配自然语言时间表达
-    const patterns = [
-      // X点 或 X点钟
-      { regex: /(\d{1,2})点钟?$/, handler: (match: RegExpMatchArray) => `${(match[1] || '0').padStart(2, '0')}:00` },
-      // X点半
-      { regex: /(\d{1,2})点半$/, handler: (match: RegExpMatchArray) => `${(match[1] || '0').padStart(2, '0')}:30` },
-      // X点Y分
-      { regex: /(\d{1,2})点(\d{1,2})分?$/, handler: (match: RegExpMatchArray) => 
-        `${(match[1] || '0').padStart(2, '0')}:${(match[2] || '0').padStart(2, '0')}` },
-      // 上午/下午 X点
-      { regex: /([上下])午(\d{1,2})点钟?$/, handler: (match: RegExpMatchArray) => {
-        let hour = parseInt(match[2] || '0');
-        if ((match[1] || '') === '下' && hour < 12) hour += 12;
-        if ((match[1] || '') === '上' && hour === 12) hour = 0;
-        return `${hour.toString().padStart(2, '0')}:00`;
-      }},
-      // 早上/晚上 X点
-      { regex: /(早上|晚上)(\d{1,2})点钟?$/, handler: (match: RegExpMatchArray) => {
-        let hour = parseInt(match[2] || '0');
-        if ((match[1] || '') === '晚上' && hour < 12) hour += 12;
-        return `${hour.toString().padStart(2, '0')}:00`;
-      }}
-    ];
-    
-    for (const pattern of patterns) {
-      const match = cleanTime.match(pattern.regex);
-      if (match) {
-        const result = pattern.handler(match);
-        // 验证生成的时间格式
-        if (/^([01]?[0-9]|2[0-3]):([0-5][0-9])$/.test(result)) {
-          return result;
-        }
-      }
-    }
-    
-    return null;
+  /**
+   * 验证时间数字是否有效
+   */
+  private isValidTime(hour: number, minute: number): boolean {
+    return (
+      Number.isInteger(hour) &&
+      Number.isInteger(minute) &&
+      hour >= 0 && hour <= 23 &&
+      minute >= 0 && minute <= 59
+    );
   }
 }

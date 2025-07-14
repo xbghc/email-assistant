@@ -40,7 +40,7 @@ describe('SimpleFunctionCallService', () => {
     // Create a partial mock of the UserService instance
     mockUserServiceInstance = {
       initialize: jest.fn(),
-      updateUserConfig: jest.fn(),
+      updateUser: jest.fn(),
       getUserByEmail: jest.fn(),
       getUserById: jest.fn().mockReturnValue(mockUser),
       getAllUsers: jest.fn().mockReturnValue([mockUser, mockAdminUser]),
@@ -76,22 +76,26 @@ describe('SimpleFunctionCallService', () => {
 
     it('should handle update_reminder_times function', async () => {
       const args = {
-        morningTime: '08:00',
-        eveningTime: '20:00'
+        morningHour: 8,
+        morningMinute: 0,
+        eveningHour: 20,
+        eveningMinute: 0
       };
 
-      mockUserServiceInstance.updateUserConfig.mockResolvedValue(true);
+      // updateUser is void, no return value
 
       const result = await service.handleFunctionCall('update_reminder_times', args, 'user123');
 
       expect(result.success).toBe(true);
       expect(result.message).toContain('提醒时间已更新');
-      expect(mockUserServiceInstance.updateUserConfig).toHaveBeenCalledWith(
+      expect(mockUserServiceInstance.updateUser).toHaveBeenCalledWith(
         'user123',
         expect.objectContaining({
-          schedule: expect.objectContaining({
-            morningReminderTime: '08:00',
-            eveningReminderTime: '20:00'
+          config: expect.objectContaining({
+            schedule: expect.objectContaining({
+              morningReminderTime: '08:00',
+              eveningReminderTime: '20:00'
+            })
           })
         })
       );
@@ -99,20 +103,24 @@ describe('SimpleFunctionCallService', () => {
 
     it('should handle update_reminder_times with partial args', async () => {
       const args = {
-        morningTime: '09:00'
+        morningHour: 9,
+        morningMinute: 0
+        // No evening time provided
       };
 
-      mockUserServiceInstance.updateUserConfig.mockResolvedValue(true);
+      // updateUser is void, no return value
 
       const result = await service.handleFunctionCall('update_reminder_times', args, 'user123');
 
       expect(result.success).toBe(true);
-      expect(mockUserServiceInstance.updateUserConfig).toHaveBeenCalledWith(
+      expect(mockUserServiceInstance.updateUser).toHaveBeenCalledWith(
         'user123',
         expect.objectContaining({
-          schedule: expect.objectContaining({
-            morningReminderTime: '09:00',
-            eveningReminderTime: '20:00' // Should keep existing value
+          config: expect.objectContaining({
+            schedule: expect.objectContaining({
+              morningReminderTime: '09:00'
+              // Evening time should remain unchanged
+            })
           })
         })
       );
@@ -120,8 +128,10 @@ describe('SimpleFunctionCallService', () => {
 
     it('should handle update_reminder_times without userId', async () => {
       const args = {
-        morningTime: '08:00',
-        eveningTime: '20:00'
+        morningHour: 8,
+        morningMinute: 0,
+        eveningHour: 20,
+        eveningMinute: 0
       };
 
       const result = await service.handleFunctionCall('update_reminder_times', args);
@@ -202,22 +212,35 @@ describe('SimpleFunctionCallService', () => {
 
     it('should handle invalid time format', async () => {
       const invalidArgs = {
-        morningTime: '25:00', // Invalid hour
+        morningHour: 25, // Invalid hour
+        morningMinute: 0
       };
 
       const result = await service.handleFunctionCall('update_reminder_times', invalidArgs, 'user123');
       expect(result.success).toBe(false);
-      expect(result.message).toContain('时间格式无效');
+      expect(result.message).toContain('早晨时间无效');
     });
 
     it('should handle invalid evening time format', async () => {
       const invalidArgs = {
-        eveningTime: '08:60', // Invalid minutes
+        eveningHour: 8,
+        eveningMinute: 60 // Invalid minutes
       };
 
       const result = await service.handleFunctionCall('update_reminder_times', invalidArgs, 'user123');
       expect(result.success).toBe(false);
-      expect(result.message).toContain('时间格式无效');
+      expect(result.message).toContain('晚间时间无效');
+    });
+
+    it('should handle incomplete time parameters', async () => {
+      const invalidArgs = {
+        morningHour: 9
+        // Missing morningMinute
+      };
+
+      const result = await service.handleFunctionCall('update_reminder_times', invalidArgs, 'user123');
+      expect(result.success).toBe(false);
+      expect(result.message).toContain('早晨时间需要同时提供小时和分钟');
     });
   });
 });
