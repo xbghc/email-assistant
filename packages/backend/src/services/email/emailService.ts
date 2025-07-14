@@ -264,8 +264,45 @@ class EmailService {
    * 发送系统启动通知
    */
   async sendSystemStartupNotification(userCount: number): Promise<void> {
+    const notificationConfig = config.email.startup.notification;
+    
+    // 如果配置为不发送，直接返回
+    if (notificationConfig === 'none') {
+      logger.info('System startup notification disabled');
+      return;
+    }
+    
     const template = this.templateGenerator.generateSystemStartupNotification(userCount);
-    await this.sendEmail(template.subject, template.content, false, undefined, 'notification');
+    
+    // 根据配置决定发送给谁
+    let recipients: string[] = [];
+    
+    switch (notificationConfig) {
+      case 'admin':
+        if (config.email.admin.email) {
+          recipients = [config.email.admin.email];
+        }
+        break;
+      case 'all':
+        // 这里需要获取所有用户，暂时先发给管理员
+        if (config.email.admin.email) {
+          recipients = [config.email.admin.email];
+        }
+        // TODO: 添加获取所有用户邮箱的逻辑
+        break;
+      case 'custom':
+        if (config.email.startup.customRecipients) {
+          recipients = config.email.startup.customRecipients;
+        }
+        break;
+    }
+    
+    // 发送通知
+    for (const recipient of recipients) {
+      await this.sendEmail(template.subject, template.content, false, recipient, 'notification');
+    }
+    
+    logger.info(`System startup notification sent to ${recipients.length} recipient(s): ${recipients.join(', ')}`);
   }
 
   /**

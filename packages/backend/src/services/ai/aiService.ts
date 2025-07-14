@@ -329,7 +329,7 @@ ${contextText}
     }
 
     const response = await this.openai.chat.completions.create({
-      model: config.ai.openai.model,
+      model: config.ai.openai?.model || 'gpt-3.5-turbo',
       messages: [
         { role: 'system', content: systemMessage },
         { role: 'user', content: userMessage },
@@ -353,7 +353,7 @@ ${contextText}
     }
 
     const response = await this.openai.chat.completions.create({
-      model: config.ai.openai.model,
+      model: config.ai.openai?.model || 'gpt-3.5-turbo',
       messages: [
         { role: 'system', content: systemMessage },
         { role: 'user', content: userMessage },
@@ -399,6 +399,10 @@ ${contextText}
     userMessage: string,
     options: { maxTokens: number; temperature: number }
   ): Promise<string> {
+    if (!config.ai.deepseek?.apiKey) {
+      throw new Error('DeepSeek API key not configured');
+    }
+    
     const response = await axios.post(
       `${config.ai.deepseek.baseURL}/chat/completions`,
       {
@@ -429,6 +433,10 @@ ${contextText}
     functionCallService: SimpleFunctionCallService,
     userId?: string
   ): Promise<string> {
+    if (!config.ai.deepseek?.apiKey) {
+      throw new Error('DeepSeek API key not configured');
+    }
+    
     const response = await axios.post(
       `${config.ai.deepseek.baseURL}/chat/completions`,
       {
@@ -491,7 +499,7 @@ ${contextText}
     }
 
     const model = this.googleAI.getGenerativeModel({ 
-      model: config.ai.google.model,
+      model: config.ai.google?.model || 'gemini-2.5-flash',
       generationConfig: {
         maxOutputTokens: options.maxTokens,
         temperature: options.temperature,
@@ -515,7 +523,7 @@ ${contextText}
     }
 
     const response = await this.anthropic.messages.create({
-      model: config.ai.anthropic.model,
+      model: config.ai.anthropic?.model || 'claude-3-sonnet-20240229',
       max_tokens: options.maxTokens,
       temperature: options.temperature,
       system: systemMessage,
