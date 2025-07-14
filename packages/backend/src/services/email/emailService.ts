@@ -3,6 +3,7 @@ import config from '../../config/index';
 import logger from '../../utils/logger';
 import EmailContentManager from './emailContentManager';
 import EmailStatsService from './emailStatsService';
+import AIService from '../ai/aiService';
 
 interface QueuedEmail {
   id: string;
@@ -53,6 +54,7 @@ class EmailService {
   private contentManager: EmailContentManager;
   private statsService: EmailStatsService;
   private circuitBreaker: EmailCircuitBreaker;
+  private aiService: AIService;
   private emailQueue: QueuedEmail[] = [];
   private isConnected: boolean = false;
   private queueProcessInterval: NodeJS.Timeout | null = null;
@@ -61,6 +63,7 @@ class EmailService {
     this.contentManager = new EmailContentManager();
     this.statsService = new EmailStatsService();
     this.circuitBreaker = new EmailCircuitBreaker();
+    this.aiService = new AIService();
     this.transporter = nodemailer.createTransport({
       host: config.email.smtp.host,
       port: config.email.smtp.port,
@@ -237,9 +240,54 @@ class EmailService {
   }
 
   async sendMorningReminder(scheduleContent: string, suggestions: string): Promise<void> {
-    const subject = `📅 每日日程提醒 - ${new Date().toLocaleDateString()}`;
-    const content = `
-早上好，${config.email.name}！
+    try {
+      const today = new Date();
+      const dateStr = today.toLocaleDateString('zh-CN', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        weekday: 'long' 
+      });
+      
+      // 获取天气和时间信息
+      const timeOfDay = today.getHours();
+      const greeting = timeOfDay < 6 ? '早安' : 
+                      timeOfDay < 12 ? '早上好' : 
+                      timeOfDay < 14 ? '上午好' : '下午好';
+      
+      // 使用AI生成个性化的晨间提醒内容
+      const aiPrompt = `请为用户生成一份个性化的晨间提醒邮件内容。
+
+用户信息：
+- 姓名：${config.email.name || '朋友'}
+- 日期：${dateStr}
+- 时间：${greeting}
+
+今日日程：
+${scheduleContent}
+
+昨日表现建议：
+${suggestions}
+
+请生成一份温暖、专业且富有激励性的晨间提醒邮件，包含：
+1. 个性化的问候语
+2. 对今日日程的精炼总结和重点提醒
+3. 基于昨日表现的鼓励性建议
+4. 积极正面的祝福和激励
+
+语言要求：中文，语气友好专业，长度控制在300字以内。`;
+
+      const aiGeneratedContent = await this.aiService.generateResponse(
+        aiPrompt,
+        '',
+        { maxTokens: 500, temperature: 0.7 }
+      );
+
+      const subject = `📅 ${greeting}！今日日程提醒 - ${today.toLocaleDateString()}`;
+      
+      // 如果AI生成失败，使用备用模板
+      const content = aiGeneratedContent || `
+${greeting}，${config.email.name}！
 
 这是您今天的日程安排：
 
@@ -253,15 +301,62 @@ ${suggestions}
 
 此致，
 您的邮件助手
-    `.trim();
+      `.trim();
 
-    await this.sendEmail(subject, content);
+      await this.sendEmail(subject, content);
+      
+      logger.info(`Morning reminder sent with AI-generated content: ${aiGeneratedContent ? 'success' : 'fallback'}`);
+    } catch (error) {
+      logger.error('Failed to send morning reminder:', error);
+      throw error;
+    }
   }
 
   async sendEveningReminder(): Promise<void> {
-    const subject = `📝 每日工作总结请求 - ${new Date().toLocaleDateString()}`;
-    const content = `
-晚上好，${config.email.name}！
+    try {
+      const today = new Date();
+      const dateStr = today.toLocaleDateString('zh-CN', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        weekday: 'long' 
+      });
+      
+      const timeOfDay = today.getHours();
+      const greeting = timeOfDay < 18 ? '下午好' : 
+                      timeOfDay < 21 ? '晚上好' : '深夜好';
+      
+      // 使用AI生成个性化的晚间提醒内容
+      const aiPrompt = `请为用户生成一份个性化的晚间工作总结请求邮件。
+
+用户信息：
+- 姓名：${config.email.name || '朋友'}
+- 日期：${dateStr}
+- 时间：${greeting}
+
+请生成一份温暖、鼓励且专业的晚间邮件，包含：
+1. 个性化的问候语和对一天辛苦工作的认可
+2. 引导用户进行自我反思的问题（包括成就、挑战、学习等）
+3. 鼓励用户分享明天的计划和目标
+4. 温暖的结尾和对用户的支持
+
+要求：
+- 语言：中文，语气友好温暖
+- 长度：300字以内
+- 包含具体的引导性问题
+- 体现对用户工作的关心和支持`;
+
+      const aiGeneratedContent = await this.aiService.generateResponse(
+        aiPrompt,
+        '',
+        { maxTokens: 500, temperature: 0.7 }
+      );
+
+      const subject = `📝 ${greeting}！工作总结时间 - ${today.toLocaleDateString()}`;
+      
+      // 如果AI生成失败，使用备用模板
+      const content = aiGeneratedContent || `
+${greeting}，${config.email.name}！
 
 现在是时候回顾您的一天了。请回复此邮件并告诉我：
 
@@ -274,14 +369,64 @@ ${suggestions}
 
 此致，
 您的邮件助手
-    `.trim();
+      `.trim();
 
-    await this.sendEmail(subject, content);
+      await this.sendEmail(subject, content);
+      
+      logger.info(`Evening reminder sent with AI-generated content: ${aiGeneratedContent ? 'success' : 'fallback'}`);
+    } catch (error) {
+      logger.error('Failed to send evening reminder:', error);
+      throw error;
+    }
   }
 
   async sendWorkSummary(summary: string): Promise<void> {
-    const subject = `📊 每日工作总结 - ${new Date().toLocaleDateString()}`;
-    const content = `
+    try {
+      const today = new Date();
+      const dateStr = today.toLocaleDateString('zh-CN', { 
+        year: 'numeric', 
+        month: 'long', 
+        day: 'numeric',
+        weekday: 'long' 
+      });
+      
+      const timeOfDay = today.getHours();
+      const greeting = timeOfDay < 18 ? '下午好' : 
+                      timeOfDay < 21 ? '晚上好' : '深夜好';
+      
+      // 使用AI生成个性化的工作总结邮件
+      const aiPrompt = `请为用户生成一份个性化的工作总结报告邮件。
+
+用户信息：
+- 姓名：${config.email.name || '朋友'}
+- 日期：${dateStr}
+- 时间：${greeting}
+
+工作总结内容：
+${summary}
+
+请生成一份专业、鼓励且具有洞察力的工作总结邮件，包含：
+1. 对用户工作成果的认可和赞扬
+2. 对总结内容的专业分析和提炼
+3. 基于总结的积极反馈和建议
+4. 对用户未来工作的鼓励和期待
+
+要求：
+- 语言：中文，语气专业且鼓励
+- 长度：400字以内
+- 体现对用户工作的深度理解
+- 提供建设性的反馈和建议`;
+
+      const aiGeneratedContent = await this.aiService.generateResponse(
+        aiPrompt,
+        '',
+        { maxTokens: 600, temperature: 0.6 }
+      );
+
+      const subject = `📊 ${greeting}！您的工作总结报告 - ${today.toLocaleDateString()}`;
+      
+      // 如果AI生成失败，使用备用模板
+      const content = aiGeneratedContent || `
 您好 ${config.email.name}，
 
 这是您今天的工作总结报告：
@@ -292,9 +437,15 @@ ${summary}
 
 此致，
 您的邮件助手
-    `.trim();
+      `.trim();
 
-    await this.sendEmail(subject, content);
+      await this.sendEmail(subject, content);
+      
+      logger.info(`Work summary sent with AI-generated content: ${aiGeneratedContent ? 'success' : 'fallback'}`);
+    } catch (error) {
+      logger.error('Failed to send work summary:', error);
+      throw error;
+    }
   }
 
   async forwardEmail(
@@ -332,8 +483,46 @@ ${originalContent}
   }
 
   async sendNewUserWelcomeEmail(userName: string, userEmail: string, morningTime: string, eveningTime: string): Promise<void> {
-    const subject = `🎉 欢迎加入邮件助手服务！`;
-    const content = `
+    try {
+      const today = new Date();
+      const timeOfDay = today.getHours();
+      const greeting = timeOfDay < 12 ? '上午好' : 
+                      timeOfDay < 18 ? '下午好' : '晚上好';
+      
+      // 使用AI生成个性化的欢迎邮件
+      const aiPrompt = `请为新用户生成一份个性化的智能邮件助手欢迎邮件。
+
+用户信息：
+- 姓名：${userName}
+- 邮箱：${userEmail}
+- 早晨提醒时间：${morningTime}
+- 晚间提醒时间：${eveningTime}
+- 注册时间：${greeting}
+
+请生成一份热情、专业且信息全面的欢迎邮件，包含：
+1. 个性化的欢迎问候
+2. 对用户加入的欢迎和感谢
+3. 清晰的服务功能介绍
+4. 实用的使用指南和技巧
+5. 鼓励性的结尾和支持信息
+
+要求：
+- 语言：中文，语气热情友好
+- 长度：500字以内
+- 包含具体的功能说明
+- 体现专业性和可信度
+- 让用户感受到被重视和支持`;
+
+      const aiGeneratedContent = await this.aiService.generateResponse(
+        aiPrompt,
+        '',
+        { maxTokens: 700, temperature: 0.8 }
+      );
+
+      const subject = `🎉 ${greeting}！欢迎加入智能邮件助手服务！`;
+      
+      // 如果AI生成失败，使用备用模板
+      const content = aiGeneratedContent || `
 亲爱的 ${userName}，
 
 欢迎使用智能邮件助手服务！🎊
@@ -362,9 +551,15 @@ ${originalContent}
 
 此致，
 智能邮件助手团队
-    `.trim();
+      `.trim();
 
-    await this.sendEmail(subject, content, false, userEmail);
+      await this.sendEmail(subject, content, false, userEmail);
+      
+      logger.info(`Welcome email sent to ${userEmail} with AI-generated content: ${aiGeneratedContent ? 'success' : 'fallback'}`);
+    } catch (error) {
+      logger.error('Failed to send welcome email:', error);
+      throw error;
+    }
   }
 
   async sendSystemStartupNotification(userCount: number): Promise<void> {
