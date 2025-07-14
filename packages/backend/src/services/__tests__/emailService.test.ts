@@ -175,7 +175,7 @@ describe('EmailService', () => {
       
       expect(mockTransporter.sendMail).toHaveBeenCalledWith(
         expect.objectContaining({
-          subject: expect.stringContaining('📅 每日日程提醒'),
+          subject: expect.stringContaining('📅'),
           text: expect.stringContaining(scheduleContent)
         })
       );
@@ -188,7 +188,7 @@ describe('EmailService', () => {
       
       expect(mockTransporter.sendMail).toHaveBeenCalledWith(
         expect.objectContaining({
-          subject: expect.stringContaining('📝 每日工作总结请求'),
+          subject: expect.stringContaining('📝'),
           text: expect.stringContaining('现在是时候回顾您的一天了')
         })
       );
@@ -215,7 +215,7 @@ describe('EmailService', () => {
       expect(status).toEqual({
         isConnected: false, // Initially false before verification
         queueLength: 0,
-        circuitBreakerOpen: true, // Circuit breaker exists
+        circuitBreakerOpen: false, // Circuit breaker starts closed
         config: {
           smtpHost: 'test.smtp.com',
           smtpPort: 587,

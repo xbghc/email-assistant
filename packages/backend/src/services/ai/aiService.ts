@@ -90,23 +90,24 @@ class AIService {
   ): Promise<string> {
     const provider = config.ai.provider;
 
-    // 检查内存使用情况
+    // 检查内存使用情况 - 使用更合理的指标
     const memUsage = process.memoryUsage();
-    const heapUsedPercent = (memUsage.heapUsed / memUsage.heapTotal) * 100;
+    const heapUsedMB = memUsage.heapUsed / 1024 / 1024;
+    const rssMB = memUsage.rss / 1024 / 1024;
     
-    if (heapUsedPercent > 85) {
-      logger.warn(`High memory usage detected: ${heapUsedPercent.toFixed(1)}%. Consider using simpler responses.`);
-      // 强制垃圾回收（如果可用）
-      if (global.gc) {
-        global.gc();
-        logger.info('Forced garbage collection completed');
-      }
-      
-      // 在极高内存使用时返回简化响应
-      if (heapUsedPercent > 90) {
-        logger.warn('Critical memory usage - returning simplified response');
-        return '系统当前负载较高，请稍后重试。如需帮助，请直接联系管理员。';
-      }
+    // 当堆内存使用超过1GB或RSS超过2GB时记录警告
+    if (heapUsedMB > 1024) {
+      logger.warn(`High heap memory usage: ${heapUsedMB.toFixed(1)}MB`);
+    }
+    
+    if (rssMB > 2048) {
+      logger.warn(`High RSS memory usage: ${rssMB.toFixed(1)}MB`);
+    }
+    
+    // 当内存使用确实过高时抛出错误而不是返回错误消息
+    if (heapUsedMB > 1536) { // 1.5GB
+      logger.error(`Critical memory usage: ${heapUsedMB.toFixed(1)}MB - throwing error`);
+      throw new Error('System overloaded - critical memory usage detected');
     }
 
     try {
