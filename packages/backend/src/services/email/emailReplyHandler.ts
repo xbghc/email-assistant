@@ -115,22 +115,14 @@ class EmailReplyHandler {
 
       const commandResult = await this.adminCommandService?.processCommand(email.subject, content);
       
-      // 发送命令结果给管理员
-      const replySubject = `命令结果: ${email.subject}`;
-      const replyContent = `
-管理员命令执行结果:
-
-命令: ${email.subject}
-结果:
-${commandResult}
-
-执行时间: ${new Date().toLocaleString()}
-
-此致，
-邮件助手管理系统
-      `.trim();
+      // 让AI生成完整的管理员命令回复
+      const adminReply = await this.aiService.generateResponseWithFunctionCalls(
+        '你是邮件助手的管理系统。请为管理员命令执行结果生成一个专业的回复邮件。',
+        `管理员执行的命令: ${email.subject}\n命令结果: ${commandResult}\n执行时间: ${new Date().toLocaleString()}`,
+        { maxTokens: 500, temperature: 0.3 }
+      );
       
-      await this.emailService.sendEmail(replySubject, replyContent);
+      await this.emailService.sendEmail(`Re: ${email.subject}`, adminReply, false, fromEmail);
       
       return {
         type: 'admin_command',
@@ -209,23 +201,17 @@ ${commandResult}
         recentContext
       );
 
-      const acknowledgeSubject = `📝 日程反馈已收到 - ${new Date().toLocaleDateString()}`;
-      const acknowledgeContent = `
-您好 ${email.from.split('<')[0]?.trim() || '朋友'},
+      // 让AI生成完整的日程反馈回复
+      // todo: 这里是做了两次AI生成吗?
+      const scheduleReply = await this.aiService.generateResponseWithFunctionCalls(
+        '你是一个智能邮件助手。用户对日程安排提供了反馈，请生成一个友好、专业的确认回复邮件。',
+        `用户反馈: ${content}\n我的建议回复: ${response}\n用户姓名: ${email.from.split('<')[0]?.trim() || '朋友'}`,
+        { maxTokens: 600, temperature: 0.7 },
+        email.userId
+      );
 
-感谢您对日程提醒的反馈。
-
-基于您的反馈，这里有一些额外的建议：
-
-${response}
-
-您的反馈帮助我提供更好的服务。继续保持出色的工作！
-
-此致，
-您的邮件助手
-      `.trim();
-
-      await this.emailService.sendEmail(acknowledgeSubject, acknowledgeContent);
+      const fromEmail = this.extractEmailAddress(email.from);
+      await this.emailService.sendEmail(`Re: ${email.subject}`, scheduleReply, false, fromEmail);
 
       return {
         type: 'schedule_response',
@@ -279,21 +265,10 @@ ${response}
         email.userId
       );
 
-      const replySubject = `回复: ${email.subject.replace(/^(Re:|RE:|回复：)\s*/i, '')}`;
-      const replyContent = `
-您好 ${email.from.split('<')[0]?.trim() || '朋友'},
-
-感谢您的来信。
-
-${aiResponse}
-
-如果您有其他问题或需要日程安排、工作规划方面的帮助，请随时回复此邮件。
-
-此致，
-您的邮件助手
-      `.trim();
-
-      await this.emailService.sendEmail(replySubject, replyContent);
+      // AI已经生成了完整的回复内容，直接使用
+      const fromEmail = this.extractEmailAddress(email.from);
+      const replySubject = `Re: ${email.subject.replace(/^(Re:|RE:|回复：)\s*/i, '')}`;
+      await this.emailService.sendEmail(replySubject, aiResponse, false, fromEmail);
 
       return {
         type: 'general',
