@@ -1,6 +1,7 @@
 import { IAIProvider, AIGenerationOptions, FunctionCallResponse } from '../interfaces/IAIProvider';
 import { ContextEntry } from '../../../../models/index';
 import EmailContentManager from '../../../email/emailContentManager';
+import { AIOptionPresets } from '../utils/AIOptionPresets';
 import logger from '../../../../utils/logger';
 
 export abstract class BaseAIProvider implements IAIProvider {
@@ -62,7 +63,7 @@ ${contextText}
       const response = await this.generateResponse(
         '您是一位乐于助人的效率助手，提供可行的日常建议。',
         prompt,
-        { maxTokens: 500, temperature: 0.7 }
+        AIOptionPresets.conversational(500)
       );
 
       logger.info(`${this.name}: Morning suggestions generated successfully`);
@@ -99,7 +100,7 @@ ${contextText}
       const response = await this.generateResponse(
         '您是一位专业的工作总结助手，能够创建结构化、富有洞察力的总结。',
         prompt,
-        { maxTokens: 600, temperature: 0.5 }
+        AIOptionPresets.analytical(600)
       );
 
       logger.info(`${this.name}: Work summary generated successfully`);
@@ -133,7 +134,7 @@ ${contextText}
       const response = await this.generateResponse(
         '您是一位上下文压缩专家，能够在减少长度的同时保留重要信息。',
         prompt,
-        { maxTokens: 800, temperature: 0.3 }
+        AIOptionPresets.summarization(800)
       );
 
       logger.info(`${this.name}: Context compressed successfully`);
@@ -149,7 +150,7 @@ ${contextText}
       const testResponse = await this.generateResponse(
         '你是一个测试助手。',
         '请回复"健康"',
-        { maxTokens: 10, temperature: 0 }
+        AIOptionPresets.precise(10)
       );
       return testResponse.length > 0;
     } catch (error) {

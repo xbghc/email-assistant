@@ -3,6 +3,13 @@ import { ContextEntry } from '../../../../models/index';
 export interface AIGenerationOptions {
   maxTokens: number;
   temperature: number;
+  topP?: number;                    // 核心采样，控制输出的多样性
+  frequencyPenalty?: number;        // 频率惩罚，减少重复内容
+  presencePenalty?: number;         // 存在惩罚，鼓励探索新主题
+  stopSequences?: string[];         // 停止序列，遇到时停止生成
+  stream?: boolean;                 // 是否启用流式响应
+  seed?: number;                    // 随机种子，确保可复现性
+  responseFormat?: 'text' | 'json'; // 响应格式
 }
 
 export interface AIResponse {
