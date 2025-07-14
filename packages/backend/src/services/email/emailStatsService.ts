@@ -63,10 +63,35 @@ class EmailStatsService {
   private async loadRecords(): Promise<void> {
     try {
       const data = await fs.readFile(this.recordsFilePath, 'utf-8');
-      const recordsData = JSON.parse(data);
+      
+      // 检查文件内容是否为空或无效
+      if (!data.trim()) {
+        logger.warn('Email records file is empty, initializing with empty array');
+        this.records = [];
+        await this.saveRecords();
+        return;
+      }
+      
+      let recordsData;
+      try {
+        recordsData = JSON.parse(data);
+      } catch (parseError) {
+        logger.error('Failed to parse email records JSON, reinitializing file:', parseError);
+        this.records = [];
+        await this.saveRecords();
+        return;
+      }
+      
+      // 确保数据是数组
+      if (!Array.isArray(recordsData)) {
+        logger.warn('Email records data is not an array, reinitializing');
+        this.records = [];
+        await this.saveRecords();
+        return;
+      }
       
       // 转换时间戳
-      this.records = recordsData.map((record: { timestamp: string | Date; [key: string]: unknown }) => ({
+      this.records = recordsData.map((record: Omit<EmailRecord, 'timestamp'> & { timestamp: string | Date }) => ({
         ...record,
         timestamp: new Date(record.timestamp)
       }));
@@ -81,6 +106,15 @@ class EmailStatsService {
       } else {
         logger.error('Failed to load email records:', error);
         this.records = [];
+        // 尝试备份损坏的文件并重新创建
+        try {
+          const backupPath = `${this.recordsFilePath}.backup.${Date.now()}`;
+          await fs.rename(this.recordsFilePath, backupPath);
+          logger.info(`Backed up corrupted file to ${backupPath}`);
+        } catch (backupError) {
+          logger.warn('Failed to backup corrupted file:', backupError);
+        }
+        await this.saveRecords();
       }
     }
   }
