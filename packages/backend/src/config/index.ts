@@ -8,18 +8,6 @@ dotenv.config();
 // 配置文件类型定义
 interface FileConfig {
   email?: {
-    smtp?: {
-      host?: string;
-      port?: number;
-      secure?: boolean;
-    };
-    imap?: {
-      host?: string;
-      port?: number;
-      tls?: boolean;
-      rejectUnauthorized?: boolean;
-      checkIntervalMs?: number;
-    };
     forwarding?: {
       enabled?: boolean;
       markAsRead?: boolean;
@@ -179,18 +167,18 @@ const config: Config = {
       email: process.env.ADMIN_EMAIL || '',
     },
     
-    // 非敏感信息：优先从配置文件读取
+    // SMTP/IMAP配置：从环境变量读取
     smtp: {
-      host: fileConfig.email?.smtp?.host || 'smtp.gmail.com',
-      port: fileConfig.email?.smtp?.port || 587,
-      secure: fileConfig.email?.smtp?.secure ?? false,
+      host: process.env.SMTP_HOST || 'smtp.gmail.com',
+      port: parseInt(process.env.SMTP_PORT || '587'),
+      secure: process.env.SMTP_SECURE === 'true',
     },
     imap: {
-      host: fileConfig.email?.imap?.host || 'imap.gmail.com',
-      port: fileConfig.email?.imap?.port || 993,
-      tls: fileConfig.email?.imap?.tls ?? true,
-      rejectUnauthorized: fileConfig.email?.imap?.rejectUnauthorized ?? true,
-      checkIntervalMs: fileConfig.email?.imap?.checkIntervalMs || 30000,
+      host: process.env.IMAP_HOST || 'imap.gmail.com',
+      port: parseInt(process.env.IMAP_PORT || '993'),
+      tls: process.env.IMAP_TLS !== 'false',
+      rejectUnauthorized: process.env.IMAP_REJECT_UNAUTHORIZED !== 'false',
+      checkIntervalMs: parseInt(process.env.EMAIL_CHECK_INTERVAL_MS || '30000'),
     },
     forwarding: {
       enabled: fileConfig.email?.forwarding?.enabled ?? true,

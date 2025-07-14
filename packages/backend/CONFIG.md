@@ -6,14 +6,14 @@
 
 ### 敏感信息配置
 
-仅从环境变量读取（密码、API密钥、JWT密钥等）：
+仅从环境变量读取（密码、API密钥、JWT密钥、SMTP/IMAP服务器配置等）：
 
 - 环境变量
 - 默认值（空字符串或默认配置）
 
 ### 非敏感信息配置
 
-优先从配置文件读取（服务器地址、端口、功能开关等）：
+优先从配置文件读取（功能开关、时间配置、性能参数等）：
 
 1. **config.json 文件配置** （最高优先级）
 2. 代码中的默认值
@@ -21,36 +21,6 @@
 ## config.json 配置项说明
 
 ### 邮件配置 (email)
-
-#### SMTP 发送配置 (email.smtp)
-
-```json
-{
-  "email": {
-    "smtp": {
-      "host": "smtp.gmail.com", // SMTP 服务器地址
-      "port": 587, // SMTP 端口号
-      "secure": false // 是否使用 SSL/TLS
-    }
-  }
-}
-```
-
-#### IMAP 接收配置 (email.imap)
-
-```json
-{
-  "email": {
-    "imap": {
-      "host": "imap.gmail.com", // IMAP 服务器地址
-      "port": 993, // IMAP 端口号
-      "tls": true, // 是否启用 TLS
-      "rejectUnauthorized": true, // 是否验证 SSL 证书
-      "checkIntervalMs": 30000 // 邮件检查间隔（毫秒）
-    }
-  }
-}
-```
 
 #### 邮件转发配置 (email.forwarding)
 
@@ -207,6 +177,18 @@ EMAIL_USER=your-email@gmail.com
 EMAIL_PASS=your-app-password
 USER_NAME=Your Name
 ADMIN_EMAIL=admin@example.com
+
+# SMTP 发送配置
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_SECURE=true
+
+# IMAP 接收配置
+IMAP_HOST=imap.gmail.com
+IMAP_PORT=993
+IMAP_TLS=true
+IMAP_REJECT_UNAUTHORIZED=true
+EMAIL_CHECK_INTERVAL_MS=30000
 
 # AI API 密钥（敏感信息）
 OPENAI_API_KEY=sk-your-openai-key
