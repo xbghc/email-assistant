@@ -119,7 +119,7 @@ class EmailReplyHandler {
       const adminReply = await this.aiService.generateResponseWithFunctionCalls(
         '你是邮件助手的管理系统。请为管理员命令执行结果生成一个专业的回复邮件。',
         `管理员执行的命令: ${email.subject}\n命令结果: ${commandResult}\n执行时间: ${new Date().toLocaleString()}`,
-        { maxTokens: 500, temperature: 0.3 }
+        { maxTokens: 1500, temperature: 0.3 }
       );
       
       await this.emailService.sendEmail(`Re: ${email.subject}`, adminReply, false, fromEmail);
@@ -206,7 +206,7 @@ class EmailReplyHandler {
       const scheduleReply = await this.aiService.generateResponseWithFunctionCalls(
         '你是一个智能邮件助手。用户对日程安排提供了反馈，请生成一个友好、专业的确认回复邮件。',
         `用户反馈: ${content}\n我的建议回复: ${response}\n用户姓名: ${email.from.split('<')[0]?.trim() || '朋友'}`,
-        { maxTokens: 600, temperature: 0.7 },
+        { maxTokens: 2000, temperature: 0.7 },
         email.userId
       );
 
@@ -261,7 +261,7 @@ class EmailReplyHandler {
       const aiResponse = await this.aiService.generateResponseWithFunctionCalls(
         systemPrompt,
         `用户邮件主题：${email.subject}\n用户消息：${content}\n\n最近记录：${contextText}`,
-        { maxTokens: 800, temperature: 0.7 },
+        { maxTokens: 2000, temperature: 0.7 },
         email.userId
       );
 
