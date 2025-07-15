@@ -9,6 +9,7 @@ import WeeklyReportService from '../reports/weeklyReportService';
 import PersonalizationService from '../reports/personalizationService';
 import EmailReceiveService, { ParsedEmail } from '../email/emailReceiveService';
 import EmailReplyHandler from '../email/emailReplyHandler';
+import { eventBus } from '../../events/eventTypes';
 import ReminderTrackingService, { ReminderRecord } from '../user/reminderTrackingService';
 import UserService from '../user/userService';
 
@@ -79,7 +80,6 @@ class SchedulerService {
       timezone: 'Asia/Shanghai',
     });
 
-    // Morning reminder scheduled
   }
 
   private setupEveningReminder(): void {
@@ -92,7 +92,6 @@ class SchedulerService {
       timezone: 'Asia/Shanghai',
     });
 
-    // Evening reminder scheduled
   }
 
   private setupWeeklyReport(): void {
@@ -136,19 +135,11 @@ class SchedulerService {
   }
 
   private setupEmailReceiver(): void {
-    // 处理用户邮件回复
-    this.emailReceiveService.on('emailReceived', async (email: ParsedEmail) => {
-      try {
-        logger.info(`Received email reply: ${email.subject} from ${email.from}`);
-        const result = await this.emailReplyHandler.handleEmailReply(email);
-        logger.info(`Email reply processed: ${result.type} - ${result.response}`);
-      } catch (error) {
-        logger.error('Failed to process email reply:', error);
-      }
-    });
-
-    // 处理其他人的邮件转发
-    this.emailReceiveService.on('emailForward', async (email: ParsedEmail) => {
+    // 由于EmailReceiveService已经重构为事件发布者，这些监听器现在通过事件总线处理
+    // 这些代码已经移动到EmailReplyHandler中
+    
+    // 处理其他人的邮件转发（保留原有逻辑）
+    eventBus.on('emailForward', async (email: ParsedEmail) => {
       try {
         if (!config.email.forwarding.enabled) {
           logger.info(`Email forwarding disabled, skipping: ${email.subject} from ${email.from}`);

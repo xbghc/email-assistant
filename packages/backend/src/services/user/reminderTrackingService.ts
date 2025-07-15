@@ -2,6 +2,15 @@ import fs from 'fs/promises';
 import path from 'path';
 import logger from '../../utils/logger';
 import ContextService from '../reports/contextService';
+import EmailContentAnalyzer from '../email/emailContentAnalyzer';
+import { ParsedEmail } from '../email/emailReceiveService';
+import { 
+  eventBus, 
+  publishEvent, 
+  createEventMetadata,
+  ReminderDetectedEvent,
+  EVENT_TYPES
+} from '../../events/eventTypes';
 
 export interface ReminderRecord {
   userId: string;
@@ -9,9 +18,15 @@ export interface ReminderRecord {
   morningReminderSent: boolean;
   eveningReminderSent: boolean;
   workReportReceived: boolean;
+  scheduleRequested: boolean;
   lastMorningReminderTime?: string;
   lastEveningReminderTime?: string;
   lastWorkReportTime?: string;
+  lastScheduleRequestTime?: string;
+  skipReasons?: {
+    morningSkipReason?: string;
+    eveningSkipReason?: string;
+  };
 }
 
 interface ReminderTracking {
@@ -22,10 +37,40 @@ class ReminderTrackingService {
   private trackingFile: string;
   private tracking: ReminderTracking = {};
   private contextService: ContextService;
+  private contentAnalyzer: EmailContentAnalyzer;
 
   constructor() {
     this.trackingFile = path.join(process.cwd(), 'data', 'reminder-tracking.json');
     this.contextService = new ContextService();
+    this.contentAnalyzer = new EmailContentAnalyzer();
+    
+    // 设置事件监听器
+    this.setupEventListeners();
+  }
+
+  private setupEventListeners(): void {
+    // 监听邮件处理事件，检测提醒相关内容
+    eventBus.on(EVENT_TYPES.EMAIL_PROCESSED, async (event) => {
+      try {
+        if (event.payload.hasReminder) {
+          // 发布提醒检测事件
+          const reminderDetectedEvent: ReminderDetectedEvent = {
+            type: EVENT_TYPES.REMINDER_DETECTED,
+            metadata: createEventMetadata('ReminderTrackingService', event.metadata.correlationId, event.payload.userId),
+            payload: {
+              messageId: event.payload.messageId,
+              userId: event.payload.userId,
+              reminderText: event.payload.aiResponse,
+              confidence: 0.8,
+            }
+          };
+          
+          publishEvent(reminderDetectedEvent);
+        }
+      } catch (error) {
+        logger.error('Failed to process email processed event in reminder tracking:', error);
+      }
+    });
   }
 
   async initialize(): Promise<void> {
@@ -58,6 +103,18 @@ class ReminderTrackingService {
       return false;
     }
 
+    // 检查是否有智能跳过的理由
+    if (record.skipReasons?.morningSkipReason) {
+      logger.info(`Skipping morning reminder for user ${userId}: ${record.skipReasons.morningSkipReason}`);
+      return false;
+    }
+
+    // 如果用户已经发送了日程安排请求，跳过晨间提醒
+    if (record.scheduleRequested) {
+      logger.info(`User ${userId} already requested schedule today, skipping morning reminder`);
+      return false;
+    }
+
     return true;
   }
 
@@ -80,6 +137,12 @@ class ReminderTrackingService {
       return false;
     }
 
+    // 检查是否有智能跳过的理由
+    if (record.skipReasons?.eveningSkipReason) {
+      logger.info(`Skipping evening reminder for user ${userId}: ${record.skipReasons.eveningSkipReason}`);
+      return false;
+    }
+
     // 如果用户已经提交了工作报告，不需要发送晚间提醒
     if (record && record.workReportReceived) {
       logger.info(`Work report already received today for user ${userId}, skipping evening reminder`);
@@ -98,6 +161,17 @@ class ReminderTrackingService {
     return true;
   }
 
+  private createEmptyRecord(userId: string, date: string): ReminderRecord {
+    return {
+      userId,
+      date,
+      morningReminderSent: false,
+      eveningReminderSent: false,
+      workReportReceived: false,
+      scheduleRequested: false
+    };
+  }
+
   /**
    * 标记晨间提醒已发送
    */
@@ -107,13 +181,7 @@ class ReminderTrackingService {
     const now = new Date().toISOString();
 
     if (!this.tracking[key]) {
-      this.tracking[key] = {
-        userId,
-        date: today,
-        morningReminderSent: false,
-        eveningReminderSent: false,
-        workReportReceived: false
-      };
+      this.tracking[key] = this.createEmptyRecord(userId, today);
     }
 
     this.tracking[key].morningReminderSent = true;
@@ -132,13 +200,7 @@ class ReminderTrackingService {
     const now = new Date().toISOString();
 
     if (!this.tracking[key]) {
-      this.tracking[key] = {
-        userId,
-        date: today,
-        morningReminderSent: false,
-        eveningReminderSent: false,
-        workReportReceived: false
-      };
+      this.tracking[key] = this.createEmptyRecord(userId, today);
     }
 
     this.tracking[key].eveningReminderSent = true;
@@ -157,13 +219,7 @@ class ReminderTrackingService {
     const now = new Date().toISOString();
 
     if (!this.tracking[key]) {
-      this.tracking[key] = {
-        userId,
-        date: today,
-        morningReminderSent: false,
-        eveningReminderSent: false,
-        workReportReceived: false
-      };
+      this.tracking[key] = this.createEmptyRecord(userId, today);
     }
 
     this.tracking[key].workReportReceived = true;
@@ -171,6 +227,84 @@ class ReminderTrackingService {
 
     await this.saveTracking();
     logger.debug(`Marked work report as received for user ${userId} on ${today}`);
+  }
+
+  /**
+   * 标记日程安排请求已接收
+   */
+  async markScheduleRequested(userId: string = 'admin'): Promise<void> {
+    const today = this.getTodayString();
+    const key = `${userId}_${today}`;
+    const now = new Date().toISOString();
+
+    if (!this.tracking[key]) {
+      this.tracking[key] = this.createEmptyRecord(userId, today);
+    }
+
+    this.tracking[key].scheduleRequested = true;
+    this.tracking[key].lastScheduleRequestTime = now;
+
+    await this.saveTracking();
+    logger.debug(`Marked schedule request as received for user ${userId} on ${today}`);
+  }
+
+  /**
+   * 智能分析邮件内容并更新提醒状态
+   */
+  async analyzeEmailAndUpdateReminders(email: ParsedEmail, userId: string = 'admin'): Promise<void> {
+    try {
+      // 使用智能内容分析器分析邮件
+      const skipRecommendation = await this.contentAnalyzer.analyzeForReminderSkip(email);
+      
+      if (skipRecommendation.confidence > 0.6) {
+        const today = this.getTodayString();
+        const key = `${userId}_${today}`;
+        
+        // 确保记录存在
+        if (!this.tracking[key]) {
+          this.tracking[key] = {
+            userId,
+            date: today,
+            morningReminderSent: false,
+            eveningReminderSent: false,
+            workReportReceived: false,
+            scheduleRequested: false
+          };
+        }
+        
+        // 更新跳过理由
+        if (!this.tracking[key].skipReasons) {
+          this.tracking[key].skipReasons = {};
+        }
+        
+        if (skipRecommendation.shouldSkipMorningReminder) {
+          this.tracking[key].skipReasons!.morningSkipReason = skipRecommendation.reason;
+          logger.info(`Set morning reminder skip reason for user ${userId}: ${skipRecommendation.reason}`);
+        }
+        
+        if (skipRecommendation.shouldSkipEveningReminder) {
+          this.tracking[key].skipReasons!.eveningSkipReason = skipRecommendation.reason;
+          logger.info(`Set evening reminder skip reason for user ${userId}: ${skipRecommendation.reason}`);
+        }
+        
+        // 同时分析内容类型并更新状态
+        const contentAnalysis = await this.contentAnalyzer.analyzeContent(email);
+        
+        if (contentAnalysis.isWorkReport && contentAnalysis.confidence > 0.7) {
+          await this.markWorkReportReceived(userId);
+          logger.info(`Detected work report from user ${userId}, marked as received`);
+        }
+        
+        if (contentAnalysis.isScheduleRequest && contentAnalysis.confidence > 0.7) {
+          await this.markScheduleRequested(userId);
+          logger.info(`Detected schedule request from user ${userId}, marked as requested`);
+        }
+        
+        await this.saveTracking();
+      }
+    } catch (error) {
+      logger.error('Failed to analyze email and update reminders:', error);
+    }
   }
 
   /**

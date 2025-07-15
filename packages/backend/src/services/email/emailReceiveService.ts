@@ -2,8 +2,14 @@ import Imap from 'imap';
 import { simpleParser } from 'mailparser';
 import config from '../../config/index';
 import logger from '../../utils/logger';
-import { EventEmitter } from 'events';
 import UserService from '../user/userService';
+import { 
+  eventBus, 
+  publishEvent, 
+  createEventMetadata,
+  EmailReceivedEvent,
+  EVENT_TYPES
+} from '../../events/eventTypes';
 
 export interface ParsedEmail {
   messageId: string;
@@ -21,7 +27,7 @@ export interface ParsedEmail {
   isFromAdmin?: boolean; // 是否来自管理员
 }
 
-class EmailReceiveService extends EventEmitter {
+class EmailReceiveService {
   private imap: Imap;
   private isConnected: boolean = false;
   private checkInterval?: NodeJS.Timeout | undefined;
@@ -31,7 +37,6 @@ class EmailReceiveService extends EventEmitter {
   private userService: UserService;
 
   constructor() {
-    super();
     this.userService = new UserService();
     this.imap = new Imap({
       user: config.email.user,
@@ -107,7 +112,6 @@ class EmailReceiveService extends EventEmitter {
     
     // 清理内存
     this.processedEmails.clear();
-    this.removeAllListeners();
     
     logger.info('Email receive service stopped and cleaned up');
   }
@@ -198,15 +202,12 @@ class EmailReceiveService extends EventEmitter {
       const parsed = await simpleParser(buffer);
       
       if (!parsed.messageId || this.processedEmails.has(parsed.messageId)) {
-        logger.debug(`Skipping duplicate email: ${parsed.messageId}`);
-        // 即使是重复邮件，也需要标记为已读
         this.markEmailAsRead(uid);
         return;
       }
 
       this.processedEmails.add(parsed.messageId);
       this.cleanupProcessedEmailsIfNeeded();
-      logger.debug(`Processing new email: ${parsed.messageId}`);
 
       const fromText = Array.isArray(parsed.from) 
         ? parsed.from[0]?.text || '' 
@@ -253,13 +254,31 @@ class EmailReceiveService extends EventEmitter {
         const user = this.userService.getUserByEmail(fromEmail);
         
         if (user) {
-          // 这是系统用户发送的邮件，进行回复处理
+          // 这是系统用户发送的邮件，设置userId并进行回复处理
+          email.userId = user.id;
           logger.info(`Processing email from user: ${email.subject} from ${email.from} (${email.replyType})`);
-          this.emit('emailReceived', email);
+          
+          // 发布邮件接收事件
+          const emailReceivedEvent: EmailReceivedEvent = {
+            type: EVENT_TYPES.EMAIL_RECEIVED,
+            metadata: createEventMetadata('EmailReceiveService', email.messageId, email.userId),
+            payload: {
+              messageId: email.messageId,
+              from: email.from,
+              to: email.to[0] || '',
+              subject: email.subject,
+              body: email.textContent,
+              userId: email.userId,
+              timestamp: email.date,
+            }
+          };
+          
+          publishEvent(emailReceivedEvent);
         } else {
           // 这是非系统用户发送的邮件，转发给管理员
           logger.info(`Forwarding email from non-user to admin: ${email.subject} from ${email.from}`);
-          this.emit('emailForward', email);
+          // 保留原有的转发逻辑，暂时不改为事件驱动
+          eventBus.emit('emailForward', email);
         }
         
         // 处理完成后标记邮件为已读
@@ -267,7 +286,7 @@ class EmailReceiveService extends EventEmitter {
       } else {
         // 其他邮件（比如转发）
         logger.info(`Forwarding email from: ${email.from}, subject: ${email.subject}`);
-        this.emit('emailForward', email);
+        eventBus.emit('emailForward', email);
         // 转发完成后标记邮件为已读
         this.markEmailAsRead(uid);
       }
