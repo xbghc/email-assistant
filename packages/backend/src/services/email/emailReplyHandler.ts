@@ -5,10 +5,18 @@ import EmailService from './emailService';
 import UserService from '../user/userService';
 import AdminCommandService from '../admin/adminCommandService';
 import SecurityService from '../system/securityService';
+import ReminderTrackingService from '../user/reminderTrackingService';
 import { ParsedEmail } from './emailReceiveService';
 import { ContextEntry } from '../../models';
-
-// 前向声明避免循环依赖
+import { 
+  eventBus, 
+  publishEvent, 
+  createEventMetadata,
+  EmailProcessedEvent,
+  EmailReplySentEvent,
+  EmailSendFailedEvent,
+  EVENT_TYPES
+} from '../../events/eventTypes';
 
 export interface ProcessedReply {
   type: 'work_report' | 'schedule_response' | 'general' | 'admin_command';
@@ -25,6 +33,7 @@ class EmailReplyHandler {
   private userService: UserService;
   private adminCommandService: AdminCommandService | null;
   private securityService: SecurityService;
+  private reminderTrackingService: ReminderTrackingService;
 
   constructor() {
     this.aiService = new AIService();
@@ -34,11 +43,73 @@ class EmailReplyHandler {
     // 避免循环依赖：延迟初始化AdminCommandService
     this.adminCommandService = null;
     this.securityService = new SecurityService(this.userService);
+    this.reminderTrackingService = new ReminderTrackingService();
+    
+    // 注册事件监听器
+    this.setupEventListeners();
+  }
+
+  private setupEventListeners(): void {
+    // 监听邮件接收事件
+    eventBus.on(EVENT_TYPES.EMAIL_RECEIVED, async (event) => {
+      try {
+        const email: ParsedEmail = {
+          messageId: event.payload.messageId,
+          subject: event.payload.subject,
+          from: event.payload.from,
+          to: [event.payload.to],
+          date: event.payload.timestamp,
+          textContent: event.payload.body,
+          htmlContent: undefined,
+          inReplyTo: undefined,
+          references: undefined,
+          isReply: true,
+          replyType: 'general',
+          userId: event.payload.userId,
+          isFromAdmin: false,
+        };
+
+        const processedReply = await this.handleEmailReply(email);
+        
+        // 发布邮件处理完成事件
+        const emailProcessedEvent: EmailProcessedEvent = {
+          type: EVENT_TYPES.EMAIL_PROCESSED,
+          metadata: createEventMetadata('EmailReplyHandler', event.metadata.correlationId, event.payload.userId),
+          payload: {
+            messageId: event.payload.messageId,
+            userId: event.payload.userId,
+            aiResponse: processedReply.processedContent,
+            hasReminder: false, // 暂时硬编码，后续可以从处理结果中获取
+            reminderCount: 0,
+          }
+        };
+        
+        publishEvent(emailProcessedEvent);
+        
+      } catch (error) {
+        logger.error('Failed to process email received event:', error);
+        
+        // 发布邮件发送失败事件
+        const emailSendFailedEvent: EmailSendFailedEvent = {
+          type: EVENT_TYPES.EMAIL_SEND_FAILED,
+          metadata: createEventMetadata('EmailReplyHandler', event.metadata.correlationId, event.payload.userId),
+          payload: {
+            messageId: event.payload.messageId,
+            userId: event.payload.userId,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            retryCount: 0,
+          }
+        };
+        
+        publishEvent(emailSendFailedEvent);
+      }
+    });
   }
 
   async initialize(): Promise<void> {
     await this.contextService.initialize();
     await this.userService.initialize();
+    await this.reminderTrackingService.initialize();
     
     // 延迟初始化AdminCommandService避免循环依赖
     if (!this.adminCommandService) {
@@ -60,17 +131,16 @@ class EmailReplyHandler {
 
   async handleEmailReply(email: ParsedEmail): Promise<ProcessedReply> {
     try {
-      logger.debug(`Processing ${email.replyType} email from ${email.from}`);
-      logger.debug(`Email subject: ${email.subject}`);
-      logger.debug(`Email content preview: ${email.textContent.substring(0, 100)}...`);
+      logger.info(`Processing ${email.replyType} email from ${email.from}: ${email.subject}`);
 
-      // 设置用户ID
-      const fromEmail = this.extractEmailAddress(email.from);
-      const user = this.userService.getUserByEmail(fromEmail);
-      email.userId = user?.id || undefined;
+      // 智能分析邮件内容并更新提醒状态
+      if (email.userId) {
+        await this.reminderTrackingService.analyzeEmailAndUpdateReminders(email, email.userId);
+      } else {
+        logger.warn(`Email from ${email.from} has no userId, skipping intelligent analysis`);
+      }
 
       const cleanContent = this.cleanEmailContent(email.textContent);
-      logger.debug(`Cleaned content preview: ${cleanContent.substring(0, 100)}...`);
       
       switch (email.replyType) {
         case 'admin_command':
@@ -115,22 +185,14 @@ class EmailReplyHandler {
 
       const commandResult = await this.adminCommandService?.processCommand(email.subject, content);
       
-      // 发送命令结果给管理员
-      const replySubject = `命令结果: ${email.subject}`;
-      const replyContent = `
-管理员命令执行结果:
-
-命令: ${email.subject}
-结果:
-${commandResult}
-
-执行时间: ${new Date().toLocaleString()}
-
-此致，
-邮件助手管理系统
-      `.trim();
+      // 让AI生成完整的管理员命令回复
+      const adminReply = await this.aiService.generateResponseWithFunctionCalls(
+        '你是邮件助手的管理系统。请为管理员命令执行结果生成一个专业的回复邮件。',
+        `管理员执行的命令: ${email.subject}\n命令结果: ${commandResult}\n执行时间: ${new Date().toLocaleString()}`,
+        { maxTokens: 1500, temperature: 0.3 }
+      );
       
-      await this.emailService.sendEmail(replySubject, replyContent);
+      await this.sendReplyEmail(email, adminReply);
       
       return {
         type: 'admin_command',
@@ -209,23 +271,15 @@ ${commandResult}
         recentContext
       );
 
-      const acknowledgeSubject = `📝 日程反馈已收到 - ${new Date().toLocaleDateString()}`;
-      const acknowledgeContent = `
-您好 ${email.from.split('<')[0]?.trim() || '朋友'},
+      // 让AI生成完整的日程反馈回复
+      const scheduleReply = await this.aiService.generateResponseWithFunctionCalls(
+        '你是一个智能邮件助手。用户对日程安排提供了反馈，请生成一个友好、专业的确认回复邮件。',
+        `用户反馈: ${content}\n我的建议回复: ${response}\n用户姓名: ${email.from.split('<')[0]?.trim() || '朋友'}`,
+        { maxTokens: 2000, temperature: 0.7 },
+        email.userId
+      );
 
-感谢您对日程提醒的反馈。
-
-基于您的反馈，这里有一些额外的建议：
-
-${response}
-
-您的反馈帮助我提供更好的服务。继续保持出色的工作！
-
-此致，
-您的邮件助手
-      `.trim();
-
-      await this.emailService.sendEmail(acknowledgeSubject, acknowledgeContent);
+      await this.sendReplyEmail(email, scheduleReply);
 
       return {
         type: 'schedule_response',
@@ -262,7 +316,6 @@ ${response}
         .join('\n\n');
 
       // 使用Function Call功能处理用户请求
-      // AI现在需要智能识别邮件类型并调用相应的功能
       const systemPrompt = `你是一个智能邮件助手，能够处理各种类型的邮件：
 
 1. 工作报告/总结：如果用户描述了工作内容、完成的任务、今日成果等，请生成专业的工作总结
@@ -275,25 +328,11 @@ ${response}
       const aiResponse = await this.aiService.generateResponseWithFunctionCalls(
         systemPrompt,
         `用户邮件主题：${email.subject}\n用户消息：${content}\n\n最近记录：${contextText}`,
-        { maxTokens: 800, temperature: 0.7 },
+        { maxTokens: 2000, temperature: 0.7 },
         email.userId
       );
 
-      const replySubject = `回复: ${email.subject.replace(/^(Re:|RE:|回复：)\s*/i, '')}`;
-      const replyContent = `
-您好 ${email.from.split('<')[0]?.trim() || '朋友'},
-
-感谢您的来信。
-
-${aiResponse}
-
-如果您有其他问题或需要日程安排、工作规划方面的帮助，请随时回复此邮件。
-
-此致，
-您的邮件助手
-      `.trim();
-
-      await this.emailService.sendEmail(replySubject, replyContent);
+      await this.sendReplyEmail(email, aiResponse);
 
       return {
         type: 'general',
@@ -304,6 +343,47 @@ ${aiResponse}
       };
     } catch (error) {
       logger.error('Failed to process general reply:', error);
+      throw error;
+    }
+  }
+
+  private async sendReplyEmail(email: ParsedEmail, content: string): Promise<void> {
+    try {
+      const fromEmail = this.extractEmailAddress(email.from);
+      const replySubject = `Re: ${email.subject.replace(/^(Re:|RE:|回复：)\s*/i, '')}`;
+      
+      await this.emailService.sendEmail(replySubject, content, false, fromEmail);
+      
+      // 发布邮件回复发送成功事件
+      const emailReplySentEvent: EmailReplySentEvent = {
+        type: EVENT_TYPES.EMAIL_REPLY_SENT,
+        metadata: createEventMetadata('EmailReplyHandler', email.messageId, email.userId),
+        payload: {
+          messageId: email.messageId,
+          userId: email.userId || '',
+          replyContent: content,
+          originalSubject: email.subject,
+        }
+      };
+      
+      publishEvent(emailReplySentEvent);
+      
+    } catch (error) {
+      logger.error('Failed to send reply email:', error);
+      
+      // 发布邮件发送失败事件
+      const emailSendFailedEvent: EmailSendFailedEvent = {
+        type: EVENT_TYPES.EMAIL_SEND_FAILED,
+        metadata: createEventMetadata('EmailReplyHandler', email.messageId, email.userId),
+        payload: {
+          messageId: email.messageId,
+          userId: email.userId || '',
+          error: error instanceof Error ? error.message : 'Unknown error',
+          retryCount: 0,
+        }
+      };
+      
+      publishEvent(emailSendFailedEvent);
       throw error;
     }
   }

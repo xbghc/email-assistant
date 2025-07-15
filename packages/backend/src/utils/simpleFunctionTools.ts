@@ -8,13 +8,21 @@ export const simpleFunctionTools = [
       parameters: {
         type: "object",
         properties: {
-          morningTime: {
-            type: "string",
-            description: "早晨提醒时间，格式为HH:MM，例如：08:00、09:30。支持自然语言如'9点半'转换为'09:30'"
+          morningHour: {
+            type: "number",
+            description: "早晨提醒小时数 (0-23)"
           },
-          eveningTime: {
-            type: "string", 
-            description: "晚间提醒时间，格式为HH:MM，例如：20:00、18:30。支持自然语言如'6点半'转换为'18:30'"
+          morningMinute: {
+            type: "number",
+            description: "早晨提醒分钟数 (0-59)"
+          },
+          eveningHour: {
+            type: "number",
+            description: "晚间提醒小时数 (0-23)"
+          },
+          eveningMinute: {
+            type: "number",
+            description: "晚间提醒分钟数 (0-59)"
           }
         },
         required: []
@@ -190,13 +198,21 @@ export const simpleDeepSeekTools = [
       parameters: {
         type: "object",
         properties: {
-          morningTime: {
-            type: "string",
-            description: "早晨提醒时间，格式为HH:MM，例如：08:00、09:30。支持自然语言如'9点半'转换为'09:30'"
+          morningHour: {
+            type: "number",
+            description: "早晨提醒小时数 (0-23)"
           },
-          eveningTime: {
-            type: "string", 
-            description: "晚间提醒时间，格式为HH:MM，例如：20:00、18:30。支持自然语言如'6点半'转换为'18:30'"
+          morningMinute: {
+            type: "number",
+            description: "早晨提醒分钟数 (0-59)"
+          },
+          eveningHour: {
+            type: "number",
+            description: "晚间提醒小时数 (0-23)"
+          },
+          eveningMinute: {
+            type: "number",
+            description: "晚间提醒分钟数 (0-59)"
           }
         },
         required: []

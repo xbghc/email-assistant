@@ -90,23 +90,24 @@ class AIService {
   ): Promise<string> {
     const provider = config.ai.provider;
 
-    // 检查内存使用情况
+    // 检查内存使用情况 - 使用更合理的指标
     const memUsage = process.memoryUsage();
-    const heapUsedPercent = (memUsage.heapUsed / memUsage.heapTotal) * 100;
+    const heapUsedMB = memUsage.heapUsed / 1024 / 1024;
+    const rssMB = memUsage.rss / 1024 / 1024;
     
-    if (heapUsedPercent > 85) {
-      logger.warn(`High memory usage detected: ${heapUsedPercent.toFixed(1)}%. Consider using simpler responses.`);
-      // 强制垃圾回收（如果可用）
-      if (global.gc) {
-        global.gc();
-        logger.info('Forced garbage collection completed');
-      }
-      
-      // 在极高内存使用时返回简化响应
-      if (heapUsedPercent > 90) {
-        logger.warn('Critical memory usage - returning simplified response');
-        return '系统当前负载较高，请稍后重试。如需帮助，请直接联系管理员。';
-      }
+    // 当堆内存使用超过1GB或RSS超过2GB时记录警告
+    if (heapUsedMB > 1024) {
+      logger.warn(`High heap memory usage: ${heapUsedMB.toFixed(1)}MB`);
+    }
+    
+    if (rssMB > 2048) {
+      logger.warn(`High RSS memory usage: ${rssMB.toFixed(1)}MB`);
+    }
+    
+    // 当内存使用确实过高时抛出错误而不是返回错误消息
+    if (heapUsedMB > 1536) { // 1.5GB
+      logger.error(`Critical memory usage: ${heapUsedMB.toFixed(1)}MB - throwing error`);
+      throw new Error('System overloaded - critical memory usage detected');
     }
 
     try {
@@ -159,22 +160,22 @@ class AIService {
       const contextText = this.formatContext(context);
       
       const prompt = `
-You are a personal productivity assistant. Based on the following information, provide 3-5 actionable suggestions for today.
+您是一位个人效率助手。根据以下信息，为今天提供3-5条可行的建议。
 
-Today's Schedule:
+今日日程：
 ${todaySchedule}
 
-Yesterday's Performance:
+昨日表现：
 ${yesterdayPerformance}
 
-Historical Context:
+历史背景：
 ${contextText}
 
-Please provide specific, actionable suggestions that will help improve productivity and address any challenges from yesterday. Keep the tone encouraging and professional.
+请提供具体、可行的建议，帮助提高工作效率并解决昨日遇到的挑战。保持鼓励和专业的语调。
       `.trim();
 
       const response = await this.generateResponse(
-        'You are a helpful productivity assistant that provides actionable daily suggestions.',
+        '您是一位乐于助人的效率助手，提供可行的日常建议。',
         prompt,
         { maxTokens: 500, temperature: 0.7 }
       );
@@ -196,26 +197,26 @@ Please provide specific, actionable suggestions that will help improve productiv
       const contextText = this.formatContext(context);
       
       const prompt = `
-You are a professional work summary assistant. Based on the following work report, create a well-structured summary.
+您是一位专业的工作总结助手。根据以下工作报告，创建一个结构良好的总结。
 
-Work Report:
+工作报告：
 ${workReport}
 
-Historical Context:
+历史背景：
 ${contextText}
 
-Please create a summary that includes:
-1. Key accomplishments
-2. Challenges faced and how they were addressed
-3. Time management insights
-4. Progress towards goals
-5. Recommendations for tomorrow
+请创建一个包含以下内容的总结：
+1. 主要成就
+2. 面临的挑战及其解决方式
+3. 时间管理洞察
+4. 目标进展情况
+5. 明日建议
 
-Keep the summary professional, concise, and actionable.
+保持总结专业、简洁、具有可操作性。
       `.trim();
 
       const response = await this.generateResponse(
-        'You are a professional work summary assistant that creates structured, insightful summaries.',
+        '您是一位专业的工作总结助手，能够创建结构化、富有洞察力的总结。',
         prompt,
         { maxTokens: 600, temperature: 0.5 }
       );
@@ -237,23 +238,23 @@ Keep the summary professional, concise, and actionable.
       const contextText = this.formatContext(context);
       
       const prompt = `
-You are a context compression assistant. Please compress the following historical context into a concise summary that preserves the most important information for future reference.
+您是一位上下文压缩助手。请将以下历史上下文压缩为简洁的摘要，保留最重要的信息以供将来参考。
 
-Focus on:
-1. Key patterns in work habits
-2. Recurring challenges and solutions
-3. Important achievements and milestones
-4. Productivity insights
-5. Goal progress
+重点关注：
+1. 工作习惯中的关键模式
+2. 反复出现的挑战和解决方案
+3. 重要成就和里程碑
+4. 效率洞察
+5. 目标进展
 
-Historical Context:
+历史上下文：
 ${contextText}
 
-Please provide a compressed summary that captures the essential information while reducing the overall length by at least 50%.
+请提供一个压缩摘要，既要捕获关键信息，又要将总体长度减少至少50%。
       `.trim();
 
       const response = await this.generateResponse(
-        'You are a context compression specialist that preserves important information while reducing length.',
+        '您是一位上下文压缩专家，能够在减少长度的同时保留重要信息。',
         prompt,
         { maxTokens: 800, temperature: 0.3 }
       );
@@ -328,7 +329,7 @@ Please provide a compressed summary that captures the essential information whil
     }
 
     const response = await this.openai.chat.completions.create({
-      model: config.ai.openai.model,
+      model: config.ai.openai?.model || 'gpt-3.5-turbo',
       messages: [
         { role: 'system', content: systemMessage },
         { role: 'user', content: userMessage },
@@ -352,7 +353,7 @@ Please provide a compressed summary that captures the essential information whil
     }
 
     const response = await this.openai.chat.completions.create({
-      model: config.ai.openai.model,
+      model: config.ai.openai?.model || 'gpt-3.5-turbo',
       messages: [
         { role: 'system', content: systemMessage },
         { role: 'user', content: userMessage },
@@ -398,6 +399,10 @@ Please provide a compressed summary that captures the essential information whil
     userMessage: string,
     options: { maxTokens: number; temperature: number }
   ): Promise<string> {
+    if (!config.ai.deepseek?.apiKey) {
+      throw new Error('DeepSeek API key not configured');
+    }
+    
     const response = await axios.post(
       `${config.ai.deepseek.baseURL}/chat/completions`,
       {
@@ -428,6 +433,10 @@ Please provide a compressed summary that captures the essential information whil
     functionCallService: SimpleFunctionCallService,
     userId?: string
   ): Promise<string> {
+    if (!config.ai.deepseek?.apiKey) {
+      throw new Error('DeepSeek API key not configured');
+    }
+    
     const response = await axios.post(
       `${config.ai.deepseek.baseURL}/chat/completions`,
       {
@@ -490,7 +499,7 @@ Please provide a compressed summary that captures the essential information whil
     }
 
     const model = this.googleAI.getGenerativeModel({ 
-      model: config.ai.google.model,
+      model: config.ai.google?.model || 'gemini-2.5-flash',
       generationConfig: {
         maxOutputTokens: options.maxTokens,
         temperature: options.temperature,
@@ -514,7 +523,7 @@ Please provide a compressed summary that captures the essential information whil
     }
 
     const response = await this.anthropic.messages.create({
-      model: config.ai.anthropic.model,
+      model: config.ai.anthropic?.model || 'claude-3-sonnet-20240229',
       max_tokens: options.maxTokens,
       temperature: options.temperature,
       system: systemMessage,

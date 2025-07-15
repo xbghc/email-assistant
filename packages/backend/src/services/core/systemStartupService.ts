@@ -12,13 +12,16 @@ class SystemStartupService {
     this.userService = new UserService();
   }
 
+  async initialize(): Promise<void> {
+    await this.userService.initialize();
+    logger.info('System startup service initialized');
+  }
+
   /**
    * 系统启动时发送通知邮件给管理员
    */
   async sendStartupNotification(): Promise<void> {
     try {
-      // 等待服务初始化
-      await this.userService.initialize();
       
       // 验证邮件连接
       const emailConnected = await this.emailService.verifyConnection();

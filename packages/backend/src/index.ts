@@ -7,9 +7,13 @@ import SchedulerService from './services/core/schedulerService';
 import SystemStartupService from './services/core/systemStartupService';
 import SystemHealthService from './services/core/systemHealthService';
 import PerformanceMonitorService from './services/system/performanceMonitorService';
+import EmailReceiveService from './services/email/emailReceiveService';
+import EmailReplyHandler from './services/email/emailReplyHandler';
+import ReminderTrackingService from './services/user/reminderTrackingService';
 import scheduleRoutes from './routes/schedule';
 import webRoutes from './routes/web';
 import authRoutes from './routes/auth';
+import { serviceManager } from './services/core/serviceManager';
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -68,6 +72,9 @@ let schedulerService: SchedulerService;
 let startupService: SystemStartupService;
 let healthService: SystemHealthService;
 let performanceMonitor: PerformanceMonitorService;
+let emailReceiveService: EmailReceiveService;
+let emailReplyHandler: EmailReplyHandler;
+let reminderTrackingService: ReminderTrackingService;
 
 // 导出服务实例供其他模块使用
 export function getSchedulerService(): SchedulerService {
@@ -98,22 +105,97 @@ async function startServer(): Promise<void> {
     validateConfig();
     logger.info('✅ Configuration validated successfully');
 
+    // 创建服务实例
     schedulerService = new SchedulerService();
     startupService = new SystemStartupService();
     healthService = new SystemHealthService();
     performanceMonitor = new PerformanceMonitorService();
+    emailReceiveService = new EmailReceiveService();
+    emailReplyHandler = new EmailReplyHandler();
+    reminderTrackingService = new ReminderTrackingService();
     
-    await schedulerService.initialize();
-    await healthService.initialize();
-    await performanceMonitor.initialize();
+    // 注册服务到服务管理器
+    serviceManager.registerService({
+      name: 'scheduler',
+      instance: schedulerService,
+      priority: 100
+    });
+    
+    serviceManager.registerService({
+      name: 'health',
+      instance: healthService,
+      priority: 90
+    });
+    
+    serviceManager.registerService({
+      name: 'performance',
+      instance: performanceMonitor,
+      priority: 80
+    });
+    
+    serviceManager.registerService({
+      name: 'reminderTracking',
+      instance: reminderTrackingService,
+      priority: 70
+    });
+    
+    serviceManager.registerService({
+      name: 'emailReplyHandler',
+      instance: emailReplyHandler,
+      dependencies: ['reminderTracking'],
+      priority: 60
+    });
+    
+    serviceManager.registerService({
+      name: 'emailReceive',
+      instance: emailReceiveService,
+      dependencies: ['emailReplyHandler'],
+      priority: 50
+    });
+    
+    serviceManager.registerService({
+      name: 'startup',
+      instance: startupService,
+      dependencies: ['scheduler', 'health', 'emailReceive'],
+      priority: 10
+    });
+    
+    // 使用服务管理器初始化所有服务
+    await serviceManager.initializeAll();
+    
+    // 设置服务间的引用（仅限无法通过事件解耦的部分）
+    emailReplyHandler.setSchedulerService(schedulerService);
+    
+    // 启动所有服务
+    await serviceManager.startAll();
+    
+    // 在开发模式下启用事件调试
+    if (process.env.NODE_ENV === 'development') {
+      const { enableEventDebugging } = await import('./utils/eventDebugger');
+      enableEventDebugging();
+    }
     
     // 启动性能监控
     await performanceMonitor.start(60000); // 每分钟收集一次指标
     
     // 发送系统启动通知
     await startupService.sendStartupNotification();
+    
+    logger.info('✅ All services initialized with event-driven architecture and service management');
 
-    app.get('/health', async (req, res) => {
+    // 事件调试路由
+    app.get('/api/debug/events', async (_, res) => {
+      try {
+        const { eventDebugger } = await import('./utils/eventDebugger');
+        const report = eventDebugger.generateReport();
+        res.json({ report, history: eventDebugger.getEventHistory(50) });
+      } catch (error) {
+        logger.error('Failed to get event debug info:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    });
+
+    app.get('/health', async (_, res) => {
       try {
         const health = await healthService.getQuickHealth();
         res.json(health);
@@ -151,7 +233,7 @@ async function startServer(): Promise<void> {
       }
     });
 
-    app.post('/test/morning-reminder', async (req, res) => {
+    app.post('/test/morning-reminder', async (_, res) => {
       try {
         await schedulerService.testMorningReminder();
         res.json({ message: 'Morning reminder test sent successfully' });
@@ -161,7 +243,7 @@ async function startServer(): Promise<void> {
       }
     });
 
-    app.post('/test/evening-reminder', async (req, res) => {
+    app.post('/test/evening-reminder', async (_, res) => {
       try {
         await schedulerService.testEveningReminder();
         res.json({ message: 'Evening reminder test sent successfully' });
@@ -171,7 +253,7 @@ async function startServer(): Promise<void> {
       }
     });
 
-    app.post('/test/user-notifications', async (req, res) => {
+    app.post('/test/user-notifications', async (_, res) => {
       try {
         await startupService.testUserNotifications();
         res.json({ message: 'User notification test sent successfully' });
@@ -181,7 +263,7 @@ async function startServer(): Promise<void> {
       }
     });
 
-    app.post('/test/startup-notification', async (req, res) => {
+    app.post('/test/startup-notification', async (_, res) => {
       try {
         await startupService.sendStartupNotification();
         res.json({ message: 'Startup notification test sent successfully' });
@@ -191,7 +273,7 @@ async function startServer(): Promise<void> {
       }
     });
 
-    app.post('/test/shutdown-notification', async (req, res) => {
+    app.post('/test/shutdown-notification', async (_, res) => {
       try {
         await startupService.sendShutdownNotification();
         res.json({ message: 'Shutdown notification test sent successfully' });
@@ -294,12 +376,9 @@ process.on('SIGINT', async () => {
   } catch (error) {
     logger.error('Error sending shutdown notification:', error);
   }
-  if (schedulerService) {
-    schedulerService.destroy();
-  }
-  if (performanceMonitor) {
-    performanceMonitor.stop();
-  }
+  
+  // 使用服务管理器进行优雅关闭
+  await serviceManager.gracefulShutdown();
   process.exit(0);
 });
 
@@ -312,12 +391,9 @@ process.on('SIGTERM', async () => {
   } catch (error) {
     logger.error('Error sending shutdown notification:', error);
   }
-  if (schedulerService) {
-    schedulerService.destroy();
-  }
-  if (performanceMonitor) {
-    performanceMonitor.stop();
-  }
+  
+  // 使用服务管理器进行优雅关闭
+  await serviceManager.gracefulShutdown();
   process.exit(0);
 });
 

@@ -1,7 +1,89 @@
 import dotenv from 'dotenv';
+import { readFileSync } from 'fs';
+import { join } from 'path';
 import { createConfigError } from '../utils/errors';
 
 dotenv.config();
+
+// 配置文件类型定义
+interface FileConfig {
+  email?: {
+    forwarding?: {
+      enabled?: boolean;
+      markAsRead?: boolean;
+    };
+    startup?: {
+      notification?: 'none' | 'admin' | 'all' | 'custom';
+      customRecipients?: string[];
+    };
+  };
+  ai?: {
+    provider?: AIProvider;
+    models?: {
+      openai?: string;
+      deepseek?: string;
+      google?: string;
+      anthropic?: string;
+    };
+    baseUrls?: {
+      deepseek?: string;
+      azureOpenai?: {
+        apiVersion?: string;
+      };
+    };
+  };
+  schedule?: {
+    morningReminderTime?: string;
+    eveningReminderTime?: string;
+    timezone?: string;
+  };
+  context?: {
+    maxLength?: number;
+    compressionThreshold?: number;
+  };
+  performance?: {
+    email?: {
+      connectionTimeout?: number;
+      socketTimeout?: number;
+      maxConnections?: number;
+      maxMessages?: number;
+      queueProcessInterval?: number;
+      maxRetryAttempts?: number;
+    };
+    circuitBreaker?: {
+      failureThreshold?: number;
+      resetTimeout?: number;
+    };
+  };
+  logging?: {
+    level?: string;
+    maxFileSize?: string;
+    maxFiles?: number;
+  };
+  security?: {
+    jwt?: {
+      expiresIn?: string;
+    };
+    verification?: {
+      codeExpiryMinutes?: number;
+    };
+  };
+  features?: {
+    aiEnhancedEmails?: boolean;
+    emailQueue?: boolean;
+    performanceMonitoring?: boolean;
+    autoContext?: boolean;
+  };
+}
+
+// 读取配置文件
+const configPath = join(process.cwd(), 'config.json');
+let fileConfig: FileConfig = {};
+try {
+  fileConfig = JSON.parse(readFileSync(configPath, 'utf-8'));
+} catch {
+  console.warn('No config.json found, using defaults');
+}
 
 export type AIProvider = 'openai' | 'deepseek' | 'google' | 'anthropic' | 'azure-openai' | 'mock';
 
@@ -28,6 +110,10 @@ interface Config {
     };
     admin: {
       email: string;
+    };
+    startup: {
+      notification: 'none' | 'admin' | 'all' | 'custom';
+      customRecipients?: string[];
     };
   };
   ai: {
@@ -73,9 +159,15 @@ interface Config {
 
 const config: Config = {
   email: {
+    // 敏感信息：仅从环境变量读取
     user: process.env.EMAIL_USER || process.env.SMTP_USER || '',
     pass: process.env.EMAIL_PASS || process.env.SMTP_PASS || '',
     name: process.env.USER_NAME || '',
+    admin: {
+      email: process.env.ADMIN_EMAIL || '',
+    },
+    
+    // SMTP/IMAP配置：从环境变量读取
     smtp: {
       host: process.env.SMTP_HOST || 'smtp.gmail.com',
       port: parseInt(process.env.SMTP_PORT || '587'),
@@ -84,57 +176,61 @@ const config: Config = {
     imap: {
       host: process.env.IMAP_HOST || 'imap.gmail.com',
       port: parseInt(process.env.IMAP_PORT || '993'),
-      tls: process.env.IMAP_TLS === 'false' ? false : true,
-      rejectUnauthorized: process.env.IMAP_REJECT_UNAUTHORIZED === 'false' ? false : true,
+      tls: process.env.IMAP_TLS !== 'false',
+      rejectUnauthorized: process.env.IMAP_REJECT_UNAUTHORIZED !== 'false',
       checkIntervalMs: parseInt(process.env.EMAIL_CHECK_INTERVAL_MS || '30000'),
     },
     forwarding: {
-      enabled: process.env.EMAIL_FORWARDING_ENABLED === 'false' ? false : true,
-      markAsRead: process.env.EMAIL_FORWARDING_MARK_READ === 'false' ? false : true,
+      enabled: fileConfig.email?.forwarding?.enabled ?? true,
+      markAsRead: fileConfig.email?.forwarding?.markAsRead ?? true,
     },
-    admin: {
-      email: process.env.ADMIN_EMAIL || '',
+    startup: {
+      notification: fileConfig.email?.startup?.notification || 'admin',
+      ...(fileConfig.email?.startup?.customRecipients && {
+        customRecipients: fileConfig.email?.startup?.customRecipients
+      }),
     },
   },
   ai: {
+    // 敏感信息：仅从环境变量读取
     provider: (process.env.AI_PROVIDER as AIProvider) || 'openai',
     openai: {
       apiKey: process.env.OPENAI_API_KEY || '',
-      model: process.env.OPENAI_MODEL || 'gpt-3.5-turbo',
+      model: fileConfig.ai?.models?.openai || 'gpt-3.5-turbo',
       baseURL: process.env.OPENAI_BASE_URL,
     },
     deepseek: {
       apiKey: process.env.DEEPSEEK_API_KEY || '',
-      model: process.env.DEEPSEEK_MODEL || 'deepseek-chat',
-      baseURL: process.env.DEEPSEEK_BASE_URL || 'https://api.deepseek.com',
+      model: fileConfig.ai?.models?.deepseek || 'deepseek-chat',
+      baseURL: fileConfig.ai?.baseUrls?.deepseek || 'https://api.deepseek.com',
     },
     google: {
       apiKey: process.env.GOOGLE_API_KEY || '',
-      model: process.env.GOOGLE_MODEL || 'gemini-pro',
+      model: fileConfig.ai?.models?.google || 'gemini-2.5-flash',
     },
     anthropic: {
       apiKey: process.env.ANTHROPIC_API_KEY || '',
-      model: process.env.ANTHROPIC_MODEL || 'claude-3-sonnet-20240229',
+      model: fileConfig.ai?.models?.anthropic || 'claude-3-sonnet-20240229',
     },
     azureOpenai: {
       apiKey: process.env.AZURE_OPENAI_API_KEY || '',
       endpoint: process.env.AZURE_OPENAI_ENDPOINT || '',
       deploymentName: process.env.AZURE_OPENAI_DEPLOYMENT || '',
-      apiVersion: process.env.AZURE_OPENAI_API_VERSION || '2023-12-01-preview',
+      apiVersion: fileConfig.ai?.baseUrls?.azureOpenai?.apiVersion || '2023-12-01-preview',
     },
     mock: {
       enabled: process.env.NODE_ENV === 'test' || process.env.AI_PROVIDER === 'mock',
     },
   },
   schedule: {
-    morningReminderTime: process.env.MORNING_REMINDER_TIME || '08:00',
-    eveningReminderTime: process.env.EVENING_REMINDER_TIME || '20:00',
+    morningReminderTime: fileConfig.schedule?.morningReminderTime || '08:00',
+    eveningReminderTime: fileConfig.schedule?.eveningReminderTime || '20:00',
   },
   context: {
-    maxLength: parseInt(process.env.MAX_CONTEXT_LENGTH || '8000'),
-    compressionThreshold: parseInt(process.env.CONTEXT_COMPRESSION_THRESHOLD || '6000'),
+    maxLength: fileConfig.context?.maxLength || 8000,
+    compressionThreshold: fileConfig.context?.compressionThreshold || 6000,
   },
-  logLevel: process.env.LOG_LEVEL || 'info',
+  logLevel: fileConfig.logging?.level || 'info',
 };
 
 // 配置验证函数
