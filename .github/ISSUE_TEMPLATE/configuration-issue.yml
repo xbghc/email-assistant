@@ -1,0 +1,166 @@
+name: ⚙️ Configuration Issue
+description: Report configuration, setup, or deployment issues
+title: '[CONFIG] '
+labels: ['configuration']
+assignees: []
+
+body:
+  - type: dropdown
+    id: config-category
+    attributes:
+      label: 🔧 Configuration Area
+      description: Which configuration area is causing issues?
+      options:
+        - 📧 Email Configuration - SMTP/IMAP settings, authentication
+        - 🤖 AI Provider Configuration - API keys, models, endpoints
+        - 🔐 Authentication Setup - JWT, user management, permissions
+        - 🌍 Environment Variables - Missing or incorrect env vars
+        - 📦 Dependencies - Node.js, packages, version conflicts
+        - 🏗️ Deployment - Server setup, port binding, networking
+        - 📁 File System - Permissions, paths, data directories
+        - 🔄 Service Configuration - Health checks, monitoring, logging
+        - ⏰ Scheduler Configuration - Cron jobs, timezone, timing
+        - 🔄 Other - Please specify in description
+      default: 0
+    validations:
+      required: false
+
+  - type: dropdown
+    id: setup-stage
+    attributes:
+      label: 🚀 Setup Stage
+      description: At which stage are you experiencing issues?
+      options:
+        - 🏁 Initial Setup - First time installation
+        - 🔧 Configuration - Setting up environment variables
+        - 🏃 First Run - System won't start or crashes
+        - 📧 Email Testing - Email sending/receiving not working
+        - 🤖 AI Integration - AI provider connection issues
+        - 🔄 Production Deployment - Moving to production
+        - 🆙 Updates/Upgrades - After updating the system
+        - 🔄 Other - Please specify in description
+      default: 0
+    validations:
+      required: false
+
+  - type: textarea
+    id: issue-description
+    attributes:
+      label: 📝 Issue Description
+      description: Describe the configuration issue you're facing
+      placeholder: |
+        Please describe:
+        - What are you trying to configure?
+        - What specific error or problem are you seeing?
+        - What step in the process is failing?
+        - Have you followed the documentation?
+    validations:
+      required: false
+
+  - type: textarea
+    id: configuration-attempted
+    attributes:
+      label: ⚙️ Configuration Attempted
+      description: What configuration have you tried? (Remove sensitive information)
+      placeholder: |
+        Please share your configuration (sanitized):
+        - Environment variables (without actual values)
+        - Configuration files (without secrets)
+        - Command line arguments used
+        - Any configuration changes you made
+
+        Example:
+        EMAIL_SMTP_HOST=smtp.gmail.com
+        EMAIL_SMTP_PORT=587
+        AI_PROVIDER=openai
+        AI_OPENAI_API_KEY=sk-xxxxx (hidden)
+    validations:
+      required: false
+
+  - type: textarea
+    id: error-logs
+    attributes:
+      label: 🚫 Error Messages & Logs
+      description: Paste relevant error messages and log output
+      placeholder: |
+        Please include:
+        - Complete error messages
+        - Relevant log entries from packages/backend/logs/
+        - Console output during startup
+        - Health check results (/health endpoint)
+        - Any stack traces
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment-details
+    attributes:
+      label: 🌍 Environment Details
+      description: Your system environment
+      placeholder: |
+        - Operating System: [e.g., Ubuntu 20.04, Windows 10, macOS 12]
+        - Node.js version: [run: node --version]
+        - npm/pnpm version: [run: pnpm --version]
+        - Email Provider: [e.g., Gmail, Outlook, custom SMTP]
+        - AI Provider: [e.g., OpenAI, DeepSeek, Google, Azure]
+        - Deployment method: [e.g., local dev, Docker, PM2, systemd]
+        - Network environment: [e.g., corporate firewall, VPN, cloud]
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: ✅ Expected Behavior
+      description: What should happen when properly configured?
+      placeholder: |
+        Describe what you expect to work:
+        - System should start without errors
+        - Email should send successfully
+        - AI responses should work
+        - Health check should pass
+    validations:
+      required: false
+
+  - type: textarea
+    id: documentation-followed
+    attributes:
+      label: 📚 Documentation Followed
+      description: What documentation or setup guides have you followed?
+      placeholder: |
+        - README.md setup instructions
+        - CLAUDE.md configuration guide
+        - Specific sections that didn't work
+        - Any missing or unclear documentation
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 📎 Additional Context
+      description: Any additional context that might help
+      placeholder: |
+        - Screenshots of error messages
+        - Network topology or security constraints
+        - Similar setups that worked
+        - Timeline of when this started failing
+        - Any recent changes to the system
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: troubleshooting-steps
+    attributes:
+      label: 🔍 Troubleshooting Steps Tried
+      description: Please confirm which troubleshooting steps you've attempted
+      options:
+        - label: I have read the setup documentation thoroughly
+        - label: I have checked all environment variables are set correctly
+        - label: I have verified file permissions and paths
+        - label: I have tested network connectivity to required services
+        - label: I have checked firewall and security settings
+        - label: I have tried running with debug logging enabled
+        - label: I have verified dependencies are installed correctly
+        - label: I have searched for similar configuration issues

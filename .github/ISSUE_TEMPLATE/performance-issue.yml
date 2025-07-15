@@ -1,0 +1,179 @@
+name: ⚡ Performance Issue
+description: Report performance, speed, or resource usage issues
+title: '[PERFORMANCE] '
+labels: ['performance']
+assignees: []
+
+body:
+  - type: dropdown
+    id: performance-category
+    attributes:
+      label: 📊 Performance Category
+      description: What type of performance issue are you experiencing?
+      options:
+        - 🐌 Response Time - Slow AI responses, email processing, API calls
+        - 🧠 Memory Usage - High memory consumption, memory leaks
+        - 💾 Storage Issues - Disk space, file I/O performance
+        - 🌐 Network Performance - Slow connections, timeouts
+        - 🔄 Processing Speed - Slow email processing, data handling
+        - 📈 System Resources - CPU usage, system load
+        - 🔁 Queue Performance - Email queue, task processing delays
+        - 📊 Database Performance - Context storage, user data queries
+        - 🚀 Startup Time - Application startup, service initialization
+        - 🔄 Other - Please specify in description
+      default: 0
+    validations:
+      required: false
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: 🚨 Impact Level
+      description: How severely is this affecting your usage?
+      options:
+        - 🔴 Critical - System is unusable due to performance
+        - 🟠 High - Significantly impacts daily usage
+        - 🟡 Medium - Noticeable but manageable impact
+        - 🟢 Low - Minor performance degradation
+      default: 2
+    validations:
+      required: false
+
+  - type: textarea
+    id: performance-description
+    attributes:
+      label: 📝 Performance Issue Description
+      description: Describe the performance problem you're experiencing
+      placeholder: |
+        Please describe:
+        - What specific operation is slow?
+        - When did you first notice this issue?
+        - How long does the operation take vs. expected time?
+        - Is this consistent or intermittent?
+        - Does it affect specific features or the entire system?
+    validations:
+      required: false
+
+  - type: textarea
+    id: performance-metrics
+    attributes:
+      label: 📊 Performance Metrics
+      description: Specific measurements or observations
+      placeholder: |
+        Please provide specific metrics if available:
+        - Response times (e.g., "AI response takes 30 seconds, expected 5")
+        - Memory usage (e.g., "Memory grows from 200MB to 2GB over 1 hour")
+        - CPU usage (e.g., "CPU constantly at 90%")
+        - Network latency or throughput
+        - Queue lengths or processing rates
+        - Error rates or timeouts
+    validations:
+      required: false
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: 🔄 Steps to Reproduce
+      description: How can we reproduce this performance issue?
+      placeholder: |
+        1. Start the application
+        2. Perform action X
+        3. Monitor resource Y
+        4. Observe performance degradation after Z minutes/operations
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment-details
+    attributes:
+      label: 🌍 Environment Details
+      description: Your system environment and configuration
+      placeholder: |
+        - Operating System: [e.g., Ubuntu 20.04, Windows 10, macOS 12]
+        - Node.js version: [run: node --version]
+        - Available RAM: [e.g., 8GB, 16GB, 32GB]
+        - Available CPU: [e.g., 4 cores, 8 cores, CPU model]
+        - Storage type: [e.g., SSD, HDD, NVMe]
+        - Network: [e.g., broadband, corporate network, VPN]
+        - AI Provider: [e.g., OpenAI, DeepSeek, Google]
+        - Email Provider: [e.g., Gmail, Outlook, custom SMTP]
+        - Deployment: [e.g., local dev, Docker, cloud server]
+        - Concurrent users: [e.g., 1, 5, 50]
+    validations:
+      required: false
+
+  - type: textarea
+    id: monitoring-data
+    attributes:
+      label: 📈 Monitoring Data
+      description: Data from system monitoring or health checks
+      placeholder: |
+        Please check and include:
+        - Health endpoint results (/health)
+        - Performance monitor data (/api/debug/events)
+        - System resource usage (htop, Task Manager, Activity Monitor)
+        - Application logs from packages/backend/logs/
+        - Memory heap snapshots if available
+        - Network monitoring data
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: timing-patterns
+    attributes:
+      label: ⏰ Timing Patterns
+      description: When does this performance issue occur?
+      placeholder: |
+        - Time of day when it's worse/better
+        - After specific events (startup, certain operations)
+        - During high load periods
+        - After running for X hours/days
+        - Correlation with external factors (network, other services)
+    validations:
+      required: false
+
+  - type: textarea
+    id: workarounds
+    attributes:
+      label: 🔧 Workarounds Attempted
+      description: What have you tried to improve performance?
+      placeholder: |
+        - Restarting the application
+        - Reducing concurrent operations
+        - Adjusting configuration settings
+        - Using different AI providers
+        - Clearing data or cache
+        - Hardware upgrades
+        - Network optimizations
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 📎 Additional Context
+      description: Any other relevant information
+      placeholder: |
+        - Screenshots of monitoring tools
+        - Performance before/after comparisons
+        - Similar issues in related systems
+        - Changes made before the issue appeared
+        - Performance requirements or expectations
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: performance-checklist
+    attributes:
+      label: 🔍 Performance Investigation Checklist
+      description: Please confirm you've checked these areas
+      options:
+        - label: I have checked system resource usage (CPU, memory, disk)
+        - label: I have reviewed application logs for errors or warnings
+        - label: I have tested with different AI providers if applicable
+        - label: I have checked network connectivity and latency
+        - label: I have verified the issue persists after restarting
+        - label: I have checked if this correlates with specific operations
+        - label: I have monitored the issue over time to identify patterns
+        - label: I have searched for similar performance issues

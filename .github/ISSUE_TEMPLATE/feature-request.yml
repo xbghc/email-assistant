@@ -1,0 +1,150 @@
+name: 🚀 Feature Request
+description: Suggest a new feature or enhancement for the email assistant
+title: '[FEATURE] '
+labels: ['enhancement']
+assignees: []
+
+body:
+  - type: dropdown
+    id: feature-category
+    attributes:
+      label: 📦 Feature Category
+      description: Which area would this feature affect?
+      options:
+        - 📧 Email Service - SMTP/IMAP, sending, receiving, templates
+        - 🤖 AI Service - AI responses, new providers, function calls
+        - 👥 User Management - Authentication, user experience, permissions
+        - ⏰ Scheduler Service - Reminders, scheduling, automation
+        - 🖥️ Frontend - UI/UX improvements, new interface features
+        - 🔧 System Services - Health, monitoring, performance, admin tools
+        - 📊 Data Management - Context, analytics, reporting, export
+        - 🔐 Security - Authentication, authorization, privacy features
+        - 📝 Configuration - Settings, customization, setup
+        - 🏗️ Infrastructure - Deployment, scaling, integrations
+        - 📖 Documentation - User guides, API docs, tutorials
+        - 🔄 Other - Please specify in description
+      default: 0
+    validations:
+      required: false
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 🎯 Priority
+      description: How important is this feature to you?
+      options:
+        - 🔴 Critical - Essential for my use case
+        - 🟠 High - Would greatly improve my experience
+        - 🟡 Medium - Nice to have feature
+        - 🟢 Low - Minor improvement
+      default: 2
+    validations:
+      required: false
+
+  - type: textarea
+    id: feature-summary
+    attributes:
+      label: 📝 Feature Summary
+      description: A clear and concise description of the feature request
+      placeholder: |
+        Briefly describe the feature you'd like to see:
+        - What functionality would you like added?
+        - How would it work?
+        - What would it enable users to do?
+    validations:
+      required: false
+
+  - type: textarea
+    id: problem-statement
+    attributes:
+      label: 🎯 Problem Statement
+      description: What problem would this feature solve?
+      placeholder: |
+        Describe the problem or limitation you're facing:
+        - What current workflow is inefficient?
+        - What task is currently impossible or difficult?
+        - What user need is not being met?
+    validations:
+      required: false
+
+  - type: textarea
+    id: proposed-solution
+    attributes:
+      label: 💡 Proposed Solution
+      description: Detailed description of your proposed solution
+      placeholder: |
+        Describe your ideal solution:
+        - How would this feature work?
+        - What would the user interface look like?
+        - What are the key interactions?
+        - Any specific requirements or constraints?
+    validations:
+      required: false
+
+  - type: textarea
+    id: user-stories
+    attributes:
+      label: 👤 User Stories
+      description: User stories or use cases for this feature
+      placeholder: |
+        As a [type of user], I want to [do something] so that [benefit/goal].
+
+        Examples:
+        - As an admin, I want to bulk import users so that I can quickly set up the system for my team.
+        - As a user, I want to customize my reminder templates so that they match my personal style.
+        - As a power user, I want to create custom AI prompts so that I can get more personalized responses.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 🔄 Alternatives Considered
+      description: Alternative solutions or workarounds you've considered
+      placeholder: |
+        - What other approaches have you tried?
+        - What existing tools or features partially address this need?
+        - Why are these alternatives insufficient?
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 📎 Additional Context
+      description: Any additional context, mockups, or references
+      placeholder: |
+        - Screenshots or mockups
+        - Links to similar features in other tools
+        - Research or user feedback
+        - Technical considerations
+        - Examples from other users who would benefit
+    validations:
+      required: false
+
+  - type: textarea
+    id: acceptance-criteria
+    attributes:
+      label: ✅ Acceptance Criteria
+      description: How would you know this feature is complete?
+      placeholder: |
+        - [ ] Feature requirement 1
+        - [ ] Feature requirement 2
+        - [ ] User can perform action X
+        - [ ] System behaves as expected in scenario Y
+        - [ ] Feature is documented and tested
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: research
+    attributes:
+      label: 🔍 Research Checklist
+      description: Please confirm you've done basic research
+      options:
+        - label: I have searched for existing similar feature requests
+        - label: I have checked the documentation for existing functionality
+        - label: I have considered if this could be solved with current features
+        - label: I have thought about the impact on other users
+        - label: I have considered the technical feasibility
+        - label: I would be willing to help test this feature

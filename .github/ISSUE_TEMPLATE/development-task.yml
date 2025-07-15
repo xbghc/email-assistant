@@ -88,7 +88,7 @@ body:
         - Expected outcome
         - Any constraints or considerations
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: acceptance-criteria
@@ -102,7 +102,7 @@ body:
         - [ ] Tests are updated/added
         - [ ] Documentation is updated (if needed)
     validations:
-      required: true
+      required: false
 
   - type: textarea
     id: technical-notes

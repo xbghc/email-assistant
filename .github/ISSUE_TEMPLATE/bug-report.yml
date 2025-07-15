@@ -1,0 +1,157 @@
+name: 🐛 Bug Report
+description: Report a bug or issue with the email assistant system
+title: '[BUG] '
+labels: ['bug']
+assignees: []
+
+body:
+  - type: dropdown
+    id: bug-category
+    attributes:
+      label: 🏷️ Bug Category
+      description: Which category best describes this bug?
+      options:
+        - 📧 Email Service - SMTP/IMAP connection, sending, receiving issues
+        - 🤖 AI Service - AI responses, provider connections, function calls
+        - 👥 User Management - Authentication, login, user data
+        - ⏰ Scheduler Service - Reminders, cron jobs, task scheduling
+        - 🖥️ Frontend - UI issues, interface problems, display errors
+        - 🔧 System Services - Health checks, monitoring, performance
+        - 📊 Data Management - Context, cache, storage issues
+        - 🔐 Security - Authentication, authorization, data protection
+        - 📝 Configuration - Config loading, environment variables
+        - 🏗️ Infrastructure - Build, deployment, server issues
+        - 🔄 Other - Please specify in description
+      default: 0
+    validations:
+      required: false
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: 🚨 Severity
+      description: How severe is this bug?
+      options:
+        - 🔴 Critical - System is unusable or data loss
+        - 🟠 High - Major functionality is broken
+        - 🟡 Medium - Some functionality is affected
+        - 🟢 Low - Minor issue, cosmetic problem
+      default: 2
+    validations:
+      required: false
+
+  - type: textarea
+    id: bug-description
+    attributes:
+      label: 📝 Bug Description
+      description: A clear and concise description of the bug
+      placeholder: |
+        Describe what the bug is:
+        - What happened?
+        - What did you expect to happen?
+        - When did this start occurring?
+    validations:
+      required: false
+
+  - type: textarea
+    id: steps-to-reproduce
+    attributes:
+      label: 🔄 Steps to Reproduce
+      description: Steps to reproduce the behavior
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. Scroll down to '...'
+        4. See error
+    validations:
+      required: false
+
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: ✅ Expected Behavior
+      description: What you expected to happen
+      placeholder: Describe what should have happened instead
+    validations:
+      required: false
+
+  - type: textarea
+    id: actual-behavior
+    attributes:
+      label: ❌ Actual Behavior
+      description: What actually happened
+      placeholder: Describe what actually happened
+    validations:
+      required: false
+
+  - type: textarea
+    id: error-messages
+    attributes:
+      label: 🚫 Error Messages
+      description: Any error messages or logs
+      placeholder: |
+        Paste any error messages, stack traces, or relevant log entries here.
+        Check the following locations for logs:
+        - Backend logs: packages/backend/logs/
+        - Browser console (F12)
+        - Network tab errors
+        - System health endpoint: /health
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 🌍 Environment
+      description: Your environment details
+      placeholder: |
+        - OS: [e.g., Ubuntu 20.04, Windows 10, macOS 12]
+        - Node.js version: [e.g., 18.17.0]
+        - Browser: [e.g., Chrome 91, Firefox 89]
+        - Email Provider: [e.g., Gmail, Outlook]
+        - AI Provider: [e.g., OpenAI, DeepSeek, Google]
+        - Deployment: [e.g., local development, production server]
+    validations:
+      required: false
+
+  - type: textarea
+    id: configuration
+    attributes:
+      label: ⚙️ Configuration
+      description: Relevant configuration details (remove sensitive info)
+      placeholder: |
+        If configuration-related, please share relevant settings:
+        - Email settings (without credentials)
+        - AI provider settings
+        - Environment variables (sanitized)
+        - Any recent configuration changes
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: 📎 Additional Context
+      description: Any additional context about the problem
+      placeholder: |
+        - Screenshots or screen recordings
+        - Frequency of the issue (always, sometimes, once)
+        - Impact on users
+        - Workarounds you've tried
+        - Related issues or discussions
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: troubleshooting
+    attributes:
+      label: 🔍 Troubleshooting Checklist
+      description: Please confirm you've tried these basic troubleshooting steps
+      options:
+        - label: I have checked the system health endpoint (/health)
+        - label: I have reviewed the application logs
+        - label: I have tried restarting the service
+        - label: I have verified my configuration is correct
+        - label: I have searched for existing similar issues
+        - label: I have checked if this is a known issue in the documentation
